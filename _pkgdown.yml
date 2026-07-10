@@ -21,6 +21,7 @@ reference:
   contents:
   - somalign_train_reference
   - somalign_reference
+  - somalign_reference_from_nodes
   - somalign_query
 - title: Fitting and results
   contents:
