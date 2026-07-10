@@ -8,6 +8,8 @@ Description: Aligns query self-organising maps to fixed 'kohonen' reference maps
     reference projection is kept as the conservative primary result, with
     auxiliary transport-corrected projection columns for annotation and
     visualisation.
+URL: https://mdmanurung.github.io/somalign, https://github.com/mdmanurung/somalign
+BugReports: https://github.com/mdmanurung/somalign/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -26,3 +28,7 @@ Suggests:
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Config/roxygen2/version: 8.0.0
+Config/Needs/website:
+    pkgdown,
+    knitr,
+    rmarkdown
