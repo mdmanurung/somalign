@@ -37,6 +37,7 @@ articles:
   contents:
   - somalign
   - pretrained-old-and-new-soms
+  - algorithm
 
 news:
   releases:
