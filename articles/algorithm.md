@@ -63,8 +63,8 @@ The transport plan $`P`$ minimises:
 where $`\mathbf{a}`$ and $`\mathbf{b}`$ are the query and reference node
 masses. The KL marginal penalties allow each side to discard unmatched
 mass: a novel query node can route only a small fraction of its mass to
-any reference node. Solved by alternating Sinkhorn scaling (pure-R or
-Python POT backend).
+any reference node. Solved by the internal pure-R alternating Sinkhorn
+scaling implementation.
 
 ### 2c — Transport plan
 

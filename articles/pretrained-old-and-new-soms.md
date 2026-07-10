@@ -129,7 +129,7 @@ head(results[, c(
 **Direct projection columns** (`old_som_unit`, `old_som_distance`,
 `outside_reference_distance`, `final_status`, `old_som_label`,
 `old_som_label_confidence`) are the primary result. They are based on
-nearest-node assignment and are independent of the OT solver.
+nearest-node assignment and are independent of the OT correction.
 
 **OT-corrected columns** (`corrected_som_unit`,
 `corrected_som_distance`, `corrected_outside_reference_distance`,

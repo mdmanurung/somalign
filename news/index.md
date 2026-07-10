@@ -1,6 +1,6 @@
 # Changelog
 
-## somalign 0.0.0.9000
+## somalign 0.1.0
 
 - Added
   [`somalign_train_reference()`](https://mdmanurung.github.io/somalign/reference/somalign_train_reference.md)
@@ -25,9 +25,9 @@
 - Added
   [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)
   to align a query SOM to the fixed reference SOM via codebook-level
-  unbalanced entropic optimal transport. Supports `"pot"` (Python POT
-  backend via reticulate) and `"internal"` (pure-R Sinkhorn) solvers;
-  `"auto"` selects POT when available.
+  unbalanced entropic optimal transport. Uses an internal pure-R
+  generalized Sinkhorn solver; `"auto"` is retained as a compatibility
+  alias for the internal solver.
 
 - Added
   [`somalign_results()`](https://mdmanurung.github.io/somalign/reference/somalign_results.md)

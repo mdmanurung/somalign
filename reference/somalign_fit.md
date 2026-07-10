@@ -11,7 +11,7 @@ somalign_fit(
   epsilon = 0.05,
   rho_query = 1,
   rho_ref = 1,
-  solver = c("auto", "pot", "internal"),
+  solver = c("internal", "auto"),
   min_match_fraction = 0.05,
   confidence_threshold = 0.6,
   correction_min_mass = 1e-08,
@@ -45,7 +45,8 @@ somalign_fit(
 
 - solver:
 
-  `"auto"`, `"pot"`, or `"internal"`.
+  `"internal"` or `"auto"`. Both use the internal pure-R generalized
+  Sinkhorn solver; `"auto"` is retained as a compatibility alias.
 
 - min_match_fraction:
 

@@ -5,7 +5,7 @@ articles:
   algorithm: algorithm.html
   pretrained-old-and-new-soms: pretrained-old-and-new-soms.html
   somalign: somalign.html
-last_built: 2026-07-10T14:14Z
+last_built: 2026-07-10T18:43Z
 urls:
   reference: https://mdmanurung.github.io/somalign/reference
   article: https://mdmanurung.github.io/somalign/articles

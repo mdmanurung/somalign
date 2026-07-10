@@ -11,7 +11,7 @@ somalign_sensitivity_grid(
   epsilon,
   rho_query,
   rho_ref,
-  solver = c("auto", "pot", "internal"),
+  solver = c("internal", "auto"),
   parallel = FALSE,
   ...
 )
@@ -43,6 +43,8 @@ somalign_sensitivity_grid(
 
   Solver passed to
   [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
+  `"auto"` is accepted as a compatibility alias for the internal pure-R
+  solver.
 
 - parallel:
 

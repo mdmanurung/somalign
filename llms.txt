@@ -83,19 +83,15 @@ Set `chunk_size = Inf` to disable chunking and allocate the full
 
 ## OT solver
 
-By default (`solver = "auto"`), `somalign` uses an internal pure-R
-generalized Sinkhorn solver for KL-unbalanced entropic optimal
-transport. When `reticulate` can import `ot.unbalanced` (Python POT),
-`solver = "auto"` selects POT instead. The two solvers produce
-numerically identical results (max absolute plan difference \< 1e-7 in
-cross-validation); the internal solver is the default because it
-requires no Python dependency.
+By default, `somalign` uses an internal pure-R generalized Sinkhorn
+solver for KL-unbalanced entropic optimal transport. The solver has no
+Python dependency. `solver = "auto"` is accepted as a compatibility
+alias and also uses the internal solver.
 
 ``` r
 
-# Force a specific solver
+# Explicitly select the internal solver
 fit <- somalign_fit(query, reference, solver = "internal")
-fit <- somalign_fit(query, reference, solver = "pot")
 
 # Inspect which solver was used and any notes
 somalign_diagnostics(fit)$solver

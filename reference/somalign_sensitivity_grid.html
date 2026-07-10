@@ -53,7 +53,7 @@
 <span>  <span class="va">epsilon</span>,</span>
 <span>  <span class="va">rho_query</span>,</span>
 <span>  <span class="va">rho_ref</span>,</span>
-<span>  solver <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"pot"</span>, <span class="st">"internal"</span><span class="op">)</span>,</span>
+<span>  solver <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"internal"</span>, <span class="st">"auto"</span><span class="op">)</span>,</span>
 <span>  parallel <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -84,7 +84,8 @@
 
 
 <dt id="arg-solver">solver<a class="anchor" aria-label="anchor" href="#arg-solver"></a></dt>
-<dd><p>Solver passed to <code><a href="somalign_fit.html">somalign_fit()</a></code>.</p></dd>
+<dd><p>Solver passed to <code><a href="somalign_fit.html">somalign_fit()</a></code>. <code>"auto"</code> is accepted as a
+compatibility alias for the internal pure-R solver.</p></dd>
 
 
 <dt id="arg-parallel">parallel<a class="anchor" aria-label="anchor" href="#arg-parallel"></a></dt>
