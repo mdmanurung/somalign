@@ -12,25 +12,12 @@
   .somalign_validate_ot_inputs(cost, a, b, epsilon, rho_query, rho_ref)
 
   if (solver == "auto") {
-    if (.somalign_pot_available()) {
-      solver <- "pot"
-    } else {
-      solver <- "internal"
-      notes <- c(notes, "POT unavailable; used internal generalized Sinkhorn solver.")
-    }
+    solver <- "internal"
+    notes <- c(notes, "`solver = \"auto\"` uses the internal generalized Sinkhorn solver.")
   }
-
-  if (solver == "pot") {
-    if (!.somalign_pot_available()) {
-      stop("`solver = \"pot\"` requires Python POT with `ot.unbalanced` importable.", call. = FALSE)
-    }
-    plan <- .somalign_solve_pot(cost, a, b, epsilon, rho_query, rho_ref)
-    iterations <- NA_integer_
-  } else {
-    internal <- .somalign_solve_internal(cost, a, b, epsilon, rho_query, rho_ref, max_iter, tol)
-    plan <- internal$plan
-    iterations <- internal$iterations
-  }
+  internal <- .somalign_solve_internal(cost, a, b, epsilon, rho_query, rho_ref, max_iter, tol)
+  plan <- internal$plan
+  iterations <- internal$iterations
 
   list(
     plan = plan,
@@ -39,35 +26,6 @@
     notes = notes,
     iterations = iterations
   )
-}
-
-.somalign_pot_available <- function() {
-  if (!requireNamespace("reticulate", quietly = TRUE)) {
-    return(FALSE)
-  }
-  isTRUE(tryCatch(reticulate::py_module_available("ot.unbalanced"), error = function(e) FALSE))
-}
-
-.somalign_solve_pot <- function(cost, a, b, epsilon, rho_query, rho_ref) {
-  ot <- reticulate::import("ot", delay_load = FALSE)
-  fn <- ot$unbalanced$sinkhorn_unbalanced
-  reticulate::py_run_string(
-    "import warnings; warnings.filterwarnings('ignore', message='.*variable c.*', category=UserWarning, module='ot')"
-  )
-  plan <- fn(
-    a = a,
-    b = b,
-    M = cost,
-    reg = epsilon,
-    reg_m = c(rho_query, rho_ref),
-    reg_type = "entropy"
-  )
-  plan <- as.matrix(plan)
-  storage.mode(plan) <- "double"
-  if (any(!is.finite(plan)) || any(plan < -sqrt(.Machine$double.eps))) {
-    stop("POT returned an invalid transport plan.", call. = FALSE)
-  }
-  pmax(plan, 0)
 }
 
 .somalign_solve_internal <- function(cost,

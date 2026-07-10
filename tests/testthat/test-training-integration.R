@@ -144,24 +144,3 @@ test_that("somalign_sensitivity_grid parallel = TRUE returns same structure as s
   expect_equal(names(par_result), names(seq_result))
   expect_equal(par_result$epsilon, seq_result$epsilon)
 })
-
-test_that("POT comparison is optional when reticulate can import ot.unbalanced", {
-  skip_if_not(identical(Sys.getenv("SOMALIGN_RUN_POT_TESTS"), "true"))
-  skip_if_not_installed("reticulate")
-  skip_if_not(reticulate::py_module_available("ot.unbalanced"))
-
-  ref <- tiny_reference()
-  query <- matrix(c(-1, 0, 1, 0), ncol = 2, byrow = TRUE)
-  colnames(query) <- ref$features
-  query_obj <- somalign_query(
-    query,
-    ref,
-    som_query = make_som(rbind(c(-1, 0), c(1, 0)))
-  )
-
-  pot <- somalign_fit(query_obj, ref, solver = "pot", epsilon = 0.1)
-  internal <- somalign_fit(query_obj, ref, solver = "internal", epsilon = 0.1)
-
-  expect_equal(dim(pot$transport_plan), dim(internal$transport_plan))
-  expect_true(all(is.finite(pot$transport_plan)))
-})

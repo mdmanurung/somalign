@@ -3,9 +3,8 @@
 **Generated:** 2026-07-10 12:47:54  
 **R version:** R version 4.5.1 (2025-06-13)  
 **Platform:** x86_64-conda-linux-gnu  
-**Package:** somalign 0.0.0.9000  
-**Solver (primary):** internal pure-R generalized Sinkhorn  
-**Solver (comparison):** Python POT 0.9.7 via reticulate  
+**Package:** somalign 0.1.0
+**Solver:** internal pure-R generalized Sinkhorn
 
 ---
 
@@ -20,8 +19,8 @@
    Cost scales as O(n_nodes² × n_iter_sinkhorn).
 4. **Feature count barely affects projection time** — inner-product formulation means
    vectorisation absorbs the extra p dimension efficiently.
-5. **Internal Sinkhorn is faster than POT for small grids** due to reticulate call overhead.
-   They agree to within numerical tolerance (max|Δplan| ≤ 1e-4).
+5. **The OT backend is pure R.** Benchmarks exercise the same internal solver
+   used by `somalign_fit()` in package code.
 
 ---
 
@@ -83,22 +82,3 @@
 > **Projection cost is O(n_samples × n_nodes)** — grows linearly with grid size.
 > At 20×20 (400 nodes) with 10k samples, projection uses ~32 MB and is still fast.
 > Becomes expensive at n=1M (400 nodes × 1M × 8 B = 3.2 GB).
-
----
-
-## Section 5: Internal Sinkhorn vs Python POT
-
-POT version: 0.9.7 (installed in reticulate Python env)  
-
-| Grid | n_nodes | internal ms | POT ms | POT/internal | plan max|Δ| |
-|------|--------:|------------:|-------:|-------------:|----------:|
-| 2x2 | 4 | 3.98 | 3.42 | 0.86x | 6.17e-08 |
-| 5x5 | 25 | 4.66 | 3.63 | 0.78x | 7.50e-09 |
-| 10x10 | 100 | 9.21 | 4.21 | 0.46x | 2.00e-09 |
-| 15x15 | 225 | 25.43 | 6.57 | 0.26x | 1.09e-09 |
-| 20x20 | 400 | 64.41 | 12.53 | 0.19x | 6.04e-10 |
-
-> **Plan agreement:** max|internal − POT| < 1e-4 at all grid sizes — confirms numerical correctness.
-> **reticulate overhead** dominates POT timing at small grids.
-> `POT/internal > 1` means internal solver is faster for that grid size.
-> The internal pure-R solver is competitive; for very large grids POT's C backend may win.

@@ -10,7 +10,7 @@ somalign_sensitivity_grid(
   epsilon,
   rho_query,
   rho_ref,
-  solver = c("auto", "pot", "internal"),
+  solver = c("internal", "auto"),
   parallel = FALSE,
   ...
 )
@@ -26,7 +26,8 @@ somalign_sensitivity_grid(
 
 \item{rho_ref}{Numeric vector of reference-side mass relaxation values.}
 
-\item{solver}{Solver passed to \code{somalign_fit()}.}
+\item{solver}{Solver passed to \code{somalign_fit()}. \code{"auto"} is accepted as a
+compatibility alias for the internal pure-R solver.}
 
 \item{parallel}{Logical. When \code{TRUE}, grid rows are evaluated in parallel
 using \code{\link[parallel:mclapply]{parallel::mclapply()}} with \code{mc.cores = getOption("mc.cores", 1L)}.

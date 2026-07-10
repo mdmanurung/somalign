@@ -10,7 +10,7 @@ somalign_fit(
   epsilon = 0.05,
   rho_query = 1,
   rho_ref = 1,
-  solver = c("auto", "pot", "internal"),
+  solver = c("internal", "auto"),
   min_match_fraction = 0.05,
   confidence_threshold = 0.6,
   correction_min_mass = 1e-08,
@@ -30,7 +30,8 @@ somalign_fit(
 
 \item{rho_ref}{Reference-side unbalanced mass relaxation.}
 
-\item{solver}{\code{"auto"}, \code{"pot"}, or \code{"internal"}.}
+\item{solver}{\code{"internal"} or \code{"auto"}. Both use the internal pure-R
+generalized Sinkhorn solver; \code{"auto"} is retained as a compatibility alias.}
 
 \item{min_match_fraction}{Minimum transported fraction required before a
 query node label transfer is accepted.}

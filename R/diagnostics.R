@@ -28,7 +28,8 @@ somalign_diagnostics <- function(fit) {
 #' @param epsilon Numeric vector of entropic regularisation values.
 #' @param rho_query Numeric vector of query-side mass relaxation values.
 #' @param rho_ref Numeric vector of reference-side mass relaxation values.
-#' @param solver Solver passed to `somalign_fit()`.
+#' @param solver Solver passed to `somalign_fit()`. `"auto"` is accepted as a
+#'   compatibility alias for the internal pure-R solver.
 #' @param parallel Logical. When `TRUE`, grid rows are evaluated in parallel
 #'   using [parallel::mclapply()] with `mc.cores = getOption("mc.cores", 1L)`.
 #'   On Windows `mclapply` falls back to a single core automatically. When
@@ -55,7 +56,7 @@ somalign_sensitivity_grid <- function(query,
                                       epsilon,
                                       rho_query,
                                       rho_ref,
-                                      solver = c("auto", "pot", "internal"),
+                                      solver = c("internal", "auto"),
                                       parallel = FALSE,
                                       ...) {
   solver <- match.arg(solver)

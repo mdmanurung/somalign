@@ -1,8 +1,7 @@
-## somalign — Stage-decomposed Benchmark + Internal vs POT Solver Comparison
+## somalign — Stage-decomposed Benchmark
 ##
 ## Run with:
-##   /exports/archive/hg-funcgenom-research/mdmanurung/conda/envs/R4_51/bin/Rscript \
-##     benchmarks/benchmark_somalign.R 2>&1 | tee benchmarks/bench_output.log
+##   Rscript benchmarks/benchmark_somalign.R 2>&1 | tee benchmarks/bench_output.log
 ##
 ## Writes results to benchmarks/RESULTS.md.
 ## bench::mark() returns a tibble; use $median (bench_time) and $mem_alloc (bench_bytes).
@@ -260,72 +259,6 @@ all_results[["grid_size"]] <- do.call(rbind, grid_results)
 cat("\n")
 
 # ---------------------------------------------------------------------------
-# Section 5: Internal vs POT
-# ---------------------------------------------------------------------------
-cat("Section 5: Internal Sinkhorn vs Python POT\n"); sep()
-
-pot_avail <- isTRUE(tryCatch(
-  reticulate::py_module_available("ot.unbalanced"), error = function(e) FALSE))
-pot_version <- NA_character_
-
-if (pot_avail) {
-  cat("  Warming up reticulate ...\n")
-  ot_mod <- reticulate::import("ot", delay_load = FALSE)
-  pot_version <- tryCatch(as.character(ot_mod$`__version__`), error = function(e) "unknown")
-  cat(sprintf("  POT version: %s\n\n", pot_version))
-
-  cat(sprintf("  %-10s  %-8s  %-12s  %-12s  %-12s  %s\n",
-              "grid", "n_nodes", "internal ms", "POT ms", "POT/internal", "plan_max_diff"))
-  sep(".", 75)
-
-  pot_results <- list()
-  for (gs in c(2, 5, 10, 15, 20)) {
-    grd <- make_grid(gs)
-    d_r <- make_data(5000, 20, seed = 11)
-    d_q <- make_data(5000, 20, seed = 21)
-    set.seed(11)
-    ref_c <- somalign_train_reference(d_r$mat, labels = d_r$labels, grid = grd, rlen = 20)
-    set.seed(21)
-    qry_c <- somalign_query(d_q$mat, ref_c, grid = grd, rlen = 20)
-    cost_c <- somalign:::.somalign_pairwise_distance(qry_c$codebook, ref_c$codebook)
-    a <- qry_c$node_masses; b <- ref_c$node_masses
-    eps <- 0.05; rq <- 1; rr <- 1
-
-    plan_int <- somalign:::.somalign_solve_internal(cost_c, a, b, eps, rq, rr, 1000, 1e-9)$plan
-    plan_pot <- somalign:::.somalign_solve_pot(cost_c, a, b, eps, rq, rr)
-
-    bm_int <- microbenchmark::microbenchmark(
-      somalign:::.somalign_solve_internal(cost_c, a, b, eps, rq, rr, 1000, 1e-9),
-      times = 20)
-    bm_pot <- microbenchmark::microbenchmark(
-      somalign:::.somalign_solve_pot(cost_c, a, b, eps, rq, rr),
-      times = 20)
-
-    med_int <- median(bm_int$time) / 1e6
-    med_pot <- median(bm_pot$time) / 1e6
-    diff    <- max(abs(plan_int - plan_pot))
-
-    cat(sprintf("  %-10s  %-8d  %-12.2f  %-12.2f  %-12.2f  %.3e\n",
-                sprintf("%dx%d", gs, gs), gs^2, med_int, med_pot, med_pot / med_int, diff))
-
-    pot_results[[as.character(gs)]] <- data.frame(
-      grid_dim                 = gs,
-      n_nodes                  = gs^2,
-      internal_ms              = med_int,
-      pot_ms                   = med_pot,
-      pot_speedup_vs_internal  = med_pot / med_int,
-      plan_max_abs_diff        = diff
-    )
-  }
-  all_results[["solver_comparison"]] <- do.call(rbind, pot_results)
-} else {
-  cat("  POT not importable — skipping solver comparison.\n")
-  all_results[["solver_comparison"]] <- NULL
-  pot_version <- NA_character_
-}
-cat("\n")
-
-# ---------------------------------------------------------------------------
 # Write RESULTS.md
 # ---------------------------------------------------------------------------
 cat("Writing benchmarks/RESULTS.md ...\n")
@@ -336,10 +269,8 @@ md <- c(
   sprintf("**Generated:** %s  ", format(Sys.time())),
   sprintf("**R version:** %s  ", R.version.string),
   sprintf("**Platform:** %s  ", R.version$platform),
-  "**Package:** somalign 0.0.0.9000  ",
-  "**Solver (primary):** internal pure-R generalized Sinkhorn  ",
-  sprintf("**Solver (comparison):** Python POT %s via reticulate  ",
-          if (!is.na(pot_version)) pot_version else "(not installed)"),
+  "**Package:** somalign 0.1.0  ",
+  "**Solver:** internal pure-R generalized Sinkhorn  ",
   "",
   "---",
   "",
@@ -354,8 +285,8 @@ md <- c(
   "   Cost scales as O(n_nodes² × n_iter_sinkhorn).",
   "4. **Feature count barely affects projection time** — inner-product formulation means",
   "   vectorisation absorbs the extra p dimension efficiently.",
-  "5. **Internal Sinkhorn is faster than POT for small grids** due to reticulate call overhead.",
-  "   They agree to within numerical tolerance (max|Δplan| ≤ 1e-4).",
+  "5. **The OT backend is pure R.** Benchmarks exercise the same internal solver",
+  "   used by `somalign_fit()` in package code.",
   "",
   "---",
   "",
@@ -448,40 +379,10 @@ md <- c(md,
   "> **Projection cost is O(n_samples × n_nodes)** — grows linearly with grid size.",
   "> At 20×20 (400 nodes) with 10k samples, projection uses ~32 MB and is still fast.",
   "> Becomes expensive at n=1M (400 nodes × 1M × 8 B = 3.2 GB).",
-  "",
-  "---",
-  "",
-  "## Section 5: Internal Sinkhorn vs Python POT",
   ""
 )
 
-if (!is.null(all_results[["solver_comparison"]])) {
-  md <- c(md,
-    sprintf("POT version: %s (installed in reticulate Python env)  ", pot_version),
-    "",
-    "| Grid | n_nodes | internal ms | POT ms | POT/internal | plan max|Δ| |",
-    "|------|--------:|------------:|-------:|-------------:|----------:|"
-  )
-  df <- all_results[["solver_comparison"]]
-  for (i in seq_len(nrow(df))) {
-    md <- c(md, sprintf("| %dx%d | %d | %.2f | %.2f | %.2fx | %.2e |",
-                        df$grid_dim[i], df$grid_dim[i], df$n_nodes[i],
-                        df$internal_ms[i], df$pot_ms[i],
-                        df$pot_speedup_vs_internal[i],
-                        df$plan_max_abs_diff[i]))
-  }
-  md <- c(md,
-    "",
-    "> **Plan agreement:** max|internal − POT| < 1e-4 at all grid sizes — confirms numerical correctness.",
-    "> **reticulate overhead** dominates POT timing at small grids.",
-    "> `POT/internal > 1` means internal solver is faster for that grid size.",
-    "> The internal pure-R solver is competitive; for very large grids POT's C backend may win."
-  )
-} else {
-  md <- c(md, "POT was not importable during this benchmark run.")
-}
-
-writeLines(md, "/exports/para-lipg-hpc/mdmanurung/somalign/benchmarks/RESULTS.md")
+writeLines(md, file.path("benchmarks", "RESULTS.md"))
 cat("  Written: benchmarks/RESULTS.md\n")
 cat("==========================================================\n")
 cat(" Benchmark Complete\n")

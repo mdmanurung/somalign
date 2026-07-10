@@ -1,4 +1,4 @@
-# somalign 0.0.0.9000
+# somalign 0.1.0
 
 * Added `somalign_train_reference()` and `somalign_reference()` to train or
   wrap an existing `kohonen` SOM as a fixed reference object, including node
@@ -13,9 +13,9 @@
   containing per-sample node assignments and distances.
 
 * Added `somalign_fit()` to align a query SOM to the fixed reference SOM via
-  codebook-level unbalanced entropic optimal transport. Supports `"pot"`
-  (Python POT backend via reticulate) and `"internal"` (pure-R Sinkhorn)
-  solvers; `"auto"` selects POT when available.
+  codebook-level unbalanced entropic optimal transport. Uses an internal
+  pure-R generalized Sinkhorn solver; `"auto"` is retained as a compatibility
+  alias for the internal solver.
 
 * Added `somalign_results()` to extract a per-sample data frame with direct
   reference projection columns (canonical) and transport-corrected projection

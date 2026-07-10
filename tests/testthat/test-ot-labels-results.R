@@ -18,7 +18,7 @@ test_that("internal OT solver returns finite coupling and diagnostics", {
   expect_named(somalign_diagnostics(fit), c("solver", "ot", "nodes", "projection"))
 })
 
-test_that("auto solver falls back quietly when POT is unavailable", {
+test_that("solver selection is pure R and keeps auto as a compatibility alias", {
   ref <- tiny_reference()
   query <- matrix(c(-1, 0, 1, 0), ncol = 2, byrow = TRUE)
   colnames(query) <- ref$features
@@ -28,12 +28,24 @@ test_that("auto solver falls back quietly when POT is unavailable", {
     som_query = make_som(rbind(c(-1, 0), c(1, 0)))
   )
 
-  fit <- expect_warning(
+  fit_default <- expect_warning(
+    somalign_fit(query_obj, ref, epsilon = 0.1),
+    NA
+  )
+  expect_equal(somalign_diagnostics(fit_default)$solver$requested, "internal")
+  expect_equal(somalign_diagnostics(fit_default)$solver$used, "internal")
+
+  fit_auto <- expect_warning(
     somalign_fit(query_obj, ref, solver = "auto", epsilon = 0.1),
     NA
   )
+  expect_equal(somalign_diagnostics(fit_auto)$solver$requested, "auto")
+  expect_equal(somalign_diagnostics(fit_auto)$solver$used, "internal")
 
-  expect_true(somalign_diagnostics(fit)$solver$used %in% c("internal", "pot"))
+  expect_error(
+    somalign_fit(query_obj, ref, solver = "pot", epsilon = 0.1),
+    "internal.*auto|auto.*internal"
+  )
 })
 
 test_that("OT parameters are validated before solver dispatch", {

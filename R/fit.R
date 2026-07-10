@@ -5,7 +5,8 @@
 #' @param epsilon Entropic regularisation strength.
 #' @param rho_query Query-side unbalanced mass relaxation.
 #' @param rho_ref Reference-side unbalanced mass relaxation.
-#' @param solver `"auto"`, `"pot"`, or `"internal"`.
+#' @param solver `"internal"` or `"auto"`. Both use the internal pure-R
+#'   generalized Sinkhorn solver; `"auto"` is retained as a compatibility alias.
 #' @param min_match_fraction Minimum transported fraction required before a
 #'   query node label transfer is accepted.
 #' @param confidence_threshold Minimum top-label probability required before a
@@ -45,7 +46,7 @@ somalign_fit <- function(query,
                          epsilon = 0.05,
                          rho_query = 1,
                          rho_ref = 1,
-                         solver = c("auto", "pot", "internal"),
+                         solver = c("internal", "auto"),
                          min_match_fraction = 0.05,
                          confidence_threshold = 0.6,
                          correction_min_mass = 1e-8,
