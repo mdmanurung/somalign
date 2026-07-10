@@ -1,5 +1,9 @@
 # somalign
 
+<!-- badges: start -->
+[![pkgdown site](https://img.shields.io/badge/pkgdown-website-0A6EBD)](https://mdmanurung.github.io/somalign/)
+<!-- badges: end -->
+
 `somalign` aligns query self-organising maps to fixed `kohonen` reference maps
 using codebook-level unbalanced entropic optimal transport.
 
