@@ -1,0 +1,47 @@
+---
+title: "Aligning SOMs with somalign"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Aligning SOMs with somalign}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+`somalign` keeps direct projection into the fixed reference SOM as the primary
+classification. Optimal transport is used to describe query-to-reference node
+correspondence and to produce auxiliary corrected projection columns.
+
+```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
+library(kohonen)
+library(somalign)
+
+set.seed(1)
+old <- rbind(
+  matrix(rnorm(80, mean = -1), ncol = 4),
+  matrix(rnorm(80, mean = 1), ncol = 4)
+)
+colnames(old) <- paste0("f", seq_len(ncol(old)))
+labels <- rep(c("low", "high"), each = 20)
+
+reference <- somalign_train_reference(
+  old,
+  labels = labels,
+  grid = kohonen::somgrid(2, 2, "hexagonal"),
+  rlen = 5
+)
+
+query <- old + 0.2
+query_obj <- somalign_query(
+  query,
+  reference,
+  grid = kohonen::somgrid(2, 2, "hexagonal"),
+  rlen = 5
+)
+
+fit <- somalign_fit(query_obj, reference, solver = "internal")
+head(somalign_results(fit))
+```

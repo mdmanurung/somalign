@@ -1,0 +1,23 @@
+Package: somalign
+Title: Align Query SOMs to Fixed Kohonen Reference SOMs
+Version: 0.0.0.9000
+Authors@R: person("somalign contributors", role = c("aut", "cre"), email = "noreply@example.com")
+Description: Aligns query self-organising maps to fixed 'kohonen' reference maps
+    using codebook-level unbalanced entropic optimal transport. Direct
+    reference projection is kept as the conservative primary result, with
+    auxiliary transport-corrected projection columns for annotation and
+    visualisation.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Imports:
+    kohonen,
+    stats
+Suggests:
+    knitr,
+    rmarkdown,
+    reticulate,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+Config/roxygen2/version: 8.0.0

@@ -1,0 +1,132 @@
+---
+title: "Using trained old and new SOMs"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using trained old and new SOMs}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+This workflow applies when you have an old/reference SOM and a separately
+trained new/query SOM. The key requirement is that both codebooks must live in
+the same feature coordinate system.
+
+When building a reference from a saved old SOM, make that coordinate system
+explicit:
+
+```{r, eval = FALSE}
+reference <- somalign_reference(
+  old_som,
+  old_data,
+  codebook_space = "reference_scaled"
+)
+```
+
+Use `codebook_space = "raw"` only if the old SOM codebook is in raw feature
+units and should be transformed with the old reference center and scale.
+
+For `somalign`, that coordinate system is the old reference scaling:
+
+```{r, eval = FALSE}
+new_scaled_for_som <- sweep(
+  sweep(new_data[, reference$features], 2, reference$center, "-"),
+  2,
+  reference$scale,
+  "/"
+)
+```
+
+Train the new SOM on `new_scaled_for_som`, not on raw new data and not on
+new-data-native z-scores, if you want its nodes aligned and corrected against
+the old SOM.
+
+```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
+library(kohonen)
+library(somalign)
+
+set.seed(2)
+old_data <- rbind(
+  matrix(rnorm(30 * 6, mean = -1), ncol = 6),
+  matrix(rnorm(30 * 6, mean = 1), ncol = 6)
+)
+colnames(old_data) <- paste0("marker_", seq_len(ncol(old_data)))
+old_labels <- rep(c("old_low", "old_high"), each = 30)
+
+reference <- somalign_train_reference(
+  old_data,
+  labels = old_labels,
+  grid = kohonen::somgrid(3, 2, "hexagonal"),
+  rlen = 10
+)
+
+new_data <- rbind(
+  old_data[1:15, ] + 0.15,
+  old_data[46:60, ] + 0.25,
+  matrix(rnorm(8 * 6, mean = 4), ncol = 6)
+)
+colnames(new_data) <- colnames(old_data)
+
+new_scaled_for_som <- sweep(
+  sweep(new_data[, reference$features], 2, reference$center, "-"),
+  2,
+  reference$scale,
+  "/"
+)
+
+new_som <- kohonen::som(
+  new_scaled_for_som,
+  grid = kohonen::somgrid(3, 2, "hexagonal"),
+  rlen = 10
+)
+
+query <- somalign_query(
+  new_data,
+  reference,
+  som_query = new_som
+)
+
+fit <- somalign_fit(query, reference, solver = "internal")
+results <- somalign_results(fit)
+
+head(results[, c(
+  "old_som_unit",
+  "outside_reference_distance",
+  "corrected_som_unit",
+  "corrected_outside_reference_distance",
+  "correction_norm",
+  "final_status"
+)])
+```
+
+The primary projection remains `old_som_unit`. It is obtained by directly
+scaling each new sample with the old reference center/scale and mapping it to
+the nearest old SOM codebook node. `outside_reference_distance` and
+`final_status` are based on that direct projection.
+
+The OT correction is auxiliary. `somalign_fit()` aligns new SOM nodes to old
+SOM nodes, computes node-level correction shifts, applies the shift associated
+with each sample's new SOM node, and projects those corrected sample positions
+back to old SOM nodes. Those projected nodes are returned as
+`corrected_som_unit`.
+
+Practical checks:
+
+* Use identical feature names and feature order. `somalign_query()` reorders
+  columns to `reference$features` and fails if any reference features are
+  missing.
+* Train the new SOM in the reference-scaled space shown above. If the new SOM
+  was trained with its own center and scale, retraining on reference-scaled data
+  is the safest option.
+* Treat `corrected_som_unit` as annotation and visualisation support. Keep
+  `old_som_unit`, `outside_reference_distance`, and `final_status` as the
+  conservative result columns.
+* Inspect `somalign_diagnostics(fit)$ot$match_fraction`; low-match query nodes
+  should not be forced into confident transferred labels.
+
+If you only have a saved new SOM codebook, you can pass a matrix as
+`som_query`, provided that matrix is already in the reference-scaled feature
+space and has columns named with `reference$features`.
