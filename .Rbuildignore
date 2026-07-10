@@ -2,3 +2,6 @@
 ^\.git$
 ^\.gitignore$
 ^\.Rproj\.user$
+^PLAN\.md$
+^REVIEW\.md$
+^benchmarks$
