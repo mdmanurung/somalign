@@ -1,39 +1,113 @@
 # somalign
 
 `somalign` aligns query self-organising maps to fixed `kohonen` reference maps
-with codebook-level unbalanced entropic optimal transport.
+using codebook-level unbalanced entropic optimal transport.
 
-The conservative primary result is direct projection into the old reference SOM.
+The conservative primary result is direct projection into the reference SOM.
 Transport-corrected projections are returned as auxiliary columns for
 visualisation, annotation, and triage.
+
+## Installation
+
+```r
+# install.packages("pak")
+pak::pkg_install("mdmanurung/somalign")
+```
+
+## Quick start
 
 ```r
 library(kohonen)
 library(somalign)
 
+# Train reference SOM on old/reference data
 reference <- somalign_train_reference(old_matrix, labels = old_labels)
+
+# Build query object from new data
 query <- somalign_query(new_matrix, reference)
-fit <- somalign_fit(query, reference)
+
+# Align and extract per-sample results
+fit     <- somalign_fit(query, reference)
 results <- somalign_results(fit)
 ```
 
-Python POT is optional. When `reticulate` can import `ot.unbalanced`,
-`solver = "auto"` uses POT; otherwise `somalign` falls back to an internal
-generalized Sinkhorn solver and records that choice in diagnostics.
+Key output columns in `results`:
 
-If you already trained a new/query SOM, train it on new samples transformed
-with the old reference `center` and `scale`, then pass it as
-`somalign_query(new_data, reference, som_query = new_som)`. The canonical old
-projection is returned in `old_som_unit`; the auxiliary corrected old-node
-projection is returned in `corrected_som_unit`.
+| Column | Description |
+|---|---|
+| `old_som_unit` | Direct reference-node assignment (primary result) |
+| `old_som_distance` | Distance to assigned reference node |
+| `outside_reference_distance` | `TRUE` if distance exceeds reference quantile threshold |
+| `final_status` | `"inside_reference"` / `"outside_reference"` / `"unknown_reference_distance"` |
+| `old_som_label` | Majority label of the assigned reference node |
+| `old_som_label_confidence` | Fraction of that node's training mass with the majority label |
+| `corrected_som_unit` | OT-corrected reference-node assignment (auxiliary) |
+| `correction_norm` | Magnitude of the OT correction shift |
+| `transferred_label` | Label transferred via OT correspondence (auxiliary) |
+| `transferred_label_confidence` | Confidence of the transferred label |
+| `transferred_label_accepted` | `TRUE` if match fraction and confidence thresholds are met |
 
-If you build a reference from an existing old SOM, state the codebook
+## Sensitivity analysis
+
+```r
+grid <- somalign_sensitivity_grid(
+  query, reference,
+  epsilon   = c(0.05, 0.1, 0.5),
+  rho_query = c(0.5, 1, 5),
+  rho_ref   = 1
+)
+```
+
+Returns a data frame with one row per parameter combination, reporting
+transport mass, match fraction, and mass error — useful for checking robustness
+before committing to a single set of OT hyperparameters.
+
+## Large datasets
+
+For large query sets, `somalign_fit()` projects samples in chunks to bound peak
+memory:
+
+```r
+fit <- somalign_fit(query, reference, chunk_size = 5000L)  # default: 10000L
+```
+
+Set `chunk_size = Inf` to disable chunking and allocate the full
+`n_samples × n_nodes` distance matrix at once.
+
+## OT solver
+
+By default (`solver = "auto"`), `somalign` uses an internal pure-R
+generalized Sinkhorn solver for KL-unbalanced entropic optimal transport.
+When `reticulate` can import `ot.unbalanced` (Python POT), `solver = "auto"`
+selects POT instead. The two solvers produce numerically identical results
+(max absolute plan difference < 1e-7 in cross-validation); the internal solver
+is the default because it requires no Python dependency.
+
+```r
+# Force a specific solver
+fit <- somalign_fit(query, reference, solver = "internal")
+fit <- somalign_fit(query, reference, solver = "pot")
+
+# Inspect which solver was used and any notes
+somalign_diagnostics(fit)$solver
+```
+
+## Pre-trained SOMs
+
+If you already trained a query SOM, train it on new samples transformed
+with the reference `center` and `scale`, then pass it as
+`somalign_query(new_data, reference, som_query = new_som)`.
+
+If you build a reference from an existing SOM, state the codebook
 coordinate system explicitly:
 
 ```r
 reference <- somalign_reference(
   old_som,
   old_matrix,
-  codebook_space = "reference_scaled" # or "raw"
+  codebook_space = "reference_scaled"  # or "raw"
 )
 ```
+
+See `vignette("pretrained-old-and-new-soms", package = "somalign")` for the
+full pre-trained SOM workflow.
