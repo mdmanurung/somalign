@@ -7,3 +7,6 @@
 ^benchmarks$
 ^doc$
 ^Meta$
+^_pkgdown\.yml$
+^docs$
+^\.github$

@@ -1,0 +1,43 @@
+url: https://mdmanurung.github.io/somalign
+
+template:
+  bootstrap: 5
+
+home:
+  title: somalign
+  description: Align query SOMs to fixed kohonen reference SOMs
+
+navbar:
+  structure:
+    left:  [intro, reference, articles, news]
+    right: [search, github]
+  components:
+    github:
+      icon: fab fa-github fa-lg
+      href: https://github.com/mdmanurung/somalign
+
+reference:
+- title: Training and building inputs
+  contents:
+  - somalign_train_reference
+  - somalign_reference
+  - somalign_query
+- title: Fitting and results
+  contents:
+  - somalign_fit
+  - somalign_results
+- title: Diagnostics and sensitivity
+  contents:
+  - somalign_diagnostics
+  - somalign_sensitivity_grid
+
+articles:
+- title: Vignettes
+  contents:
+  - somalign
+  - pretrained-old-and-new-soms
+
+news:
+  releases:
+  - text: "Version 0.1.0"
+    href: news/index.html
