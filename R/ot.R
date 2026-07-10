@@ -51,6 +51,9 @@
 .somalign_solve_pot <- function(cost, a, b, epsilon, rho_query, rho_ref) {
   ot <- reticulate::import("ot", delay_load = FALSE)
   fn <- ot$unbalanced$sinkhorn_unbalanced
+  reticulate::py_run_string(
+    "import warnings; warnings.filterwarnings('ignore', message='.*variable c.*', category=UserWarning, module='ot')"
+  )
   plan <- fn(
     a = a,
     b = b,
@@ -76,13 +79,29 @@
                                      max_iter,
                                      tol) {
   tiny <- .Machine$double.xmin
-  k <- exp(-cost / epsilon)
-  k <- pmax(k, tiny)
+  k_raw <- exp(-cost / epsilon)
+  underflow_fraction <- sum(k_raw < tiny) / length(k_raw)
+  if (underflow_fraction > 0.01) {
+    safe_eps <- signif(-max(cost) / log(.Machine$double.xmin), 3)
+    warning(
+      sprintf(
+        "%.1f%% of Sinkhorn kernel entries underflowed (epsilon = %g). ",
+        100 * underflow_fraction, epsilon
+      ),
+      sprintf(
+        "Raise epsilon or reduce cost scale. Safe lower bound for epsilon: %g",
+        safe_eps
+      ),
+      call. = FALSE
+    )
+  }
+  k <- pmax(k_raw, tiny)
   tau_a <- rho_query / (rho_query + epsilon)
   tau_b <- rho_ref / (rho_ref + epsilon)
 
   u <- rep(1, length(a))
   v <- rep(1, length(b))
+  delta <- Inf
   iterations <- max_iter
   for (iter in seq_len(max_iter)) {
     u_old <- u
@@ -101,6 +120,17 @@
       iterations <- iter
       break
     }
+  }
+
+  if (iterations == max_iter && delta >= tol) {
+    warning(
+      sprintf(
+        "Sinkhorn solver did not converge after %g iterations (final delta = %.3e). ",
+        max_iter, delta
+      ),
+      "Consider increasing max_iter, raising epsilon, or reducing rho_query / rho_ref.",
+      call. = FALSE
+    )
   }
 
   plan <- sweep(sweep(k, 1, u, "*"), 2, v, "*")

@@ -3,6 +3,16 @@
 #' @param fit A `somalign_fit` object.
 #'
 #' @return A named list of solver, OT, node, and projection diagnostics.
+#' @examples
+#' \dontrun{
+#' set.seed(1)
+#' mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
+#'               dimnames = list(NULL, c("F1", "F2")))
+#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"))
+#' qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"))
+#' fit <- somalign_fit(qry, ref)
+#' somalign_diagnostics(fit)
+#' }
 #' @export
 somalign_diagnostics <- function(fit) {
   if (!inherits(fit, "somalign_fit")) {
@@ -19,9 +29,26 @@ somalign_diagnostics <- function(fit) {
 #' @param rho_query Numeric vector of query-side mass relaxation values.
 #' @param rho_ref Numeric vector of reference-side mass relaxation values.
 #' @param solver Solver passed to `somalign_fit()`.
+#' @param parallel Logical. When `TRUE`, grid rows are evaluated in parallel
+#'   using [parallel::mclapply()] with `mc.cores = getOption("mc.cores", 1L)`.
+#'   On Windows `mclapply` falls back to a single core automatically. When
+#'   `FALSE` (default) a sequential for-loop is used, which is fully
+#'   reproducible across platforms.
 #' @param ... Additional arguments passed to `somalign_fit()`.
 #'
 #' @return A data frame with one row per parameter combination.
+#' @examples
+#' \dontrun{
+#' set.seed(1)
+#' mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
+#'               dimnames = list(NULL, c("F1", "F2")))
+#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"))
+#' qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"))
+#' somalign_sensitivity_grid(qry, ref,
+#'                           epsilon = c(0.05, 0.1),
+#'                           rho_query = c(0.5, 1),
+#'                           rho_ref = 1)
+#' }
 #' @export
 somalign_sensitivity_grid <- function(query,
                                       reference,
@@ -29,6 +56,7 @@ somalign_sensitivity_grid <- function(query,
                                       rho_query,
                                       rho_ref,
                                       solver = c("auto", "pot", "internal"),
+                                      parallel = FALSE,
                                       ...) {
   solver <- match.arg(solver)
   epsilon <- .somalign_validate_grid_vector(epsilon, "epsilon")
@@ -40,8 +68,8 @@ somalign_sensitivity_grid <- function(query,
     rho_ref = rho_ref,
     KEEP.OUT.ATTRS = FALSE
   )
-  rows <- vector("list", nrow(grid))
-  for (i in seq_len(nrow(grid))) {
+
+  .run_one <- function(i) {
     fit <- somalign_fit(
       query = query,
       reference = reference,
@@ -52,7 +80,7 @@ somalign_sensitivity_grid <- function(query,
       ...
     )
     diag <- somalign_diagnostics(fit)
-    rows[[i]] <- data.frame(
+    data.frame(
       epsilon = grid$epsilon[i],
       rho_query = grid$rho_query[i],
       rho_ref = grid$rho_ref[i],
@@ -65,6 +93,26 @@ somalign_sensitivity_grid <- function(query,
       outside_direct_fraction = diag$projection$outside_direct_fraction,
       outside_corrected_fraction = diag$projection$outside_corrected_fraction
     )
+  }
+
+  if (isTRUE(parallel)) {
+    if (!requireNamespace("parallel", quietly = TRUE)) {
+      stop(
+        "Package 'parallel' is required when parallel = TRUE. ",
+        "Install it or set parallel = FALSE.",
+        call. = FALSE
+      )
+    }
+    rows <- parallel::mclapply(
+      seq_len(nrow(grid)),
+      .run_one,
+      mc.cores = getOption("mc.cores", 1L)
+    )
+  } else {
+    rows <- vector("list", nrow(grid))
+    for (i in seq_len(nrow(grid))) {
+      rows[[i]] <- .run_one(i)
+    }
   }
   do.call(rbind, rows)
 }

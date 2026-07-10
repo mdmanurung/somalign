@@ -15,8 +15,30 @@
 #'   fraction to pass `min_match_fraction`.
 #' @param max_iter Maximum internal Sinkhorn iterations.
 #' @param tol Internal Sinkhorn convergence tolerance.
+#' @param chunk_size Integer. Number of samples to project per chunk when
+#'   computing nearest reference node. Use `Inf` or `NULL` for no chunking
+#'   (allocates a full n_samples x n_nodes matrix). Default `10000L`.
+#'
+#' @details
+#' The transport plan row sums will not equal `query$node_masses` exactly — this
+#' is by design. Unbalanced optimal transport allows mass destruction, so some
+#' query mass may be absorbed rather than transported. Deviation grows with lower
+#' `rho_query` / `rho_ref` values and higher `epsilon`. At the defaults
+#' (`rho_query = 1`, `rho_ref = 1`, `epsilon = 0.05`), row-sum deviation can
+#' reach approximately 13%. Use `diagnostics$ot$max_row_mass_error` to quantify
+#' the deviation in a given fit; for near-balanced data, increase `rho_query`
+#' (e.g. `rho_query = 10`) to enforce tighter marginal constraints.
 #'
 #' @return A `somalign_fit` object.
+#' @examples
+#' \dontrun{
+#' set.seed(1)
+#' mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
+#'               dimnames = list(NULL, c("F1", "F2")))
+#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"))
+#' qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"))
+#' fit <- somalign_fit(qry, ref)
+#' }
 #' @export
 somalign_fit <- function(query,
                          reference,
@@ -28,7 +50,8 @@ somalign_fit <- function(query,
                          confidence_threshold = 0.6,
                          correction_min_mass = 1e-8,
                          max_iter = 1000,
-                         tol = 1e-7) {
+                         tol = 1e-7,
+                         chunk_size = 10000L) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   solver <- match.arg(solver)
@@ -51,6 +74,13 @@ somalign_fit <- function(query,
   col_mass <- colSums(plan)
   match_mass_ratio <- ifelse(query$node_masses > 0, row_mass / query$node_masses, 0)
   match_fraction <- pmin(match_mass_ratio, 1)
+  n_over <- sum(match_mass_ratio > 1)
+  if (n_over > 0) {
+    message(sprintf(
+      "somalign_fit: %d query node(s) have match_mass_ratio > 1 (max %.2f); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.",
+      n_over, max(match_mass_ratio)
+    ))
+  }
 
   label_transfer <- .somalign_transfer_labels(
     correspondence = correspondence,
@@ -70,9 +100,9 @@ somalign_fit <- function(query,
     correction_min_mass = correction_min_mass
   )
 
-  direct <- .somalign_project_samples(query$scaled_data, reference)
+  direct <- .somalign_project_samples(query$scaled_data, reference, chunk_size = chunk_size)
   corrected_matrix <- query$scaled_data + node_shifts[query$sample_unit, , drop = FALSE]
-  corrected <- .somalign_project_samples(corrected_matrix, reference)
+  corrected <- .somalign_project_samples(corrected_matrix, reference, chunk_size = chunk_size)
   correction_norm <- sqrt(rowSums(node_shifts[query$sample_unit, , drop = FALSE]^2))
 
   diagnostics <- list(
@@ -151,26 +181,33 @@ somalign_fit <- function(query,
 
   probs <- correspondence %*% label_prob
   label_names <- colnames(label_prob)
+  row_sums <- rowSums(probs)
+  has_mass <- row_sums > 0
+  probs_norm <- probs
+  probs_norm[has_mass, ] <- probs[has_mass, , drop = FALSE] / row_sums[has_mass]
+  top_idx <- max.col(probs_norm, ties.method = "first")
   top_label <- rep(NA_character_, n_nodes)
-  second_label <- rep(NA_character_, n_nodes)
   confidence <- rep(NA_real_, n_nodes)
+  top_label[has_mass] <- label_names[top_idx[has_mass]]
+  confidence[has_mass] <- probs_norm[cbind(which(has_mass), top_idx[has_mass])]
+  probs_second <- probs_norm
+  probs_second[cbind(seq_len(n_nodes), top_idx)] <- 0
+  second_idx <- max.col(probs_second, ties.method = "first")
+  second_label <- rep(NA_character_, n_nodes)
   second_confidence <- rep(NA_real_, n_nodes)
-  entropy <- rep(NA_real_, n_nodes)
-
-  for (i in seq_len(n_nodes)) {
-    row <- as.numeric(probs[i, ])
-    if (sum(row) > 0) {
-      row <- row / sum(row)
-      ord <- order(row, decreasing = TRUE)
-      top_label[i] <- label_names[ord[1]]
-      confidence[i] <- row[ord[1]]
-      if (length(ord) > 1) {
-        second_label[i] <- label_names[ord[2]]
-        second_confidence[i] <- row[ord[2]]
-      }
-      entropy[i] <- .somalign_entropy(row)
-    }
+  if (ncol(probs) == 1L) {
+    second_label <- rep(NA_character_, n_nodes)
+    second_confidence <- rep(NA_real_, n_nodes)
+  } else {
+    second_label[has_mass] <- label_names[second_idx[has_mass]]
+    second_confidence[has_mass] <- probs_second[cbind(which(has_mass), second_idx[has_mass])]
+    second_label[has_mass & (is.na(second_confidence) | second_confidence == 0)] <- NA_character_
   }
+  entropy <- vapply(
+    seq_len(n_nodes),
+    function(i) if (has_mass[i]) .somalign_entropy(probs_norm[i, ]) else NA_real_,
+    numeric(1)
+  )
 
   accepted <- is.finite(match_fraction) &
     match_fraction >= min_match_fraction &
@@ -210,8 +247,8 @@ somalign_fit <- function(query,
   shifts
 }
 
-.somalign_project_samples <- function(scaled_data, reference) {
-  projected <- .somalign_nearest_code(scaled_data, reference$codebook)
+.somalign_project_samples <- function(scaled_data, reference, chunk_size = 10000L) {
+  projected <- .somalign_nearest_code_chunked(scaled_data, reference$codebook, chunk_size = chunk_size)
   threshold <- .somalign_thresholds(reference, projected$unit)
   list(
     unit = projected$unit,

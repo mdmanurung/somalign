@@ -8,6 +8,16 @@
 #' @param data Optional data frame to append after result columns.
 #'
 #' @return A data frame with direct and corrected projection columns.
+#' @examples
+#' \dontrun{
+#' set.seed(1)
+#' mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
+#'               dimnames = list(NULL, c("F1", "F2")))
+#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"))
+#' qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"))
+#' fit <- somalign_fit(qry, ref)
+#' somalign_results(fit)
+#' }
 #' @export
 somalign_results <- function(fit, data = NULL) {
   if (!inherits(fit, "somalign_fit")) {
@@ -67,16 +77,13 @@ somalign_results <- function(fit, data = NULL) {
       confidence = rep(NA_real_, n_nodes)
     ))
   }
+  label_names <- colnames(label_prob)
+  row_sums <- rowSums(label_prob)
+  has_mass <- row_sums > 0
+  idx <- max.col(label_prob, ties.method = "first")
   label <- rep(NA_character_, n_nodes)
   confidence <- rep(NA_real_, n_nodes)
-  label_names <- colnames(label_prob)
-  for (i in seq_len(n_nodes)) {
-    row <- label_prob[i, ]
-    if (sum(row) > 0) {
-      idx <- which.max(row)
-      label[i] <- label_names[idx]
-      confidence[i] <- row[idx]
-    }
-  }
+  label[has_mass] <- label_names[idx[has_mass]]
+  confidence[has_mass] <- label_prob[cbind(which(has_mass), idx[has_mass])]
   list(label = label, confidence = confidence)
 }

@@ -101,6 +101,50 @@ test_that("a separately trained query SOM can be corrected and projected to old 
   expect_true(all(results$old_som_unit %in% seq_len(nrow(reference$codebook))))
 })
 
+test_that("somalign_sensitivity_grid parallel = TRUE returns same structure as sequential", {
+  skip_if_not_installed("kohonen")
+
+  set.seed(99L)
+  old <- rbind(
+    matrix(rnorm(10 * 4, mean = -1), ncol = 4),
+    matrix(rnorm(10 * 4, mean =  1), ncol = 4)
+  )
+  colnames(old) <- paste0("f", seq_len(ncol(old)))
+
+  reference <- somalign_train_reference(
+    old,
+    grid = kohonen::somgrid(2, 2, "hexagonal"),
+    rlen = 5
+  )
+  query_obj <- somalign_query(
+    old,
+    reference,
+    grid = kohonen::somgrid(2, 2, "hexagonal"),
+    rlen = 5
+  )
+
+  seq_result  <- somalign_sensitivity_grid(
+    query_obj, reference,
+    epsilon   = c(0.05, 0.1),
+    rho_query = 1,
+    rho_ref   = 1,
+    solver    = "internal",
+    parallel  = FALSE
+  )
+  par_result  <- somalign_sensitivity_grid(
+    query_obj, reference,
+    epsilon   = c(0.05, 0.1),
+    rho_query = 1,
+    rho_ref   = 1,
+    solver    = "internal",
+    parallel  = TRUE
+  )
+
+  expect_equal(nrow(par_result), nrow(seq_result))
+  expect_equal(names(par_result), names(seq_result))
+  expect_equal(par_result$epsilon, seq_result$epsilon)
+})
+
 test_that("POT comparison is optional when reticulate can import ot.unbalanced", {
   skip_if_not(identical(Sys.getenv("SOMALIGN_RUN_POT_TESTS"), "true"))
   skip_if_not_installed("reticulate")

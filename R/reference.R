@@ -9,6 +9,15 @@
 #' @param ... Additional arguments passed to [kohonen::som()].
 #'
 #' @return A `somalign_reference` object.
+#' @examples
+#' \dontrun{
+#' set.seed(1)
+#' mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
+#'               dimnames = list(NULL, c("F1", "F2")))
+#' labels <- rep(c("A", "B"), each = 5)
+#' ref <- somalign_train_reference(mat, labels = labels,
+#'                                 grid = kohonen::somgrid(2, 2, "hexagonal"))
+#' }
 #' @export
 somalign_train_reference <- function(data,
                                      labels = NULL,
@@ -54,6 +63,16 @@ somalign_train_reference <- function(data,
 #' @param quantile_probs Distance quantiles used for outside-reference flags.
 #'
 #' @return A `somalign_reference` object.
+#' @examples
+#' \dontrun{
+#' set.seed(1)
+#' mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
+#'               dimnames = list(NULL, c("F1", "F2")))
+#' g <- kohonen::somgrid(2, 2, "hexagonal")
+#' som_obj <- kohonen::som(scale(mat), grid = g, rlen = 10)
+#' ref <- somalign_reference(som_obj, mat, labels = rep(c("A", "B"), each = 5),
+#'                           codebook_space = "reference_scaled")
+#' }
 #' @export
 somalign_reference <- function(som_ref,
                                data,
@@ -123,6 +142,18 @@ somalign_reference <- function(som_ref,
 #'   quantiles.
 #'
 #' @return A `somalign_reference` object.
+#' @examples
+#' \dontrun{
+#' cb <- matrix(c(0.1, 0.2, -0.1, 0.3, 0.4, -0.2, 0.0, 0.1),
+#'              nrow = 4, ncol = 2,
+#'              dimnames = list(NULL, c("F1", "F2")))
+#' ref <- somalign_reference_from_nodes(
+#'   codebook = cb,
+#'   features = c("F1", "F2"),
+#'   center   = c(F1 = 0, F2 = 0),
+#'   scale    = c(F1 = 1, F2 = 1)
+#' )
+#' }
 #' @export
 somalign_reference_from_nodes <- function(codebook,
                                           features,

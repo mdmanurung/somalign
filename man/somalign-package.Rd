@@ -11,11 +11,11 @@ the conservative primary result and returns auxiliary optimal-transport
 corrected projections for visualisation and annotation.
 }
 \author{
-\strong{Maintainer}: somalign contributors \email{noreply@example.com}
+\strong{Maintainer}: Mikhael Manurung \email{mikhael.manurung@gmail.com}
 
 Authors:
 \itemize{
-  \item somalign contributors \email{noreply@example.com}
+  \item Mikhael Manurung \email{mikhael.manurung@gmail.com}
 }
 
 }

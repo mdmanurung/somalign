@@ -205,6 +205,24 @@
   list(unit = as.integer(unit), distance = as.numeric(distance))
 }
 
+.somalign_nearest_code_chunked <- function(x, codebook, chunk_size = 10000L) {
+  x <- as.matrix(x)
+  n <- nrow(x)
+  if (is.null(chunk_size) || is.infinite(chunk_size) || n == 0L || chunk_size >= n) {
+    return(.somalign_nearest_code(x, codebook))
+  }
+  chunk_size <- as.integer(chunk_size)
+  unit <- integer(n)
+  distance <- numeric(n)
+  for (s in seq(1L, n, by = chunk_size)) {
+    idx <- s:min(s + chunk_size - 1L, n)
+    res <- .somalign_nearest_code(x[idx, , drop = FALSE], codebook)
+    unit[idx] <- res$unit
+    distance[idx] <- res$distance
+  }
+  list(unit = unit, distance = distance)
+}
+
 .somalign_pairwise_distance <- function(x, y) {
   d2 <- outer(rowSums(x * x), rowSums(y * y), "+") - 2 * tcrossprod(x, y)
   sqrt(pmax(d2, 0))
@@ -242,16 +260,16 @@
   names <- .somalign_quantile_names(probs)
   global <- stats::quantile(distances, probs = probs, names = FALSE, type = 7)
   names(global) <- names
-  out <- matrix(NA_real_, nrow = n_nodes, ncol = length(probs))
-  colnames(out) <- names
-  for (i in seq_len(n_nodes)) {
-    node_distances <- distances[units == i]
-    if (length(node_distances) == 0) {
-      out[i, ] <- global
+  split_distances <- split(distances, factor(units, levels = seq_len(n_nodes)))
+  node_rows <- lapply(split_distances, function(d) {
+    if (length(d) == 0L) {
+      global
     } else {
-      out[i, ] <- stats::quantile(node_distances, probs = probs, names = FALSE, type = 7)
+      stats::quantile(d, probs = probs, names = FALSE, type = 7)
     }
-  }
+  })
+  out <- matrix(unlist(node_rows, use.names = FALSE), nrow = n_nodes, ncol = length(probs), byrow = TRUE)
+  colnames(out) <- names
   list(node = out, global = global)
 }
 
@@ -285,16 +303,16 @@
   if (length(levels) == 0) {
     return(matrix(numeric(0), nrow = n_nodes, ncol = 0))
   }
-  out <- matrix(0, nrow = n_nodes, ncol = length(levels))
+  valid <- !is.na(labels)
+  node_idx <- units[valid]
+  lbl_idx <- as.integer(factor(labels[valid], levels = levels))
+  combined_idx <- (lbl_idx - 1L) * n_nodes + node_idx
+  raw_counts <- tabulate(combined_idx, nbins = n_nodes * length(levels))
+  out <- matrix(raw_counts, nrow = n_nodes, ncol = length(levels))
   colnames(out) <- levels
-  for (node in seq_len(n_nodes)) {
-    node_labels <- labels[units == node]
-    node_labels <- node_labels[!is.na(node_labels)]
-    if (length(node_labels) > 0) {
-      counts <- table(factor(node_labels, levels = levels))
-      out[node, ] <- as.numeric(counts) / sum(counts)
-    }
-  }
+  row_totals <- rowSums(out)
+  nonzero <- row_totals > 0
+  out[nonzero, ] <- out[nonzero, , drop = FALSE] / row_totals[nonzero]
   out
 }
 

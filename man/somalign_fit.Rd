@@ -15,7 +15,8 @@ somalign_fit(
   confidence_threshold = 0.6,
   correction_min_mass = 1e-08,
   max_iter = 1000,
-  tol = 1e-07
+  tol = 1e-07,
+  chunk_size = 10000L
 )
 }
 \arguments{
@@ -44,10 +45,34 @@ fraction to pass \code{min_match_fraction}.}
 \item{max_iter}{Maximum internal Sinkhorn iterations.}
 
 \item{tol}{Internal Sinkhorn convergence tolerance.}
+
+\item{chunk_size}{Integer. Number of samples to project per chunk when
+computing nearest reference node. Use \code{Inf} or \code{NULL} for no chunking
+(allocates a full n_samples x n_nodes matrix). Default \code{10000L}.}
 }
 \value{
 A \code{somalign_fit} object.
 }
 \description{
 Align a query SOM to a reference SOM
+}
+\details{
+The transport plan row sums will not equal \code{query$node_masses} exactly — this
+is by design. Unbalanced optimal transport allows mass destruction, so some
+query mass may be absorbed rather than transported. Deviation grows with lower
+\code{rho_query} / \code{rho_ref} values and higher \code{epsilon}. At the defaults
+(\code{rho_query = 1}, \code{rho_ref = 1}, \code{epsilon = 0.05}), row-sum deviation can
+reach approximately 13\%. Use \code{diagnostics$ot$max_row_mass_error} to quantify
+the deviation in a given fit; for near-balanced data, increase \code{rho_query}
+(e.g. \code{rho_query = 10}) to enforce tighter marginal constraints.
+}
+\examples{
+\dontrun{
+set.seed(1)
+mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
+              dimnames = list(NULL, c("F1", "F2")))
+ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"))
+qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"))
+fit <- somalign_fit(qry, ref)
+}
 }

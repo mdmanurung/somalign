@@ -1,7 +1,8 @@
 Package: somalign
 Title: Align Query SOMs to Fixed Kohonen Reference SOMs
 Version: 0.0.0.9000
-Authors@R: person("somalign contributors", role = c("aut", "cre"), email = "noreply@example.com")
+Authors@R: person("Mikhael", "Manurung", role = c("aut", "cre"),
+    email = "mikhael.manurung@gmail.com")
 Description: Aligns query self-organising maps to fixed 'kohonen' reference maps
     using codebook-level unbalanced entropic optimal transport. Direct
     reference projection is kept as the conservative primary result, with
@@ -14,7 +15,10 @@ Imports:
     kohonen,
     stats
 Suggests:
+    bench,
     knitr,
+    microbenchmark,
+    parallel,
     rmarkdown,
     reticulate,
     testthat (>= 3.0.0)
