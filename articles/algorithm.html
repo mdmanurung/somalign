@@ -70,216 +70,216 @@
     
     
 <p><code>somalign</code> aligns a query SOM to a fixed reference SOM
-using codebook-level KL-unbalanced entropic optimal transport. The
-schematic below traces each stage from raw data to the final per-sample
-output columns.</p>
-<pre><code>╔══════════════════════════════════════════════════════════════════════════════════╗
-║                        somalign · Algorithm Schematic                            ║
-╚══════════════════════════════════════════════════════════════════════════════════╝
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  STAGE 0 — TRAINING BOTH SOMs
-
-  OLD data  (reference cohort)           NEW data  (query cohort)
-  ┌──────────────────────────┐           ┌──────────────────────────┐
-  │ T · N T · N T · M T · M │           │ · · · · · · · · · · · · │
-  │ · T · · N N · M · · M · │           │ · · · · · · · · · · · · │
-  │ T · · T · N · M M · · M │           │ · · · · · · · · · · · · │
-  └──────────────────────────┘           └──────────────────────────┘
-    labeled: T=T-cell  N=NK  M=Mono        unlabeled cells
-
-    │ (1) z-score: compute μ, σ             │ (1) transform with REFERENCE μ, σ
-    │ (2) train kohonen SOM                 │     (never new-data z-scores)
-    ▼                                       │ (2) train kohonen SOM
-                                            ▼
-  REFERENCE SOM  C_ref  [K × p]          QUERY SOM  C_query  [M × p]
-  ┌──────────────────────────────┐        ┌─────────────────────┐
-  │ ◉TT  ◉TN  ◉NN  ◉NN  ◉NU    │        │  ◉q₁  ◉q₂  ◉q₃     │
-  │ ◉TT  ◉TN  ◉NN  ◉NM  ◉MM    │        │  ◉q₄  ◉q₅  ◉q₆     │
-  │ ◉MM  ◉MM  ◉MU  ◉UU  ◉UU    │        │  ◉q₇  ◉q₈  ◉q₉     │
-  └──────────────────────────────┘        └─────────────────────┘
-  K nodes. Each node stores:              M nodes. Each node stores:
-  · centroid C_ref[k]  [1×p]             · centroid C_query[i]  [1×p]
-  · label distribution                   · mass a[i] = fraction of new
-  · mass b[j]                              samples mapped to this node
-  · distance quantile threshold
-  Labels show majority composition
-  (UU = unlabeled/mixed)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  STAGE 1 — DIRECT PROJECTION  ★ PRIMARY RESULT  (no OT needed)
-
-  For every new sample x_s, find the nearest reference SOM node in feature space:
-
-  Feature 2 ▲
-            │    ◉ r₁       ◉ r₂                   ◉ r₅
-            │
-            │                        × x_s
-            │                   d₃↗     ↘d₄
-            │                  ↗           ↘
-            │    ◉ r₃        ◉               ◉ r₄
-            │
-            └──────────────────────────────────────▶ Feature 1
-
-    k* = argmin_k  ‖ x_s − C_ref[k] ‖        d₃ &lt; d₄  ⟹  k* = r₃
-
-  Output per sample:
-    old_som_unit            = k*
-    old_som_distance        = ‖ x_s − C_ref[k*] ‖
-    outside_reference_dist  = distance &gt; quantile threshold?   ← novelty flag
-    final_status            = "inside_reference" | "outside_reference" | "unknown"
-    old_som_label           = majority label at k*
-    old_som_label_confidence = fraction of k*'s training mass with that label
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  STAGE 2 — OT ON CODEBOOKS  (KL-unbalanced Sinkhorn; runs once, not per sample)
-
-  ┌─ 2a  Cost matrix D [M × K] ──────────────────────────────────────────────┐
-  │                                                                            │
-  │                  r₁    r₂    r₃    r₄    r₅                              │
-  │           q₁  [ ░░    ████  ████  ████  ████ ]  ← q₁ is close to r₁     │
-  │           q₂  [ ████  ████  ░░    ▒▒    ████ ]  ← q₂ is close to r₃     │
-  │           q₃  [ ████  ████  ████  ████  ░░   ]  ← q₃ is close to r₅     │
-  │                                                                            │
-  │  D[i,j] = ‖ C_query[i] − C_ref[j] ‖²                                    │
-  │  ░ low (cheap to transport)   ▒ medium   ████ high (expensive)            │
-  └────────────────────────────────────────────────────────────────────────────┘
-
-  ┌─ 2b  Solve for transport plan P [M × K] ─────────────────────────────────┐
-  │                                                                            │
-  │  min_{P≥0}  ΣΣ P[i,j] · D[i,j]       move mass along cheap paths         │
-  │           + ε · KL(P ‖ a⊗b)          smooth / regularise the plan        │
-  │           + ρ_q · KL(P1 ‖ a)         query may discard unmatched mass     │
-  │           + ρ_r · KL(Pᵀ1 ‖ b)        ref may discard unmatched mass      │
-  │                                                                            │
-  │  KL-unbalanced: novel query nodes are not forced to match any ref node.   │
-  │  Solved by alternating Sinkhorn scaling (pure-R or Python POT backend).   │
-  └────────────────────────────────────────────────────────────────────────────┘
-
-  ┌─ 2c  Resulting flows  (line weight ∝ P[i,j]) ────────────────────────────┐
-  │                                                                            │
-  │  Query nodes          mass flows              Reference nodes              │
-  │                                                                            │
-  │    ●─q₁  ═════════════════════════════════▶  r₁─◉  [T-cell 92%]          │
-  │          ═══════════════════════════════▶     r₂─◉  [T-cell 78%]          │
-  │                                                                            │
-  │    ●─q₂          ══════════════════════▶     r₃─◉  [NK    88%]            │
-  │                   ═════════════════════▶      r₄─◉  [NK    71%]            │
-  │                                                                            │
-  │    ●─q₃  · · · · · · · · · · · · · · ▶       r₅─◉  [Mono  95%]           │
-  │           (tiny mass — novel node)                                         │
-  │                                                                            │
-  │  match_fraction[q₁] = Σⱼ P[1,j]/a[1] ≈ 0.95  → label transfer accepted  │
-  │  match_fraction[q₃] = Σⱼ P[3,j]/a[3] ≈ 0.04  → label transfer rejected  │
-  └────────────────────────────────────────────────────────────────────────────┘
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  STAGE 3 — CORRECTION VECTORS  (per query node)
-
-  For query node i, compute a weighted mean pull toward matched reference nodes:
-
-         Δᵢ  =  Σⱼ  P[i,j] · (C_ref[j] − C_query[i])
-                ──────────────────────────────────────
-                            Σⱼ P[i,j]
-
-  Cartoon (2D feature space, node i = q₁):
-
-  Feature 2 ▲
-            │          ◉ r₁  ◀── P[1,r₁] large
-            │         ↗
-            │        ↗
-            │   ◉ r₂  ◀─── P[1,r₂] smaller        pulls weighted by transport
-            │      ↘ ↗                              mass sent to each ref node
-            │       ●  q₁  ──────── Δ₁ ──────▶  ×  (shifted centroid)
-            │
-            └──────────────────────────────────────▶ Feature 1
-
-  ‖Δᵢ‖ ≈ 0   node already aligns with its reference counterpart
-  ‖Δᵢ‖ large  systematic displacement; batch effect or population shift
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  STAGE 4 — CORRECTED PROJECTION  (auxiliary)
-
-  Every sample in query node i is shifted by the same Δᵢ, then re-projected:
-
-  Feature 2 ▲
-            │      ◉ r_A              ◉ r_B
-            │
-            │            ★ x_s + Δᵢ  ════════════════▶ r_B  corrected_som_unit
-            │           ↗
-            │      Δᵢ ↗   (node-level shift; same for all samples in node i)
-            │     ↗
-            │    × x_s  ─────────────────────────────▶ r_A  old_som_unit
-            │
-            └──────────────────────────────────────────▶ Feature 1
-
-    corrected_som_unit = argmin_k  ‖ (x_s + Δᵢ) − C_ref[k] ‖
-    correction_norm    = ‖Δᵢ‖
-
-  Sample reassigns r_A → r_B after OT correction.
-  Both are reported; r_A (old_som_unit) is the primary, conservative result.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  STAGE 5 — LABEL TRANSFER  (auxiliary)
-
-  For each query node i, read row P[i, ·] to find the dominant reference node:
-
-    dominant_j = argmax_j P[i,j]
-
-  Bar chart of relative mass across reference nodes (node i = q₁):
-
-    r₁  [T-cell 92%]  ████████████████████████  ← dominant (most mass)
-    r₂  [T-cell 78%]  ████████████░░░░░░░░░░░░
-    r₃  [NK    88%]   █████░░░░░░░░░░░░░░░░░░░
-    r₄  [NK    71%]   ███░░░░░░░░░░░░░░░░░░░░░
-    r₅  [Mono  95%]   ░░░░░░░░░░░░░░░░░░░░░░░░
-
-  transferred_label         = label of r₁ = "T-cell"
-  transferred_label_conf    = label purity at r₁ = 0.92
-
-  Acceptance gate:
-  ┌──────────────────────────────────────────────────────────────────────┐
-  │                                                                      │
-  │   match_fraction[i] ≥ 0.05      AND      confidence ≥ 0.60          │
-  │                                                                      │
-  │   PASS ─▶  transferred_label_accepted = TRUE                        │
-  │   FAIL ─▶  transferred_label_accepted = FALSE                       │
-  │            (node is novel or dominant ref node is too mixed)        │
-  └──────────────────────────────────────────────────────────────────────┘
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  OUTPUT COLUMNS  (one row per sample)
-
-  ┌──────────────────────────────────┬─────────┬────────────────────────────────┐
-  │ Column                           │ Stage   │ Purpose                        │
-  ├──────────────────────────────────┼─────────┼────────────────────────────────┤
-  │ old_som_unit                     │ 1       │ Primary node assignment         │
-  │ old_som_distance                 │ 1       │ Distance to that node           │
-  │ outside_reference_distance       │ 1       │ Novelty flag                   │
-  │ final_status                     │ 1       │ inside / outside / unknown     │
-  │ old_som_label                    │ 1       │ Primary label                  │
-  │ old_som_label_confidence         │ 1       │ Label purity at node            │
-  ├──────────────────────────────────┼─────────┼────────────────────────────────┤
-  │ corrected_som_unit               │ 4       │ OT-corrected assignment        │
-  │ correction_norm                  │ 3 / 4   │ Shift magnitude ‖Δᵢ‖           │
-  ├──────────────────────────────────┼─────────┼────────────────────────────────┤
-  │ transferred_label                │ 5       │ OT-derived label               │
-  │ transferred_label_confidence     │ 5       │ Purity at dominant ref node    │
-  │ transferred_label_accepted       │ 5       │ Gate result (TRUE / FALSE)      │
-  └──────────────────────────────────┴─────────┴────────────────────────────────┘
-
-  COMPLEXITY NOTE
-  OT input is M × K codebook nodes, not n_new × n_ref individual samples.
-  OT solve: O(M · K · iterations) — stays small even at n_new = 10⁶.
-  Per-sample cost: O(n_new · K) nearest-node search, chunked in somalign_fit().</code></pre>
-  </main>
+using codebook-level KL-unbalanced entropic optimal transport. This
+vignette traces each stage from raw data to the final per-sample output
+columns.</p>
+<div class="section level2">
+<h2 id="pipeline-overview">Pipeline overview<a class="anchor" aria-label="anchor" href="#pipeline-overview"></a>
+</h2>
+<p><code>{r overview, echo = FALSE, fig.height = 6,     eval = requireNamespace("DiagrammeR", quietly = TRUE)} DiagrammeR::mermaid(" graph TD   OD[Old data] --&gt; NS[z-score normalise]   ND[New data] --&gt; RT[transform: ref mu sigma]   NS --&gt; RS[Reference SOM&lt;br/&gt;C_ref K x p]   RT --&gt; QS[Query SOM&lt;br/&gt;C_query M x p]   RS --&gt; S1[Stage 1: Direct Projection]   QS --&gt; S1   RS --&gt; S2[Stage 2: OT on Codebooks]   QS --&gt; S2   S2 --&gt; TP[Transport plan P&lt;br/&gt;M x K]   TP --&gt; S3[Stage 3: Correction Vectors]   RS --&gt; S3   S3 --&gt; S4[Stage 4: Corrected Projection]   TP --&gt; S5[Stage 5: Label Transfer]   S1 --&gt; PR[old_som_unit&lt;br/&gt;old_som_label&lt;br/&gt;final_status]   S4 --&gt; AX[corrected_som_unit&lt;br/&gt;correction_norm&lt;br/&gt;transferred_label]   S5 --&gt; AX   style PR fill:#d4edda,stroke:#28a745,color:#155724   style AX fill:#cce5ff,stroke:#004085,color:#004085   style S1 fill:#fff3cd,stroke:#856404   style S2 fill:#fff3cd,stroke:#856404   style S3 fill:#fff3cd,stroke:#856404   style S4 fill:#fff3cd,stroke:#856404   style S5 fill:#fff3cd,stroke:#856404 ")</code></p>
+<hr>
+</div>
+<div class="section level2">
+<h2 id="stage-0-training-both-soms">Stage 0 — Training both SOMs<a class="anchor" aria-label="anchor" href="#stage-0-training-both-soms"></a>
+</h2>
+<p>The reference SOM is trained on labelled old data after z-score
+normalisation (centre
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>μ</mi><annotation encoding="application/x-tex">\mu</annotation></semantics></math>
+and scale
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>σ</mi><annotation encoding="application/x-tex">\sigma</annotation></semantics></math>
+computed from old data). The query SOM is trained on new data
+transformed with the <strong>reference</strong>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>μ</mi><annotation encoding="application/x-tex">\mu</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>σ</mi><annotation encoding="application/x-tex">\sigma</annotation></semantics></math>
+— not new-data z-scores — so both codebooks live in the same feature
+coordinate system.</p>
+<p><img src="algorithm_files/figure-html/stage0-1.png" class="r-plt" alt="" width="100%"></p>
+<hr>
+</div>
+<div class="section level2">
+<h2 id="stage-1-direct-projection-primary-result">Stage 1 — Direct projection (primary result)<a class="anchor" aria-label="anchor" href="#stage-1-direct-projection-primary-result"></a>
+</h2>
+<p>Every new sample
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>x</mi><mi>s</mi></msub><annotation encoding="application/x-tex">x_s</annotation></semantics></math>
+is assigned to the nearest reference node:
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>k</mi><mo>*</mo></msup><mo>=</mo><mrow><mi mathvariant="normal">arg</mi><mo>⁡</mo></mrow><munder><mi mathvariant="normal">min</mi><mi>k</mi></munder><mo stretchy="false" form="postfix">∥</mo><msub><mi>x</mi><mi>s</mi></msub><mo>−</mo><msub><mi>C</mi><mrow><mtext mathvariant="normal">ref</mtext><mo>,</mo><mi>k</mi></mrow></msub><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">k^* = \arg\min_k \|x_s - C_{\text{ref},k}\|</annotation></semantics></math></p>
+<p>No optimal transport is involved. This is the primary, conservative
+result.</p>
+<p><img src="algorithm_files/figure-html/stage1-1.png" class="r-plt" alt="" width="100%"></p>
+<p><strong>Output:</strong> <code>old_som_unit = k*</code>,
+<code>old_som_distance</code>, <code>outside_reference_distance</code>,
+<code>final_status</code>, <code>old_som_label</code>,
+<code>old_som_label_confidence</code>.</p>
+<hr>
+</div>
+<div class="section level2">
+<h2 id="stage-2-ot-on-codebooks">Stage 2 — OT on codebooks<a class="anchor" aria-label="anchor" href="#stage-2-ot-on-codebooks"></a>
+</h2>
+<p>OT is solved once on the <strong>codebooks</strong>
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
+query nodes ×
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
+reference nodes), not on individual samples.</p>
+<div class="section level3">
+<h3 id="a-cost-matrix">2a — Cost matrix<a class="anchor" aria-label="anchor" href="#a-cost-matrix"></a>
+</h3>
+<p><img src="algorithm_files/figure-html/stage2a-1.png" class="r-plt" alt="" width="100%"></p>
+</div>
+<div class="section level3">
+<h3 id="b-ot-objective">2b — OT objective<a class="anchor" aria-label="anchor" href="#b-ot-objective"></a>
+</h3>
+<p>The transport plan
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>P</mi><annotation encoding="application/x-tex">P</annotation></semantics></math>
+minimises:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><munder><mo>∑</mo><mrow><mi>i</mi><mi>j</mi></mrow></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><msub><mi>D</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>+</mo><mi>ε</mi><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>P</mi><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mi>𝐚</mi><mo>⊗</mo><mi>𝐛</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>ρ</mi><mi>q</mi></msub><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>P</mi><mn>𝟏</mn><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mi>𝐚</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>ρ</mi><mi>r</mi></msub><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><msup><mi>P</mi><mi>⊤</mi></msup><mspace width="-0.167em"></mspace><mn>𝟏</mn><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mi>𝐛</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\sum_{ij} P_{ij} D_{ij}
+  + \varepsilon \cdot \mathrm{KL}(P \,\|\, \mathbf{a}\otimes\mathbf{b})
+  + \rho_q \cdot \mathrm{KL}(P\mathbf{1} \,\|\, \mathbf{a})
+  + \rho_r \cdot \mathrm{KL}(P^\top\!\mathbf{1} \,\|\, \mathbf{b})</annotation></semantics></math></p>
+<p>where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝐚</mi><annotation encoding="application/x-tex">\mathbf{a}</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝐛</mi><annotation encoding="application/x-tex">\mathbf{b}</annotation></semantics></math>
+are the query and reference node masses. The KL marginal penalties allow
+each side to discard unmatched mass: a novel query node can route only a
+small fraction of its mass to any reference node. Solved by alternating
+Sinkhorn scaling (pure-R or Python POT backend).</p>
+</div>
+<div class="section level3">
+<h3 id="c-transport-plan">2c — Transport plan<a class="anchor" aria-label="anchor" href="#c-transport-plan"></a>
+</h3>
+<p><img src="algorithm_files/figure-html/stage2c-1.png" class="r-plt" alt="" width="100%"></p>
+<p><code>match_fraction</code> near 1 indicates a well-matched node;
+near 0 indicates a novel population with no good reference counterpart
+(label transfer will be rejected for such nodes).</p>
+<hr>
+</div>
+</div>
+<div class="section level2">
+<h2 id="stage-3-correction-vectors">Stage 3 — Correction vectors<a class="anchor" aria-label="anchor" href="#stage-3-correction-vectors"></a>
+</h2>
+<p>For each query node
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+the OT plan defines a weighted mean displacement toward its matched
+reference nodes:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo>=</mo><mfrac><mrow><munder><mo>∑</mo><mi>j</mi></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mspace width="0.167em"></mspace><mo stretchy="false" form="prefix">(</mo><msub><mi>C</mi><mrow><mtext mathvariant="normal">ref</mtext><mo>,</mo><mi>j</mi></mrow></msub><mo>−</mo><msub><mi>C</mi><mrow><mtext mathvariant="normal">query</mtext><mo>,</mo><mi>i</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo></mrow><mrow><munder><mo>∑</mo><mi>j</mi></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub></mrow></mfrac></mrow><annotation encoding="application/x-tex">\Delta_i = \frac{\displaystyle\sum_j P_{ij}\,(C_{\text{ref},j} - C_{\text{query},i})}
+                  {\displaystyle\sum_j P_{ij}}</annotation></semantics></math></p>
+<p><img src="algorithm_files/figure-html/stage3-1.png" class="r-plt" alt="" width="100%"></p>
+<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">∥</mo><mo>≈</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\|\Delta_i\| \approx 0</annotation></semantics></math>
+means the query node already aligns with its reference counterpart. A
+large
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">\|\Delta_i\|</annotation></semantics></math>
+indicates a systematic displacement (batch effect or population
+shift).</p>
+<hr>
+</div>
+<div class="section level2">
+<h2 id="stage-4-corrected-projection-auxiliary">Stage 4 — Corrected projection (auxiliary)<a class="anchor" aria-label="anchor" href="#stage-4-corrected-projection-auxiliary"></a>
+</h2>
+<p>Every sample in query node
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+is shifted by the same
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><annotation encoding="application/x-tex">\Delta_i</annotation></semantics></math>
+and re-projected:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">corrected_som_unit</mtext><mi>s</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">arg</mi><mo>⁡</mo></mrow><munder><mi mathvariant="normal">min</mi><mi>k</mi></munder><mo stretchy="false" form="postfix">∥</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mi>s</mi></msub><mo>+</mo><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>C</mi><mrow><mtext mathvariant="normal">ref</mtext><mo>,</mo><mi>k</mi></mrow></msub><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">\text{corrected\_som\_unit}_s = \arg\min_k \|(x_s + \Delta_i) - C_{\text{ref},k}\|</annotation></semantics></math></p>
+<p><img src="algorithm_files/figure-html/stage4-1.png" class="r-plt" alt="" width="100%"></p>
+<p>Both assignments are reported. <code>old_som_unit</code> (blue) is
+the primary result; <code>corrected_som_unit</code> (red) is auxiliary —
+use it for visualisation and triage.</p>
+<hr>
+</div>
+<div class="section level2">
+<h2 id="stage-5-label-transfer-auxiliary">Stage 5 — Label transfer (auxiliary)<a class="anchor" aria-label="anchor" href="#stage-5-label-transfer-auxiliary"></a>
+</h2>
+<p>For each query node
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+the dominant reference node is identified from row
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mo stretchy="false" form="prefix">[</mo><mi>i</mi><mo>,</mo><mi>⋅</mi><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">P[i, \cdot]</annotation></semantics></math>,
+and its label is transferred if the acceptance thresholds are met.</p>
+<p><img src="algorithm_files/figure-html/stage5-1.png" class="r-plt" alt="" width="100%"></p>
+<p>Label transfer is rejected when <code>match_fraction &lt; 0.05</code>
+(novel node) or when the dominant reference node’s label purity
+(<code>transferred_label_confidence</code>) is below 0.60 (mixed
+node).</p>
+<hr>
+</div>
+<div class="section level2">
+<h2 id="output-columns">Output columns<a class="anchor" aria-label="anchor" href="#output-columns"></a>
+</h2>
+<table class="table">
+<thead><tr class="header">
+<th>Column</th>
+<th>Stage</th>
+<th>Purpose</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>old_som_unit</code></td>
+<td>1</td>
+<td>Primary node assignment</td>
+</tr>
+<tr class="even">
+<td><code>old_som_distance</code></td>
+<td>1</td>
+<td>Distance to that node</td>
+</tr>
+<tr class="odd">
+<td><code>outside_reference_distance</code></td>
+<td>1</td>
+<td>Novelty flag</td>
+</tr>
+<tr class="even">
+<td><code>final_status</code></td>
+<td>1</td>
+<td>inside / outside / unknown</td>
+</tr>
+<tr class="odd">
+<td><code>old_som_label</code></td>
+<td>1</td>
+<td>Primary label</td>
+</tr>
+<tr class="even">
+<td><code>old_som_label_confidence</code></td>
+<td>1</td>
+<td>Label purity at node</td>
+</tr>
+<tr class="odd">
+<td><code>corrected_som_unit</code></td>
+<td>4</td>
+<td>OT-corrected assignment</td>
+</tr>
+<tr class="even">
+<td><code>correction_norm</code></td>
+<td>3/4</td>
+<td>Shift magnitude
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">\|\Delta_i\|</annotation></semantics></math>
+</td>
+</tr>
+<tr class="odd">
+<td><code>transferred_label</code></td>
+<td>5</td>
+<td>OT-derived label</td>
+</tr>
+<tr class="even">
+<td><code>transferred_label_confidence</code></td>
+<td>5</td>
+<td>Purity at dominant ref node</td>
+</tr>
+<tr class="odd">
+<td><code>transferred_label_accepted</code></td>
+<td>5</td>
+<td>Gate result (TRUE / FALSE)</td>
+</tr>
+</tbody>
+</table>
+<p>OT runs on the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><mo>×</mo><mi>K</mi></mrow><annotation encoding="application/x-tex">M \times K</annotation></semantics></math>
+codebook, not on individual samples. Per-sample cost is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mi>n</mi><mo>⋅</mo><mi>K</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(n \cdot K)</annotation></semantics></math>
+nearest-node search, chunked in <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>.</p>
+</div>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside>
 </div>
 
 

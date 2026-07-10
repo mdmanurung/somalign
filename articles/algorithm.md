@@ -1,213 +1,146 @@
 # Algorithm: step-by-step
 
 `somalign` aligns a query SOM to a fixed reference SOM using
-codebook-level KL-unbalanced entropic optimal transport. The schematic
-below traces each stage from raw data to the final per-sample output
-columns.
+codebook-level KL-unbalanced entropic optimal transport. This vignette
+traces each stage from raw data to the final per-sample output columns.
 
-    ╔══════════════════════════════════════════════════════════════════════════════════╗
-    ║                        somalign · Algorithm Schematic                            ║
-    ╚══════════════════════════════════════════════════════════════════════════════════╝
+## Pipeline overview
 
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`{r overview, echo = FALSE, fig.height = 6, eval = requireNamespace("DiagrammeR", quietly = TRUE)} DiagrammeR::mermaid(" graph TD OD[Old data] --> NS[z-score normalise] ND[New data] --> RT[transform: ref mu sigma] NS --> RS[Reference SOM<br/>C_ref K x p] RT --> QS[Query SOM<br/>C_query M x p] RS --> S1[Stage 1: Direct Projection] QS --> S1 RS --> S2[Stage 2: OT on Codebooks] QS --> S2 S2 --> TP[Transport plan P<br/>M x K] TP --> S3[Stage 3: Correction Vectors] RS --> S3 S3 --> S4[Stage 4: Corrected Projection] TP --> S5[Stage 5: Label Transfer] S1 --> PR[old_som_unit<br/>old_som_label<br/>final_status] S4 --> AX[corrected_som_unit<br/>correction_norm<br/>transferred_label] S5 --> AX style PR fill:#d4edda,stroke:#28a745,color:#155724 style AX fill:#cce5ff,stroke:#004085,color:#004085 style S1 fill:#fff3cd,stroke:#856404 style S2 fill:#fff3cd,stroke:#856404 style S3 fill:#fff3cd,stroke:#856404 style S4 fill:#fff3cd,stroke:#856404 style S5 fill:#fff3cd,stroke:#856404 ")`
 
-      STAGE 0 — TRAINING BOTH SOMs
+------------------------------------------------------------------------
 
-      OLD data  (reference cohort)           NEW data  (query cohort)
-      ┌──────────────────────────┐           ┌──────────────────────────┐
-      │ T · N T · N T · M T · M │           │ · · · · · · · · · · · · │
-      │ · T · · N N · M · · M · │           │ · · · · · · · · · · · · │
-      │ T · · T · N · M M · · M │           │ · · · · · · · · · · · · │
-      └──────────────────────────┘           └──────────────────────────┘
-        labeled: T=T-cell  N=NK  M=Mono        unlabeled cells
+## Stage 0 — Training both SOMs
 
-        │ (1) z-score: compute μ, σ             │ (1) transform with REFERENCE μ, σ
-        │ (2) train kohonen SOM                 │     (never new-data z-scores)
-        ▼                                       │ (2) train kohonen SOM
-                                                ▼
-      REFERENCE SOM  C_ref  [K × p]          QUERY SOM  C_query  [M × p]
-      ┌──────────────────────────────┐        ┌─────────────────────┐
-      │ ◉TT  ◉TN  ◉NN  ◉NN  ◉NU    │        │  ◉q₁  ◉q₂  ◉q₃     │
-      │ ◉TT  ◉TN  ◉NN  ◉NM  ◉MM    │        │  ◉q₄  ◉q₅  ◉q₆     │
-      │ ◉MM  ◉MM  ◉MU  ◉UU  ◉UU    │        │  ◉q₇  ◉q₈  ◉q₉     │
-      └──────────────────────────────┘        └─────────────────────┘
-      K nodes. Each node stores:              M nodes. Each node stores:
-      · centroid C_ref[k]  [1×p]             · centroid C_query[i]  [1×p]
-      · label distribution                   · mass a[i] = fraction of new
-      · mass b[j]                              samples mapped to this node
-      · distance quantile threshold
-      Labels show majority composition
-      (UU = unlabeled/mixed)
+The reference SOM is trained on labelled old data after z-score
+normalisation (centre $`\mu`$ and scale $`\sigma`$ computed from old
+data). The query SOM is trained on new data transformed with the
+**reference** $`\mu`$ and $`\sigma`$ — not new-data z-scores — so both
+codebooks live in the same feature coordinate system.
 
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+![](algorithm_files/figure-html/stage0-1.png)
 
-      STAGE 1 — DIRECT PROJECTION  ★ PRIMARY RESULT  (no OT needed)
+------------------------------------------------------------------------
 
-      For every new sample x_s, find the nearest reference SOM node in feature space:
+## Stage 1 — Direct projection (primary result)
 
-      Feature 2 ▲
-                │    ◉ r₁       ◉ r₂                   ◉ r₅
-                │
-                │                        × x_s
-                │                   d₃↗     ↘d₄
-                │                  ↗           ↘
-                │    ◉ r₃        ◉               ◉ r₄
-                │
-                └──────────────────────────────────────▶ Feature 1
+Every new sample $`x_s`$ is assigned to the nearest reference node:
+``` math
+k^* = \arg\min_k \|x_s - C_{\text{ref},k}\|
+```
 
-        k* = argmin_k  ‖ x_s − C_ref[k] ‖        d₃ < d₄  ⟹  k* = r₃
+No optimal transport is involved. This is the primary, conservative
+result.
 
-      Output per sample:
-        old_som_unit            = k*
-        old_som_distance        = ‖ x_s − C_ref[k*] ‖
-        outside_reference_dist  = distance > quantile threshold?   ← novelty flag
-        final_status            = "inside_reference" | "outside_reference" | "unknown"
-        old_som_label           = majority label at k*
-        old_som_label_confidence = fraction of k*'s training mass with that label
+![](algorithm_files/figure-html/stage1-1.png)
 
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+**Output:** `old_som_unit = k*`, `old_som_distance`,
+`outside_reference_distance`, `final_status`, `old_som_label`,
+`old_som_label_confidence`.
 
-      STAGE 2 — OT ON CODEBOOKS  (KL-unbalanced Sinkhorn; runs once, not per sample)
+------------------------------------------------------------------------
 
-      ┌─ 2a  Cost matrix D [M × K] ──────────────────────────────────────────────┐
-      │                                                                            │
-      │                  r₁    r₂    r₃    r₄    r₅                              │
-      │           q₁  [ ░░    ████  ████  ████  ████ ]  ← q₁ is close to r₁     │
-      │           q₂  [ ████  ████  ░░    ▒▒    ████ ]  ← q₂ is close to r₃     │
-      │           q₃  [ ████  ████  ████  ████  ░░   ]  ← q₃ is close to r₅     │
-      │                                                                            │
-      │  D[i,j] = ‖ C_query[i] − C_ref[j] ‖²                                    │
-      │  ░ low (cheap to transport)   ▒ medium   ████ high (expensive)            │
-      └────────────────────────────────────────────────────────────────────────────┘
+## Stage 2 — OT on codebooks
 
-      ┌─ 2b  Solve for transport plan P [M × K] ─────────────────────────────────┐
-      │                                                                            │
-      │  min_{P≥0}  ΣΣ P[i,j] · D[i,j]       move mass along cheap paths         │
-      │           + ε · KL(P ‖ a⊗b)          smooth / regularise the plan        │
-      │           + ρ_q · KL(P1 ‖ a)         query may discard unmatched mass     │
-      │           + ρ_r · KL(Pᵀ1 ‖ b)        ref may discard unmatched mass      │
-      │                                                                            │
-      │  KL-unbalanced: novel query nodes are not forced to match any ref node.   │
-      │  Solved by alternating Sinkhorn scaling (pure-R or Python POT backend).   │
-      └────────────────────────────────────────────────────────────────────────────┘
+OT is solved once on the **codebooks** ($`M`$ query nodes × $`K`$
+reference nodes), not on individual samples.
 
-      ┌─ 2c  Resulting flows  (line weight ∝ P[i,j]) ────────────────────────────┐
-      │                                                                            │
-      │  Query nodes          mass flows              Reference nodes              │
-      │                                                                            │
-      │    ●─q₁  ═════════════════════════════════▶  r₁─◉  [T-cell 92%]          │
-      │          ═══════════════════════════════▶     r₂─◉  [T-cell 78%]          │
-      │                                                                            │
-      │    ●─q₂          ══════════════════════▶     r₃─◉  [NK    88%]            │
-      │                   ═════════════════════▶      r₄─◉  [NK    71%]            │
-      │                                                                            │
-      │    ●─q₃  · · · · · · · · · · · · · · ▶       r₅─◉  [Mono  95%]           │
-      │           (tiny mass — novel node)                                         │
-      │                                                                            │
-      │  match_fraction[q₁] = Σⱼ P[1,j]/a[1] ≈ 0.95  → label transfer accepted  │
-      │  match_fraction[q₃] = Σⱼ P[3,j]/a[3] ≈ 0.04  → label transfer rejected  │
-      └────────────────────────────────────────────────────────────────────────────┘
+### 2a — Cost matrix
 
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+![](algorithm_files/figure-html/stage2a-1.png)
 
-      STAGE 3 — CORRECTION VECTORS  (per query node)
+### 2b — OT objective
 
-      For query node i, compute a weighted mean pull toward matched reference nodes:
+The transport plan $`P`$ minimises:
 
-             Δᵢ  =  Σⱼ  P[i,j] · (C_ref[j] − C_query[i])
-                    ──────────────────────────────────────
-                                Σⱼ P[i,j]
+``` math
+\sum_{ij} P_{ij} D_{ij}
+  + \varepsilon \cdot \mathrm{KL}(P \,\|\, \mathbf{a}\otimes\mathbf{b})
+  + \rho_q \cdot \mathrm{KL}(P\mathbf{1} \,\|\, \mathbf{a})
+  + \rho_r \cdot \mathrm{KL}(P^\top\!\mathbf{1} \,\|\, \mathbf{b})
+```
 
-      Cartoon (2D feature space, node i = q₁):
+where $`\mathbf{a}`$ and $`\mathbf{b}`$ are the query and reference node
+masses. The KL marginal penalties allow each side to discard unmatched
+mass: a novel query node can route only a small fraction of its mass to
+any reference node. Solved by alternating Sinkhorn scaling (pure-R or
+Python POT backend).
 
-      Feature 2 ▲
-                │          ◉ r₁  ◀── P[1,r₁] large
-                │         ↗
-                │        ↗
-                │   ◉ r₂  ◀─── P[1,r₂] smaller        pulls weighted by transport
-                │      ↘ ↗                              mass sent to each ref node
-                │       ●  q₁  ──────── Δ₁ ──────▶  ×  (shifted centroid)
-                │
-                └──────────────────────────────────────▶ Feature 1
+### 2c — Transport plan
 
-      ‖Δᵢ‖ ≈ 0   node already aligns with its reference counterpart
-      ‖Δᵢ‖ large  systematic displacement; batch effect or population shift
+![](algorithm_files/figure-html/stage2c-1.png)
 
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`match_fraction` near 1 indicates a well-matched node; near 0 indicates
+a novel population with no good reference counterpart (label transfer
+will be rejected for such nodes).
 
-      STAGE 4 — CORRECTED PROJECTION  (auxiliary)
+------------------------------------------------------------------------
 
-      Every sample in query node i is shifted by the same Δᵢ, then re-projected:
+## Stage 3 — Correction vectors
 
-      Feature 2 ▲
-                │      ◉ r_A              ◉ r_B
-                │
-                │            ★ x_s + Δᵢ  ════════════════▶ r_B  corrected_som_unit
-                │           ↗
-                │      Δᵢ ↗   (node-level shift; same for all samples in node i)
-                │     ↗
-                │    × x_s  ─────────────────────────────▶ r_A  old_som_unit
-                │
-                └──────────────────────────────────────────▶ Feature 1
+For each query node $`i`$ the OT plan defines a weighted mean
+displacement toward its matched reference nodes:
 
-        corrected_som_unit = argmin_k  ‖ (x_s + Δᵢ) − C_ref[k] ‖
-        correction_norm    = ‖Δᵢ‖
+``` math
+\Delta_i = \frac{\displaystyle\sum_j P_{ij}\,(C_{\text{ref},j} - C_{\text{query},i})}
+                  {\displaystyle\sum_j P_{ij}}
+```
 
-      Sample reassigns r_A → r_B after OT correction.
-      Both are reported; r_A (old_som_unit) is the primary, conservative result.
+![](algorithm_files/figure-html/stage3-1.png)
 
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+$`\|\Delta_i\| \approx 0`$ means the query node already aligns with its
+reference counterpart. A large $`\|\Delta_i\|`$ indicates a systematic
+displacement (batch effect or population shift).
 
-      STAGE 5 — LABEL TRANSFER  (auxiliary)
+------------------------------------------------------------------------
 
-      For each query node i, read row P[i, ·] to find the dominant reference node:
+## Stage 4 — Corrected projection (auxiliary)
 
-        dominant_j = argmax_j P[i,j]
+Every sample in query node $`i`$ is shifted by the same $`\Delta_i`$ and
+re-projected:
 
-      Bar chart of relative mass across reference nodes (node i = q₁):
+``` math
+\text{corrected\_som\_unit}_s = \arg\min_k \|(x_s + \Delta_i) - C_{\text{ref},k}\|
+```
 
-        r₁  [T-cell 92%]  ████████████████████████  ← dominant (most mass)
-        r₂  [T-cell 78%]  ████████████░░░░░░░░░░░░
-        r₃  [NK    88%]   █████░░░░░░░░░░░░░░░░░░░
-        r₄  [NK    71%]   ███░░░░░░░░░░░░░░░░░░░░░
-        r₅  [Mono  95%]   ░░░░░░░░░░░░░░░░░░░░░░░░
+![](algorithm_files/figure-html/stage4-1.png)
 
-      transferred_label         = label of r₁ = "T-cell"
-      transferred_label_conf    = label purity at r₁ = 0.92
+Both assignments are reported. `old_som_unit` (blue) is the primary
+result; `corrected_som_unit` (red) is auxiliary — use it for
+visualisation and triage.
 
-      Acceptance gate:
-      ┌──────────────────────────────────────────────────────────────────────┐
-      │                                                                      │
-      │   match_fraction[i] ≥ 0.05      AND      confidence ≥ 0.60          │
-      │                                                                      │
-      │   PASS ─▶  transferred_label_accepted = TRUE                        │
-      │   FAIL ─▶  transferred_label_accepted = FALSE                       │
-      │            (node is novel or dominant ref node is too mixed)        │
-      └──────────────────────────────────────────────────────────────────────┘
+------------------------------------------------------------------------
 
-    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+## Stage 5 — Label transfer (auxiliary)
 
-      OUTPUT COLUMNS  (one row per sample)
+For each query node $`i`$ the dominant reference node is identified from
+row $`P[i, \cdot]`$, and its label is transferred if the acceptance
+thresholds are met.
 
-      ┌──────────────────────────────────┬─────────┬────────────────────────────────┐
-      │ Column                           │ Stage   │ Purpose                        │
-      ├──────────────────────────────────┼─────────┼────────────────────────────────┤
-      │ old_som_unit                     │ 1       │ Primary node assignment         │
-      │ old_som_distance                 │ 1       │ Distance to that node           │
-      │ outside_reference_distance       │ 1       │ Novelty flag                   │
-      │ final_status                     │ 1       │ inside / outside / unknown     │
-      │ old_som_label                    │ 1       │ Primary label                  │
-      │ old_som_label_confidence         │ 1       │ Label purity at node            │
-      ├──────────────────────────────────┼─────────┼────────────────────────────────┤
-      │ corrected_som_unit               │ 4       │ OT-corrected assignment        │
-      │ correction_norm                  │ 3 / 4   │ Shift magnitude ‖Δᵢ‖           │
-      ├──────────────────────────────────┼─────────┼────────────────────────────────┤
-      │ transferred_label                │ 5       │ OT-derived label               │
-      │ transferred_label_confidence     │ 5       │ Purity at dominant ref node    │
-      │ transferred_label_accepted       │ 5       │ Gate result (TRUE / FALSE)      │
-      └──────────────────────────────────┴─────────┴────────────────────────────────┘
+![](algorithm_files/figure-html/stage5-1.png)
 
-      COMPLEXITY NOTE
-      OT input is M × K codebook nodes, not n_new × n_ref individual samples.
-      OT solve: O(M · K · iterations) — stays small even at n_new = 10⁶.
-      Per-sample cost: O(n_new · K) nearest-node search, chunked in somalign_fit().
+Label transfer is rejected when `match_fraction < 0.05` (novel node) or
+when the dominant reference node’s label purity
+(`transferred_label_confidence`) is below 0.60 (mixed node).
+
+------------------------------------------------------------------------
+
+## Output columns
+
+| Column                         | Stage | Purpose                          |
+|--------------------------------|-------|----------------------------------|
+| `old_som_unit`                 | 1     | Primary node assignment          |
+| `old_som_distance`             | 1     | Distance to that node            |
+| `outside_reference_distance`   | 1     | Novelty flag                     |
+| `final_status`                 | 1     | inside / outside / unknown       |
+| `old_som_label`                | 1     | Primary label                    |
+| `old_som_label_confidence`     | 1     | Label purity at node             |
+| `corrected_som_unit`           | 4     | OT-corrected assignment          |
+| `correction_norm`              | 3/4   | Shift magnitude $`\|\Delta_i\|`$ |
+| `transferred_label`            | 5     | OT-derived label                 |
+| `transferred_label_confidence` | 5     | Purity at dominant ref node      |
+| `transferred_label_accepted`   | 5     | Gate result (TRUE / FALSE)       |
+
+OT runs on the $`M \times K`$ codebook, not on individual samples.
+Per-sample cost is $`O(n \cdot K)`$ nearest-node search, chunked in
+[`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
