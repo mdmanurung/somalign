@@ -59,8 +59,8 @@ grid <- somalign_sensitivity_grid(
 ```
 
 Returns a data frame with one row per parameter combination, reporting
-transport mass, match fraction, and mass error — useful for checking robustness
-before committing to a single set of OT hyperparameters.
+transport mass, match fraction, and mass error. Consistent values across the
+grid indicate the alignment is not sensitive to the choice of OT hyperparameters.
 
 ## Large datasets
 

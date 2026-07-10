@@ -12,8 +12,8 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
 This workflow applies when you have an existing reference SOM and a separately
-trained query SOM. The key requirement is that both codebooks must live in the
-same feature coordinate system — the reference-scaled space.
+trained query SOM. Both codebooks must be in the same feature coordinate
+system: the reference-scaled space.
 
 ## Building a reference from an existing SOM
 
@@ -34,7 +34,7 @@ units and should be internally transformed with the reference center and scale.
 ## Training the query SOM in reference-scaled space
 
 The query SOM must be trained on new samples transformed with the **reference**
-center and scale — not on raw new data and not on new-data-native z-scores:
+center and scale, not in raw feature units or new-data z-scores:
 
 ```{r, eval = FALSE}
 new_scaled_for_som <- sweep(
@@ -114,14 +114,14 @@ head(results[, c(
 **Direct projection columns** (`old_som_unit`, `old_som_distance`,
 `outside_reference_distance`, `final_status`, `old_som_label`,
 `old_som_label_confidence`) are the primary result. They are based on
-straightforward nearest-node assignment and are independent of the OT solver.
+nearest-node assignment and are independent of the OT solver.
 
 **OT-corrected columns** (`corrected_som_unit`, `corrected_som_distance`,
 `corrected_outside_reference_distance`, `correction_norm`) are auxiliary.
-`somalign_fit()` aligns query SOM nodes to reference SOM nodes via OT,
-computes node-level correction shifts, applies the shift for each sample's
-query SOM node, then projects the corrected position to the nearest reference
-node. Use `corrected_som_unit` for visualisation and triage; keep
+`somalign_fit()` aligns query SOM nodes to reference SOM nodes via OT and
+computes node-level correction shifts. For each sample, the shift is applied
+to the query SOM position and the corrected position is projected to the
+nearest reference node. Use `corrected_som_unit` for visualisation and triage; keep
 `old_som_unit` and `final_status` for conservative classification.
 
 **Label transfer columns** (`transferred_label`, `transferred_label_confidence`,

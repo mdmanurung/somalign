@@ -54,7 +54,7 @@ head(results)
 `somalign_results()` returns one row per query sample. The columns fall into
 three groups:
 
-**Direct projection** (primary result — use these for downstream analysis):
+**Direct projection** (primary result; use these for downstream analysis):
 
 - `old_som_unit`: reference node assigned by direct projection
 - `old_som_distance`: Euclidean distance to that node in reference-scaled space
@@ -66,13 +66,13 @@ three groups:
 - `old_som_label_confidence`: fraction of that node's training mass with the
   majority label
 
-**OT-corrected projection** (auxiliary — use for visualisation and triage):
+**OT-corrected projection** (auxiliary; use for visualisation and triage):
 
 - `corrected_som_unit`: reference node after applying the OT correction shift
 - `corrected_som_distance`: distance to the corrected node
 - `correction_norm`: magnitude of the correction vector in reference-scaled space
 
-**Label transfer** (auxiliary — based on OT correspondence):
+**Label transfer** (auxiliary, based on OT correspondence):
 
 - `transferred_label`: label transferred via OT node correspondence
 - `transferred_label_confidence`: confidence of that transferred label
@@ -113,9 +113,8 @@ grid_results
 ```
 
 Each row reports `transport_mass`, `mean_match_fraction`, and marginal mass
-errors for one parameter combination. Stable label transfer fractions and
-transport masses across the grid indicate the result is not sensitive to the
-choice of `epsilon` or `rho`.
+errors for one parameter combination. Consistent values across rows indicate
+the result is not sensitive to the choice of `epsilon` or `rho`.
 
 ## OT hyperparameters
 
