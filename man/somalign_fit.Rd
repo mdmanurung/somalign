@@ -58,7 +58,7 @@ A \code{somalign_fit} object.
 Align a query SOM to a reference SOM
 }
 \details{
-The transport plan row sums will not equal \code{query$node_masses} exactly — this
+The transport plan row sums will not equal \code{query$node_masses} exactly -- this
 is by design. Unbalanced optimal transport allows mass destruction, so some
 query mass may be absorbed rather than transported. Deviation grows with lower
 \code{rho_query} / \code{rho_ref} values and higher \code{epsilon}. At the defaults
@@ -68,12 +68,12 @@ the deviation in a given fit; for near-balanced data, increase \code{rho_query}
 (e.g. \code{rho_query = 10}) to enforce tighter marginal constraints.
 }
 \examples{
-\dontrun{
 set.seed(1)
 mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
               dimnames = list(NULL, c("F1", "F2")))
-ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"))
-qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"))
+ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+                                rlen = 5)
+qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
+                      rlen = 5)
 fit <- somalign_fit(qry, ref)
-}
 }

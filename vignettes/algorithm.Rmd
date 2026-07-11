@@ -1,8 +1,8 @@
 ---
-title: "Algorithm: step-by-step"
-output: rmarkdown::html_vignette
+title: "Algorithm and interpretation"
+output: BiocStyle::html_document
 vignette: >
-  %\VignetteIndexEntry{Algorithm: step-by-step}
+  %\VignetteIndexEntry{Algorithm and interpretation}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -18,8 +18,14 @@ knitr::opts_chunk$set(
 ```
 
 `somalign` aligns a query SOM to a fixed reference SOM using codebook-level
-KL-unbalanced entropic optimal transport. This vignette traces each stage from
-raw data to the final per-sample output columns.
+KL-unbalanced entropic optimal transport. This vignette is for users who want
+to understand how the output columns are produced, from direct projection to
+OT-derived correction and label-transfer columns.
+
+Direct projection is the primary result. OT-derived corrected projections and
+transferred labels are auxiliary outputs for interpretation, visualisation, and
+triage. The OT stage uses the internal pure-R Sinkhorn solver; there is no
+external transport backend to configure.
 
 ## Pipeline overview
 
@@ -238,7 +244,7 @@ $$\sum_{ij} P_{ij} D_{ij}
 where $\mathbf{a}$ and $\mathbf{b}$ are the query and reference node masses.
 The KL marginal penalties allow each side to discard unmatched mass: a novel
 query node can route only a small fraction of its mass to any reference node.
-Solved by the internal pure-R alternating Sinkhorn scaling implementation.
+Solved by the internal pure-R Sinkhorn scaling implementation.
 
 ### 2c — Transport plan
 
@@ -468,6 +474,10 @@ below 0.60 (mixed node).
 
 ## Output columns
 
+Direct projection columns are the primary result. OT-derived columns are
+auxiliary and should be interpreted alongside the direct assignment and
+diagnostics.
+
 | Column | Stage | Purpose |
 |---|---|---|
 | `old_som_unit` | 1 | Primary node assignment |
@@ -484,3 +494,9 @@ below 0.60 (mixed node).
 
 OT runs on the $M \times K$ codebook, not on individual samples. Per-sample
 cost is $O(n \cdot K)$ nearest-node search, chunked in `somalign_fit()`.
+
+## Session info
+
+```{r sessionInfo, echo = FALSE}
+sessionInfo()
+```

@@ -21,7 +21,7 @@
 #'   (allocates a full n_samples x n_nodes matrix). Default `10000L`.
 #'
 #' @details
-#' The transport plan row sums will not equal `query$node_masses` exactly — this
+#' The transport plan row sums will not equal `query$node_masses` exactly -- this
 #' is by design. Unbalanced optimal transport allows mass destruction, so some
 #' query mass may be absorbed rather than transported. Deviation grows with lower
 #' `rho_query` / `rho_ref` values and higher `epsilon`. At the defaults
@@ -32,14 +32,14 @@
 #'
 #' @return A `somalign_fit` object.
 #' @examples
-#' \dontrun{
 #' set.seed(1)
 #' mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
 #'               dimnames = list(NULL, c("F1", "F2")))
-#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"))
-#' qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"))
+#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                                 rlen = 5)
+#' qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                       rlen = 5)
 #' fit <- somalign_fit(qry, ref)
-#' }
 #' @export
 somalign_fit <- function(query,
                          reference,

@@ -1,8 +1,8 @@
 ---
-title: "Using trained old and new SOMs"
-output: rmarkdown::html_vignette
+title: "Advanced workflow: existing SOMs"
+output: BiocStyle::html_document
 vignette: >
-  %\VignetteIndexEntry{Using trained old and new SOMs}
+  %\VignetteIndexEntry{Advanced workflow: existing SOMs}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -11,14 +11,48 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-This workflow applies when you have an existing reference SOM and a separately
-trained query SOM. Both codebooks must be in the same feature coordinate
-system: the reference-scaled space.
+This vignette is the practical guide for using `somalign` with SOMs or
+node-level artifacts you already trained outside the quick-start workflow.
 
-## Building a reference from an existing SOM
+## When to use this workflow
 
-When building a reference from a saved old SOM, state the codebook coordinate
-system explicitly:
+Use this workflow when you have one or more of:
+
+- an existing old/reference SOM;
+- a separately trained new/query SOM;
+- saved codebooks, node masses, node labels, or distance-threshold artifacts.
+
+The key requirement is that all codebooks used for alignment are represented in
+the same feature coordinate system.
+
+## Coordinate-space requirements
+
+Both reference and query codebooks must be in reference-scaled feature space:
+the feature space produced by centering and scaling with the old/reference
+data. The query SOM must be trained on new samples transformed with
+`reference$center` and `reference$scale`, not raw feature values and not
+new-data z-scores.
+
+```{r, eval = FALSE}
+new_scaled_for_som <- sweep(
+  sweep(new_data[, reference$features], 2, reference$center, "-"),
+  2,
+  reference$scale,
+  "/"
+)
+new_som <- kohonen::som(new_scaled_for_som, grid = ...)
+```
+
+`somalign_query()` still receives the original new data plus the query SOM. It
+uses the saved reference scaling internally for direct sample projection.
+
+## Building references from saved artifacts
+
+There are two supported routes.
+
+Use `somalign_reference()` when you have the old/reference SOM object and the
+old/reference sample matrix. This route recomputes node masses, label
+probabilities, and reference-distance thresholds from the old data:
 
 ```{r, eval = FALSE}
 reference <- somalign_reference(
@@ -31,22 +65,28 @@ reference <- somalign_reference(
 Use `codebook_space = "raw"` only if the old SOM codebook is in raw feature
 units and should be internally transformed with the reference center and scale.
 
-## Training the query SOM in reference-scaled space
-
-The query SOM must be trained on new samples transformed with the **reference**
-center and scale, not in raw feature units or new-data z-scores:
+Use `somalign_reference_from_nodes()` when you no longer have the SOM object or
+old samples, but you have saved node-level artifacts already in
+reference-scaled feature space:
 
 ```{r, eval = FALSE}
-new_scaled_for_som <- sweep(
-  sweep(new_data[, reference$features], 2, reference$center, "-"),
-  2,
-  reference$scale,
-  "/"
+reference <- somalign_reference_from_nodes(
+  codebook = old_codebook,
+  features = feature_names,
+  center = old_center,
+  scale = old_scale,
+  node_masses = old_node_masses,
+  label_prob = old_label_prob,
+  distance_quantiles = old_distance_quantiles
 )
-new_som <- kohonen::som(new_scaled_for_som, grid = ...)
 ```
 
-## Full example
+This route is useful for archived pipelines that export node tables rather than
+full `kohonen` objects. Without saved labels or distance quantiles, direct node
+assignment still works, but label confidence and outside-reference flags will be
+less informative.
+
+## Full existing-SOM example
 
 ```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
 library(kohonen)
@@ -93,7 +133,7 @@ query <- somalign_query(
   som_query = new_som
 )
 
-fit <- somalign_fit(query, reference, solver = "internal")
+fit <- somalign_fit(query, reference)
 results <- somalign_results(fit)
 
 head(results[, c(
@@ -109,62 +149,80 @@ head(results[, c(
 )])
 ```
 
-## Interpreting the output
+## Quality control and tuning
 
-**Direct projection columns** (`old_som_unit`, `old_som_distance`,
-`outside_reference_distance`, `final_status`, `old_som_label`,
-`old_som_label_confidence`) are the primary result. They are based on
-nearest-node assignment and are independent of the OT correction.
+Direct projection columns (`old_som_unit`, `old_som_label`,
+`outside_reference_distance`, `final_status`) remain the primary result.
+Corrected projection and transferred labels are auxiliary outputs from the OT
+correspondence.
 
-**OT-corrected columns** (`corrected_som_unit`, `corrected_som_distance`,
-`corrected_outside_reference_distance`, `correction_norm`) are auxiliary.
-`somalign_fit()` aligns query SOM nodes to reference SOM nodes via OT and
-computes node-level correction shifts. For each sample, the shift is applied
-to the query SOM position and the corrected position is projected to the
-nearest reference node. Use `corrected_som_unit` for visualisation and triage; keep
-`old_som_unit` and `final_status` for conservative classification.
-
-**Label transfer columns** (`transferred_label`, `transferred_label_confidence`,
-`transferred_label_accepted`) propagate reference node labels through the OT
-correspondence. A transfer is accepted only when the query node's match
-fraction ≥ `min_match_fraction` (default 0.05) and the top-label confidence of
-the matched reference node ≥ `confidence_threshold` (default 0.6). Compare
-`transferred_label` against `old_som_label` as a cross-check: large systematic
-differences indicate a poor OT alignment or a high-novelty query.
-
-## Checking OT quality
-
-Inspect `diagnostics$ot$match_fraction` before trusting label transfers. A
-query node with low match fraction is poorly matched to the reference and its
-`transferred_label_accepted` will be `FALSE`.
+Inspect diagnostics before trusting label transfer:
 
 ```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
-diag <- somalign_diagnostics(fit)
-diag$ot$match_fraction   # per query node
-diag$ot$transport_mass   # total transported mass (< 1 = some mass discarded)
+diagnostics <- somalign_diagnostics(fit)
+
+diagnostics$solver                 # solver diagnostics
+diagnostics$ot$match_fraction      # per-query-node matched fraction
+diagnostics$ot$transport_mass      # total transported mass
+diagnostics$ot$max_row_mass_error  # query-side marginal deviation
 ```
 
-Use `somalign_sensitivity_grid()` to check that findings are stable across OT
-hyperparameters:
+Low `diagnostics$ot$match_fraction` means a query node has little transported
+mass to the reference. Interpret that as a poor reference match, a novel query
+population, or a mismatch in codebook coordinate space. Labels transferred from
+low-match nodes should not be overinterpreted.
+
+`diagnostics$ot$transport_mass` reports how much mass the unbalanced OT plan
+transported overall. `diagnostics$ot$max_row_mass_error` reports the largest
+query-node marginal deviation; higher values mean the unbalanced fit discarded
+or absorbed more query mass. This can be appropriate for novel query content,
+but it should be visible in your QC notes.
+
+Use `somalign_sensitivity_grid()` to check whether auxiliary outputs are stable
+across OT hyperparameters:
 
 ```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
-somalign_sensitivity_grid(
+sensitivity <- somalign_sensitivity_grid(
   query, reference,
   epsilon   = c(0.05, 0.1),
   rho_query = c(0.5, 1),
-  rho_ref   = 1,
-  solver    = "internal"
+  rho_ref   = 1
 )
+sensitivity[, c(
+  "epsilon",
+  "rho_query",
+  "transport_mass",
+  "mean_match_fraction",
+  "max_row_mass_error",
+  "accepted_label_fraction"
+)]
 ```
+
+High sensitivity across `epsilon` or `rho_query` means the OT-derived outputs
+are not stable. In that case, keep direct projection as the main result and do
+not overinterpret transferred labels or corrected node assignments.
 
 ## Practical checklist
 
 - Use identical feature names and feature order. `somalign_query()` reorders
   columns to `reference$features` and fails if any are missing.
-- Train the query SOM in reference-scaled space as shown above.
-- Treat `corrected_som_unit` and `transferred_label` as annotation support.
-  Keep `old_som_unit`, `outside_reference_distance`, and `final_status` as the
-  conservative classification.
+- Confirm old/reference and new/query codebooks are in reference-scaled feature
+  space.
+- Train the query SOM with `reference$center` and `reference$scale`, not
+  query-data scaling.
+- Keep direct projection (`old_som_unit`, `outside_reference_distance`,
+  `final_status`, `old_som_label`) as the primary result.
+- Treat corrected projection and transferred labels as auxiliary annotation
+  support.
+- Inspect `somalign_diagnostics()` before trusting label transfer.
+- Use `somalign_sensitivity_grid()` when conclusions depend on corrected nodes
+  or transferred labels.
 - If you only have a saved query SOM codebook, you can pass a matrix as
   `som_query`, provided it is already in the reference-scaled feature space with
   columns named with `reference$features`.
+
+## Session info
+
+```{r sessionInfo, echo = FALSE}
+sessionInfo()
+```

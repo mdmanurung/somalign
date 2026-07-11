@@ -4,15 +4,15 @@
 #'
 #' @return A named list of solver, OT, node, and projection diagnostics.
 #' @examples
-#' \dontrun{
 #' set.seed(1)
 #' mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
 #'               dimnames = list(NULL, c("F1", "F2")))
-#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"))
-#' qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"))
+#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                                 rlen = 5)
+#' qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                       rlen = 5)
 #' fit <- somalign_fit(qry, ref)
 #' somalign_diagnostics(fit)
-#' }
 #' @export
 somalign_diagnostics <- function(fit) {
   if (!inherits(fit, "somalign_fit")) {
@@ -31,25 +31,27 @@ somalign_diagnostics <- function(fit) {
 #' @param solver Solver passed to `somalign_fit()`. `"auto"` is accepted as a
 #'   compatibility alias for the internal pure-R solver.
 #' @param parallel Logical. When `TRUE`, grid rows are evaluated in parallel
-#'   using [parallel::mclapply()] with `mc.cores = getOption("mc.cores", 1L)`.
-#'   On Windows `mclapply` falls back to a single core automatically. When
+#'   using [BiocParallel::bplapply()] with the registered
+#'   `BiocParallel` back-end (see [BiocParallel::register()]). Configure the
+#'   back-end before calling this function, e.g.
+#'   `BiocParallel::register(BiocParallel::MulticoreParam(workers = 4))`. When
 #'   `FALSE` (default) a sequential for-loop is used, which is fully
 #'   reproducible across platforms.
 #' @param ... Additional arguments passed to `somalign_fit()`.
 #'
 #' @return A data frame with one row per parameter combination.
 #' @examples
-#' \dontrun{
 #' set.seed(1)
 #' mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
 #'               dimnames = list(NULL, c("F1", "F2")))
-#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"))
-#' qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"))
+#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                                 rlen = 5)
+#' qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                       rlen = 5)
 #' somalign_sensitivity_grid(qry, ref,
 #'                           epsilon = c(0.05, 0.1),
 #'                           rho_query = c(0.5, 1),
 #'                           rho_ref = 1)
-#' }
 #' @export
 somalign_sensitivity_grid <- function(query,
                                       reference,
@@ -97,17 +99,16 @@ somalign_sensitivity_grid <- function(query,
   }
 
   if (isTRUE(parallel)) {
-    if (!requireNamespace("parallel", quietly = TRUE)) {
+    if (!requireNamespace("BiocParallel", quietly = TRUE)) {
       stop(
-        "Package 'parallel' is required when parallel = TRUE. ",
+        "Package 'BiocParallel' is required when parallel = TRUE. ",
         "Install it or set parallel = FALSE.",
         call. = FALSE
       )
     }
-    rows <- parallel::mclapply(
+    rows <- BiocParallel::bplapply(
       seq_len(nrow(grid)),
-      .run_one,
-      mc.cores = getOption("mc.cores", 1L)
+      .run_one
     )
   } else {
     rows <- vector("list", nrow(grid))

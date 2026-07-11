@@ -1,8 +1,8 @@
 ---
-title: "Aligning SOMs with somalign"
-output: rmarkdown::html_vignette
+title: "Quick start"
+output: BiocStyle::html_document
 vignette: >
-  %\VignetteIndexEntry{Aligning SOMs with somalign}
+  %\VignetteIndexEntry{Quick start}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -11,11 +11,10 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-`somalign` keeps direct projection into the fixed reference SOM as the primary
-classification. Optimal transport is used to describe query-to-reference node
-correspondence and to produce auxiliary corrected projection columns.
+This vignette shows the shortest complete `somalign` workflow: train a
+reference SOM, align query samples, and inspect the main per-sample columns.
 
-## Basic workflow
+## Quick start
 
 ```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
 library(kohonen)
@@ -44,100 +43,61 @@ query_obj <- somalign_query(
   rlen = 5
 )
 
-fit <- somalign_fit(query_obj, reference, solver = "internal")
+fit <- somalign_fit(query_obj, reference)
 results <- somalign_results(fit)
-head(results)
 ```
 
-## Output columns
+## What to look at first
 
-`somalign_results()` returns one row per query sample. The columns fall into
-three groups:
-
-**Direct projection** (primary result; use these for downstream analysis):
-
-- `old_som_unit`: reference node assigned by direct projection
-- `old_som_distance`: Euclidean distance to that node in reference-scaled space
-- `outside_reference_distance`: `TRUE` if distance exceeds the per-node
-  distance quantile threshold derived from reference training data
-- `final_status`: `"inside_reference"`, `"outside_reference"`, or
-  `"unknown_reference_distance"` (when no threshold is available for the node)
-- `old_som_label`: majority label of the assigned reference node
-- `old_som_label_confidence`: fraction of that node's training mass with the
-  majority label
-
-**OT-corrected projection** (auxiliary; use for visualisation and triage):
-
-- `corrected_som_unit`: reference node after applying the OT correction shift
-- `corrected_som_distance`: distance to the corrected node
-- `correction_norm`: magnitude of the correction vector in reference-scaled space
-
-**Label transfer** (auxiliary, based on OT correspondence):
-
-- `transferred_label`: label transferred via OT node correspondence
-- `transferred_label_confidence`: confidence of that transferred label
-- `transferred_label_accepted`: `TRUE` when match fraction ≥ `min_match_fraction`
-  and label confidence ≥ `confidence_threshold`
+`somalign_results()` returns one row per query sample. Start with these columns:
 
 ```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
-names(results)
+head(results[, c(
+  "old_som_unit",
+  "old_som_label",
+  "outside_reference_distance",
+  "final_status",
+  "corrected_som_unit",
+  "correction_norm",
+  "transferred_label",
+  "transferred_label_accepted"
+)])
 ```
 
-## Diagnostics
+## Interpreting the result
 
-```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
-diag <- somalign_diagnostics(fit)
+Direct projection into the fixed reference SOM is the primary result. Use
+`old_som_unit`, `old_som_label`, `outside_reference_distance`, and
+`final_status` when you need the conservative reference assignment for each
+query sample.
 
-# Which solver was used, and any fallback notes
-diag$solver
+Corrected projection is auxiliary. `corrected_som_unit` is computed after an
+optimal-transport correction shift is applied to the query sample's SOM node.
+Large `correction_norm` values point to stronger query-to-reference shifts and
+are useful for visualisation or triage, but they should not replace direct
+projection as the primary classification.
 
-# Per-node OT statistics
-diag$ot
+Transferred labels are also auxiliary. `transferred_label` is derived from
+codebook-level OT correspondence and is accepted only when the query node has
+enough transported match fraction and the matched reference label is confident.
+Use `transferred_label_accepted` before treating a transferred label as usable.
+
+## Next steps
+
+Use `vignette("pretrained-old-and-new-soms", package = "somalign")` when you
+already have saved or separately trained reference/query SOMs. It covers
+reference-scaled codebooks, node-level artifacts, diagnostics, and tuning.
+
+Use `vignette("algorithm", package = "somalign")` when you want to understand
+how direct projection, OT correspondence, correction vectors, and label transfer
+produce the output columns.
+
+For fitted objects, `somalign_diagnostics()` reports solver diagnostics and
+OT quality metrics. Use `somalign_sensitivity_grid()` when label transfer or
+corrected projection needs to be checked across OT hyperparameters.
+
+## Session info
+
+```{r sessionInfo, echo = FALSE}
+sessionInfo()
 ```
-
-## Sensitivity analysis
-
-Use `somalign_sensitivity_grid()` to evaluate robustness across OT
-hyperparameter combinations before committing to a single fit:
-
-```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
-grid_results <- somalign_sensitivity_grid(
-  query_obj,
-  reference,
-  epsilon   = c(0.05, 0.1, 0.5),
-  rho_query = c(0.5, 1),
-  rho_ref   = 1,
-  solver    = "internal"
-)
-grid_results
-```
-
-Each row reports `transport_mass`, `mean_match_fraction`, and marginal mass
-errors for one parameter combination. Consistent values across rows indicate
-the result is not sensitive to the choice of `epsilon` or `rho`.
-
-## OT hyperparameters
-
-`somalign_fit()` exposes three OT hyperparameters:
-
-- **`epsilon`** (default `0.05`): entropic regularisation. Smaller values give
-  a sparser, more deterministic transport plan; larger values give a smoother
-  plan that converges faster. If > 1% of Sinkhorn kernel entries underflow, a
-  warning gives a safe lower bound.
-- **`rho_query`** / **`rho_ref`** (default `1`): KL-divergence marginal
-  penalty. Larger values enforce tighter mass conservation (approaches balanced
-  OT); smaller values allow more mass to be discarded (appropriate when the
-  query contains populations absent from the reference). The deviation of row
-  sums from input masses is reported in `diagnostics$ot$max_row_mass_error`.
-
-## Large datasets
-
-For large query sets, projection is computed in chunks to cap peak memory:
-
-```r
-fit <- somalign_fit(query_obj, reference, chunk_size = 5000L)
-```
-
-The default `chunk_size = 10000L` limits peak allocation to
-`10000 × n_reference_nodes` doubles. Set `chunk_size = Inf` to use a single
-full matrix allocation.

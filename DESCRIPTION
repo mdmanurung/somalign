@@ -1,8 +1,9 @@
 Package: somalign
 Title: Align Query SOMs to Fixed Kohonen Reference SOMs
-Version: 0.1.0
+Version: 0.99.0
 Authors@R: person("Mikhael", "Manurung", role = c("aut", "cre"),
-    email = "mikhael.manurung@gmail.com")
+    email = "mikhael.manurung@gmail.com",
+    comment = c(ORCID = "0000-0000-0000-0000"))
 Description: Aligns query self-organising maps to fixed 'kohonen' reference maps
     using codebook-level unbalanced entropic optimal transport. Direct
     reference projection is kept as the conservative primary result, with
@@ -13,15 +14,17 @@ BugReports: https://github.com/mdmanurung/somalign/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
+biocViews: Software, FlowCytometry, SingleCell, Clustering, Normalization
+Depends:
+    R (>= 4.4)
 Imports:
     kohonen,
     stats
 Suggests:
-    bench,
+    BiocParallel,
+    BiocStyle,
     DiagrammeR,
     knitr,
-    microbenchmark,
-    parallel,
     pkgdown,
     rmarkdown,
     testthat (>= 3.0.0)
@@ -32,4 +35,5 @@ Config/Needs/website:
     pkgdown,
     knitr,
     rmarkdown,
-    DiagrammeR
+    DiagrammeR,
+    BiocStyle

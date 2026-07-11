@@ -103,6 +103,7 @@ test_that("a separately trained query SOM can be corrected and projected to old 
 
 test_that("somalign_sensitivity_grid parallel = TRUE returns same structure as sequential", {
   skip_if_not_installed("kohonen")
+  skip_if_not_installed("BiocParallel")
 
   set.seed(99L)
   old <- rbind(

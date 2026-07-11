@@ -12,6 +12,15 @@ navbar:
     left:  [intro, reference, articles, news]
     right: [search, github]
   components:
+    articles:
+      text: Articles
+      menu:
+      - text: Quick start
+        href: articles/somalign.html
+      - text: "Advanced workflow: existing SOMs"
+        href: articles/pretrained-old-and-new-soms.html
+      - text: Algorithm and interpretation
+        href: articles/algorithm.html
     github:
       icon: fab fa-github fa-lg
       href: https://github.com/mdmanurung/somalign
@@ -33,7 +42,7 @@ reference:
   - somalign_sensitivity_grid
 
 articles:
-- title: Vignettes
+- title: Articles
   contents:
   - somalign
   - pretrained-old-and-new-soms

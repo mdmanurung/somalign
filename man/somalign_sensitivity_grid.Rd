@@ -30,9 +30,11 @@ somalign_sensitivity_grid(
 compatibility alias for the internal pure-R solver.}
 
 \item{parallel}{Logical. When \code{TRUE}, grid rows are evaluated in parallel
-using \code{\link[parallel:mclapply]{parallel::mclapply()}} with \code{mc.cores = getOption("mc.cores", 1L)}.
-On Windows \code{mclapply} falls back to a single core automatically. When
-\code{FALSE} (default) a sequential for-loop is used, which is fully
+using \code{\link[BiocParallel:bplapply]{BiocParallel::bplapply()}} with the registered
+\code{BiocParallel} back-end (see \code{\link[BiocParallel:register]{BiocParallel::register()}}).
+Configure the back-end before calling this function, e.g.
+\code{BiocParallel::register(BiocParallel::MulticoreParam(workers = 4))}.
+When \code{FALSE} (default) a sequential for-loop is used, which is fully
 reproducible across platforms.}
 
 \item{...}{Additional arguments passed to \code{somalign_fit()}.}
@@ -44,15 +46,15 @@ A data frame with one row per parameter combination.
 Run an OT sensitivity grid
 }
 \examples{
-\dontrun{
 set.seed(1)
 mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
               dimnames = list(NULL, c("F1", "F2")))
-ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"))
-qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"))
+ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+                                rlen = 5)
+qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
+                      rlen = 5)
 somalign_sensitivity_grid(qry, ref,
                           epsilon = c(0.05, 0.1),
                           rho_query = c(0.5, 1),
                           rho_ref = 1)
-}
 }

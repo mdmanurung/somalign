@@ -16,13 +16,13 @@
 #'
 #' @return A `somalign_query` object.
 #' @examples
-#' \dontrun{
 #' set.seed(1)
 #' mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
 #'               dimnames = list(NULL, c("F1", "F2")))
-#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"))
-#' qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"))
-#' }
+#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                                 rlen = 5)
+#' qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                       rlen = 5)
 #' @export
 somalign_query <- function(data,
                            reference,

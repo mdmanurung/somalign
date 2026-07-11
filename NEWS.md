@@ -1,4 +1,4 @@
-# somalign 0.1.0
+# somalign 0.99.0
 
 * Added `somalign_train_reference()` and `somalign_reference()` to train or
   wrap an existing `kohonen` SOM as a fixed reference object, including node
@@ -27,4 +27,4 @@
 * Added `somalign_sensitivity_grid()` to sweep a grid of OT hyperparameters
   (`epsilon`, `rho_query`, `rho_ref`) and return a summary data frame for
   tuning and stability assessment. Supports optional parallelisation via
-  `parallel::mclapply()`.
+  `BiocParallel::bplapply()` when `parallel = TRUE`.

@@ -1,3 +1,9 @@
+#' Print a somalign_reference object
+#'
+#' @param x A \code{somalign_reference} object.
+#' @param ... Ignored.
+#'
+#' @return \code{x}, invisibly.
 #' @export
 print.somalign_reference <- function(x, ...) {
   cat(
@@ -10,6 +16,12 @@ print.somalign_reference <- function(x, ...) {
   invisible(x)
 }
 
+#' Print a somalign_query object
+#'
+#' @param x A \code{somalign_query} object.
+#' @param ... Ignored.
+#'
+#' @return \code{x}, invisibly.
 #' @export
 print.somalign_query <- function(x, ...) {
   cat(
@@ -22,6 +34,12 @@ print.somalign_query <- function(x, ...) {
   invisible(x)
 }
 
+#' Print a somalign_fit object
+#'
+#' @param x A \code{somalign_fit} object.
+#' @param ... Ignored.
+#'
+#' @return \code{x}, invisibly.
 #' @export
 print.somalign_fit <- function(x, ...) {
   cat(

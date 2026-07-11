@@ -36,12 +36,11 @@ A \code{somalign_reference} object.
 Train a reference SOM and build a somalign reference
 }
 \examples{
-\dontrun{
 set.seed(1)
 mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
               dimnames = list(NULL, c("F1", "F2")))
 labels <- rep(c("A", "B"), each = 5)
 ref <- somalign_train_reference(mat, labels = labels,
-                                grid = kohonen::somgrid(2, 2, "hexagonal"))
-}
+                                grid = kohonen::somgrid(2, 2, "hexagonal"),
+                                rlen = 5)
 }

@@ -51,64 +51,11 @@ Key output columns in `results`:
 | `transferred_label_confidence` | Confidence of the transferred label |
 | `transferred_label_accepted` | `TRUE` if match fraction and confidence thresholds are met |
 
-## Sensitivity analysis
+## Learn more
 
-```r
-grid <- somalign_sensitivity_grid(
-  query, reference,
-  epsilon   = c(0.05, 0.1, 0.5),
-  rho_query = c(0.5, 1, 5),
-  rho_ref   = 1
-)
-```
-
-Returns a data frame with one row per parameter combination, reporting
-transport mass, match fraction, and mass error. Consistent values across the
-grid indicate the alignment is not sensitive to the choice of OT hyperparameters.
-
-## Large datasets
-
-For large query sets, `somalign_fit()` projects samples in chunks to bound peak
-memory:
-
-```r
-fit <- somalign_fit(query, reference, chunk_size = 5000L)  # default: 10000L
-```
-
-Set `chunk_size = Inf` to disable chunking and allocate the full
-`n_samples × n_nodes` distance matrix at once.
-
-## OT solver
-
-By default, `somalign` uses an internal pure-R generalized Sinkhorn solver for
-KL-unbalanced entropic optimal transport. The solver has no Python dependency.
-`solver = "auto"` is accepted as a compatibility alias and also uses the
-internal solver.
-
-```r
-# Explicitly select the internal solver
-fit <- somalign_fit(query, reference, solver = "internal")
-
-# Inspect which solver was used and any notes
-somalign_diagnostics(fit)$solver
-```
-
-## Pre-trained SOMs
-
-If you already trained a query SOM, train it on new samples transformed
-with the reference `center` and `scale`, then pass it as
-`somalign_query(new_data, reference, som_query = new_som)`.
-
-If you build a reference from an existing SOM, state the codebook
-coordinate system explicitly:
-
-```r
-reference <- somalign_reference(
-  old_som,
-  old_matrix,
-  codebook_space = "reference_scaled"  # or "raw"
-)
-```
-
-See `vignette("pretrained-old-and-new-soms", package = "somalign")` for the
-full pre-trained SOM workflow.
+- `vignette("somalign", package = "somalign")`: quick start from reference
+  training to result inspection.
+- `vignette("pretrained-old-and-new-soms", package = "somalign")`: existing
+  SOMs, saved codebooks, diagnostics, and tuning.
+- `vignette("algorithm", package = "somalign")`: algorithm and output-column
+  interpretation.

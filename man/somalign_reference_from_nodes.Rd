@@ -40,7 +40,6 @@ A \code{somalign_reference} object.
 Build a reference object from saved node-level artifacts
 }
 \examples{
-\dontrun{
 cb <- matrix(c(0.1, 0.2, -0.1, 0.3, 0.4, -0.2, 0.0, 0.1),
              nrow = 4, ncol = 2,
              dimnames = list(NULL, c("F1", "F2")))
@@ -50,5 +49,4 @@ ref <- somalign_reference_from_nodes(
   center   = c(F1 = 0, F2 = 0),
   scale    = c(F1 = 1, F2 = 1)
 )
-}
 }
