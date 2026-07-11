@@ -18,14 +18,13 @@ knitr::opts_chunk$set(
 ```
 
 `somalign` aligns a query SOM to a fixed reference SOM using codebook-level
-KL-unbalanced entropic optimal transport. This vignette is for users who want
-to understand how the output columns are produced, from direct projection to
-OT-derived correction and label-transfer columns.
+KL-unbalanced entropic optimal transport. This page walks through each stage
+of the pipeline, explaining how direct projection, the OT correspondence,
+correction vectors, and label transfer each contribute to the output columns.
 
-Direct projection is the primary result. OT-derived corrected projections and
-transferred labels are auxiliary outputs for interpretation, visualisation, and
-triage. The OT stage uses the internal pure-R Sinkhorn solver; there is no
-external transport backend to configure.
+The OT stage uses the internal pure-R Sinkhorn solver. There is no external
+transport backend to configure. Direct projection is always computed first and
+is the primary result; the OT-derived columns are auxiliary.
 
 ## Pipeline overview
 
@@ -95,9 +94,10 @@ match_frac <- rowSums(P) / query$mass
 ## Stage 0 — Training both SOMs
 
 The reference SOM is trained on labelled old data after z-score normalisation
-(centre $\mu$ and scale $\sigma$ computed from old data). The query SOM is trained
-on new data transformed with the **reference** $\mu$ and $\sigma$ — not new-data
-z-scores — so both codebooks live in the same feature coordinate system.
+with the old-data mean $\mu$ and standard deviation $\sigma$. The query SOM
+must be trained on new data transformed with those same reference parameters —
+not new-data z-scores — so that both codebooks lie in the same feature
+coordinate system.
 
 ```{r stage0, echo = FALSE, fig.height = 3.5}
 par(mfrow = c(1, 2), mar = c(1, 1, 2.5, 1))
@@ -136,10 +136,12 @@ mtext("(unlabelled)", side = 1, line = 0, cex = 0.7, col = "grey40")
 
 ## Stage 1 — Direct projection (primary result)
 
-Every new sample $x_s$ is assigned to the nearest reference node:
+Every new sample $x_s$ is assigned to its nearest reference node by Euclidean
+distance:
 $$k^* = \arg\min_k \|x_s - C_{\text{ref},k}\|$$
 
-No optimal transport is involved. This is the primary, conservative result.
+No transport is involved. The assignment is deterministic given the reference
+codebook and is the result to use for downstream analysis.
 
 ```{r stage1, echo = FALSE}
 par(mar = c(4, 4, 3, 2))
@@ -192,8 +194,9 @@ legend("bottomright",
 
 ## Stage 2 — OT on codebooks
 
-OT is solved once on the **codebooks** ($M$ query nodes × $K$ reference nodes),
-not on individual samples.
+Transport is solved once on the **codebooks** ($M$ query nodes × $K$ reference
+nodes), not on individual samples, keeping the problem dimensionality
+independent of sample count.
 
 ### 2a — Cost matrix
 
@@ -242,9 +245,11 @@ $$\sum_{ij} P_{ij} D_{ij}
   + \rho_r \cdot \mathrm{KL}(P^\top\!\mathbf{1} \,\|\, \mathbf{b})$$
 
 where $\mathbf{a}$ and $\mathbf{b}$ are the query and reference node masses.
-The KL marginal penalties allow each side to discard unmatched mass: a novel
-query node can route only a small fraction of its mass to any reference node.
-Solved by the internal pure-R Sinkhorn scaling implementation.
+The KL marginal penalties relax the balance constraint: mass can be destroyed
+rather than transported, so a query node with no good reference counterpart
+routes only a small fraction of its mass rather than forcing an artificial
+match. The plan is found by the internal pure-R Sinkhorn scaling
+implementation.
 
 ### 2c — Transport plan
 
@@ -293,9 +298,9 @@ text(0.50, 0.01,
      cex = 0.65, col = "grey40")
 ```
 
-`match_fraction` near 1 indicates a well-matched node; near 0 indicates a
-novel population with no good reference counterpart (label transfer will be
-rejected for such nodes).
+`match_fraction` near 1 means the node transported most of its mass to
+reference nodes; near 0 means little overlap with any reference population.
+Label transfer is rejected for low-match nodes.
 
 ---
 
@@ -351,9 +356,10 @@ text(cx + delta_x + 0.22, cy + delta_y + 0.12,
      expression(Delta[1]), cex = 1.1, col = "#222222", font = 2)
 ```
 
-$\|\Delta_i\| \approx 0$ means the query node already aligns with its reference
-counterpart. A large $\|\Delta_i\|$ indicates a systematic displacement (batch
-effect or population shift).
+A small $\|\Delta_i\|$ means the query node sits close to its matched reference
+positions. A large value indicates a systematic offset — potentially a batch
+effect or a true population shift — and is worth examining before accepting
+the corrected projection.
 
 ---
 
@@ -420,15 +426,17 @@ legend("bottomright",
        cex = 0.75, bty = "n")
 ```
 
-Both assignments are reported. `old_som_unit` (blue) is the primary result;
-`corrected_som_unit` (red) is auxiliary — use it for visualisation and triage.
+Both assignments are reported in the results table. `old_som_unit` (blue) is
+the primary result; `corrected_som_unit` (red) is intended for visualisation
+and triage, not as a replacement assignment.
 
 ---
 
 ## Stage 5 — Label transfer (auxiliary)
 
-For each query node $i$ the dominant reference node is identified from row
-$P[i, \cdot]$, and its label is transferred if the acceptance thresholds are met.
+For each query node $i$, the reference node with the highest transported mass
+in row $P[i, \cdot]$ is identified as the dominant match, and its label is
+transferred when both acceptance thresholds are passed.
 
 ```{r stage5, echo = FALSE, fig.height = 3.8}
 par(mar = c(5, 4.5, 3, 2))
@@ -466,17 +474,17 @@ mtext(sprintf(
       col  = if (gate_ok) "darkgreen" else "firebrick")
 ```
 
-Label transfer is rejected when `match_fraction < 0.05` (novel node) or when
-the dominant reference node's label purity (`transferred_label_confidence`) is
-below 0.60 (mixed node).
+Transfer is rejected at two gates: `match_fraction < 0.05` (node has no
+meaningful reference overlap) and `transferred_label_confidence < 0.60` (the
+dominant reference node is too mixed to assign a clean label).
 
 ---
 
 ## Output columns
 
 Direct projection columns are the primary result. OT-derived columns are
-auxiliary and should be interpreted alongside the direct assignment and
-diagnostics.
+auxiliary — they should always be read alongside the direct assignment and the
+`somalign_diagnostics()` output.
 
 | Column | Stage | Purpose |
 |---|---|---|
@@ -492,8 +500,9 @@ diagnostics.
 | `transferred_label_confidence` | 5 | Purity at dominant ref node |
 | `transferred_label_accepted` | 5 | Gate result (TRUE / FALSE) |
 
-OT runs on the $M \times K$ codebook, not on individual samples. Per-sample
-cost is $O(n \cdot K)$ nearest-node search, chunked in `somalign_fit()`.
+OT runs once on the $M \times K$ codebook matrix. The per-sample cost is an
+$O(n \cdot K)$ nearest-node search, performed in configurable chunks by
+`somalign_fit()` to keep memory use predictable.
 
 ## Session info
 

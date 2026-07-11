@@ -11,8 +11,10 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-This vignette shows the shortest complete `somalign` workflow: train a
-reference SOM, align query samples, and inspect the main per-sample columns.
+`somalign` aligns a query self-organising map to a fixed reference SOM using
+codebook-level unbalanced entropic optimal transport. The example below trains
+a reference SOM on labelled old samples, then projects a shifted query dataset
+into that reference.
 
 ## Quick start
 
@@ -66,35 +68,38 @@ head(results[, c(
 
 ## Interpreting the result
 
-Direct projection into the fixed reference SOM is the primary result. Use
-`old_som_unit`, `old_som_label`, `outside_reference_distance`, and
-`final_status` when you need the conservative reference assignment for each
-query sample.
+**Direct projection** (`old_som_unit`, `old_som_label`, `outside_reference_distance`,
+`final_status`) is the primary result. Each query sample is assigned to its
+nearest reference node by Euclidean distance in the shared feature space.
+No transport is involved; the assignment is deterministic given the reference
+codebook.
 
-Corrected projection is auxiliary. `corrected_som_unit` is computed after an
-optimal-transport correction shift is applied to the query sample's SOM node.
-Large `correction_norm` values point to stronger query-to-reference shifts and
-are useful for visualisation or triage, but they should not replace direct
-projection as the primary classification.
+**Corrected projection** (`corrected_som_unit`, `correction_norm`) is auxiliary.
+The OT plan shifts each query SOM node toward its matched reference nodes, and
+query samples are then re-projected from the shifted position. A large
+`correction_norm` points to a systematic displacement between the query and
+reference populations — useful for visualisation and triage, but not a
+replacement for the direct assignment.
 
-Transferred labels are also auxiliary. `transferred_label` is derived from
-codebook-level OT correspondence and is accepted only when the query node has
-enough transported match fraction and the matched reference label is confident.
-Use `transferred_label_accepted` before treating a transferred label as usable.
+**Transferred labels** (`transferred_label`, `transferred_label_accepted`) are
+also auxiliary, derived from the same OT correspondence. A label is accepted
+only when the query node has sufficient transported mass and the dominant
+matched reference label is confident enough. Always check
+`transferred_label_accepted` before using a transferred label downstream.
 
 ## Next steps
 
-Use `vignette("pretrained-old-and-new-soms", package = "somalign")` when you
-already have saved or separately trained reference/query SOMs. It covers
-reference-scaled codebooks, node-level artifacts, diagnostics, and tuning.
+`vignette("pretrained-old-and-new-soms", package = "somalign")` covers the
+workflow for existing reference or query SOMs: reference-scaled codebooks,
+node-level artifacts, diagnostics, and hyperparameter tuning.
 
-Use `vignette("algorithm", package = "somalign")` when you want to understand
-how direct projection, OT correspondence, correction vectors, and label transfer
-produce the output columns.
+`vignette("algorithm", package = "somalign")` walks through each pipeline
+stage — direct projection, OT correspondence, correction vectors, label
+transfer — and explains how they produce the output columns.
 
-For fitted objects, `somalign_diagnostics()` reports solver diagnostics and
-OT quality metrics. Use `somalign_sensitivity_grid()` when label transfer or
-corrected projection needs to be checked across OT hyperparameters.
+For fitted objects, `somalign_diagnostics()` reports solver convergence and OT
+quality metrics. `somalign_sensitivity_grid()` sweeps OT hyperparameters to
+check whether corrected projection and label transfer are stable.
 
 ## Session info
 
