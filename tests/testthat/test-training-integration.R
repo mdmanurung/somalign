@@ -1,7 +1,7 @@
 test_that("training, alignment, and sensitivity grid work on synthetic data", {
   skip_if_not_installed("kohonen")
 
-  set.seed(42)
+  withr::local_seed(42)
   old <- rbind(
     matrix(rnorm(20 * 40, mean = -1), ncol = 40),
     matrix(rnorm(20 * 40, mean = 1), ncol = 40)
@@ -64,7 +64,7 @@ test_that("training, alignment, and sensitivity grid work on synthetic data", {
 test_that("a separately trained query SOM can be corrected and projected to old nodes", {
   skip_if_not_installed("kohonen")
 
-  set.seed(7)
+  withr::local_seed(7)
   old <- rbind(
     matrix(rnorm(12 * 8, mean = -1), ncol = 8),
     matrix(rnorm(12 * 8, mean = 1), ncol = 8)
@@ -105,7 +105,7 @@ test_that("somalign_sensitivity_grid parallel = TRUE returns same structure as s
   skip_if_not_installed("kohonen")
   skip_if_not_installed("BiocParallel")
 
-  set.seed(99L)
+  withr::local_seed(99L)
   old <- rbind(
     matrix(rnorm(10 * 4, mean = -1), ncol = 4),
     matrix(rnorm(10 * 4, mean =  1), ncol = 4)

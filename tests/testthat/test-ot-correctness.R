@@ -4,12 +4,12 @@
 ##   (a) solver determinism
 ##   (b) near-identity transport when query codebook == reference codebook
 ##   (c) presence of new diagnostic fields (converged, final_delta, cost_scale)
-##   (d) known-truth label-transfer accuracy on well-separated synthetic data
+##   (d) known-truth label-transfer accuracy on well-separated clusters
 ##   (e) all-zero mass warning from the input validator
 
 test_that("somalign_fit is deterministic: same inputs give identical transport plans", {
   skip_if_not_installed("kohonen")
-  set.seed(11)
+  withr::local_seed(11)
   mat <- rbind(
     matrix(rnorm(15 * 4, mean = -1), ncol = 4),
     matrix(rnorm(15 * 4, mean =  1), ncol = 4)
@@ -28,7 +28,7 @@ test_that("somalign_fit is deterministic: same inputs give identical transport p
 
 test_that("identical codebooks concentrate plan on diagonal", {
   skip_if_not_installed("kohonen")
-  set.seed(22)
+  withr::local_seed(22)
   mat <- rbind(
     matrix(rnorm(20 * 3, mean = -2), ncol = 3),
     matrix(rnorm(20 * 3, mean =  2), ncol = 3)
@@ -51,7 +51,7 @@ test_that("identical codebooks concentrate plan on diagonal", {
 
 test_that("diagnostics$solver contains converged, final_delta, and cost_scale fields", {
   skip_if_not_installed("kohonen")
-  set.seed(33)
+  withr::local_seed(33)
   mat <- matrix(rnorm(20 * 2), ncol = 2,
                 dimnames = list(NULL, c("F1", "F2")))
   ref <- somalign_train_reference(
@@ -73,7 +73,7 @@ test_that("diagnostics$solver contains converged, final_delta, and cost_scale fi
 
 test_that("known-truth label transfer achieves >80% accuracy on well-separated clusters", {
   skip_if_not_installed("kohonen")
-  set.seed(44)
+  withr::local_seed(44)
   n <- 50L
   # Two widely separated clusters; signal >> noise → correct node assignment.
   ref_data <- rbind(
@@ -100,7 +100,7 @@ test_that("known-truth label transfer achieves >80% accuracy on well-separated c
   results <- somalign_results(fit)
 
   true_labels   <- rep(c("neg", "pos"), each = n)
-  transferred   <- results$label
+  transferred   <- results$transferred_label
   accepted_idx  <- !is.na(transferred)
   # At minimum some labels should have been accepted
   expect_gt(sum(accepted_idx), 0L)
@@ -122,7 +122,7 @@ test_that("all-zero query mass triggers a warning from .somalign_validate_ot_inp
 
 test_that("codebook_space = 'raw' in somalign_query rescales codebook to reference space", {
   skip_if_not_installed("kohonen")
-  set.seed(55)
+  withr::local_seed(55)
   mat <- rbind(
     matrix(rnorm(12 * 3, mean = -1), ncol = 3),
     matrix(rnorm(12 * 3, mean =  1), ncol = 3)
@@ -135,8 +135,6 @@ test_that("codebook_space = 'raw' in somalign_query rescales codebook to referen
   raw_som <- kohonen::som(mat, grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 5)
   qry_raw  <- somalign_query(mat, ref, som_query = raw_som,
                              codebook_space = "raw")
-  qry_ref  <- somalign_query(mat, ref,
-                             grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 5)
   # Both codebooks should now be in the reference-scaled space (finite, same dims).
   expect_equal(ncol(qry_raw$codebook), length(ref$features))
   expect_true(all(is.finite(qry_raw$codebook)))

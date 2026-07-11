@@ -1,5 +1,5 @@
 test_that(".somalign_nearest_code_chunked matches unchunked for various chunk_sizes", {
-  set.seed(42L)
+  withr::local_seed(42L)
   x <- matrix(rnorm(10 * 5), nrow = 10, ncol = 5)
   codebook <- matrix(rnorm(8 * 5), nrow = 8, ncol = 5)
 
@@ -17,10 +17,10 @@ test_that(".somalign_nearest_code_chunked matches unchunked for various chunk_si
 })
 
 test_that(".somalign_distance_quantiles vectorised output matches loop output on data with empty nodes", {
-  set.seed(7L)
+  withr::local_seed(7L)
   n_nodes   <- 5L
   distances <- abs(rnorm(20))
-  units <- sample(1:4, 20, replace = TRUE)
+  units <- sample(seq_len(4), 20, replace = TRUE)
   probs <- c(0.5, 0.9, 0.95, 0.99)
 
   res <- somalign:::.somalign_distance_quantiles(distances, units, n_nodes, probs)
@@ -31,7 +31,7 @@ test_that(".somalign_distance_quantiles vectorised output matches loop output on
 })
 
 test_that(".somalign_label_probabilities vectorised output matches loop output", {
-  set.seed(3L)
+  withr::local_seed(3L)
   n_nodes <- 4L
   labels  <- c("A", "B", NA,  "A", "B", "C", "A", NA,  "C", "B")
   units   <- c(1L,  1L,  2L,  2L,  3L,  3L,  4L,  4L,  1L,  2L)

@@ -17,3 +17,16 @@
 \description{
 Print a somalign_fit object
 }
+\examples{
+if (requireNamespace("kohonen", quietly = TRUE)) {
+  set.seed(1)
+  mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
+                dimnames = list(NULL, c("F1", "F2")))
+  ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+                                  rlen = 5)
+  qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
+                        rlen = 5)
+  fit <- somalign_fit(qry, ref)
+  print(fit)
+}
+}

@@ -6,5 +6,5 @@
 #'
 #' @keywords internal
 #' @importFrom kohonen getCodes som somgrid
-#' @importFrom stats quantile sd
+#' @importFrom stats median quantile sd
 "_PACKAGE"
