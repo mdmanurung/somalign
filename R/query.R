@@ -37,8 +37,28 @@ somalign_query <- function(data,
                            features = NULL,
                            ...) {
   .somalign_check_reference(reference)
+  features <- .somalign_query_features(features, reference)
+  data <- .somalign_prepare_feature_matrix(data, features, what = "query data")
+  scaled_data <- .somalign_scale_matrix(data, reference$center, reference$scale)
+
+  query_som <- .somalign_resolve_query_som(
+    som_query, codebook_space, scaled_data, grid, rlen, alpha, ...
+  )
+  som_query <- query_som$som_query
+  codebook <- .somalign_query_codebook(
+    som_query,
+    reference,
+    query_som$user_supplied_som,
+    query_som$codebook_space
+  )
+  sample_map <- .somalign_nearest_code(scaled_data, codebook)
+
+  .somalign_new_query(data, scaled_data, som_query, codebook, sample_map, reference)
+}
+
+.somalign_query_features <- function(features, reference) {
   if (is.null(features)) {
-    features <- reference$features
+    return(reference$features)
   }
   if (!identical(features, reference$features)) {
     missing <- setdiff(reference$features, features)
@@ -47,25 +67,38 @@ somalign_query <- function(data,
     }
     features <- reference$features
   }
+  features
+}
 
-  data <- .somalign_prepare_feature_matrix(data, features, what = "query data")
-  scaled_data <- .somalign_scale_matrix(data, reference$center, reference$scale)
-
+.somalign_resolve_query_som <- function(som_query, codebook_space, scaled_data,
+                                        grid, rlen, alpha, ...) {
   user_supplied_som <- !is.null(som_query)
   if (is.null(som_query)) {
     if (is.null(grid)) {
-      grid <- .somalign_default_grid(nrow(data))
+      grid <- .somalign_default_grid(nrow(scaled_data))
     }
     som_query <- kohonen::som(scaled_data, grid = grid, rlen = rlen, alpha = alpha, ...)
   } else {
-    codebook_space <- match.arg(codebook_space)
+    codebook_space <- match.arg(codebook_space, c("reference_scaled", "raw"))
   }
+  list(
+    som_query = som_query,
+    codebook_space = codebook_space,
+    user_supplied_som = user_supplied_som
+  )
+}
 
+.somalign_query_codebook <- function(som_query, reference, user_supplied_som,
+                                     codebook_space) {
   codebook <- .somalign_get_codebook(som_query, features = reference$features, what = "som_query")
   if (user_supplied_som && identical(codebook_space, "raw")) {
     codebook <- .somalign_scale_matrix(codebook, reference$center, reference$scale)
   }
-  sample_map <- .somalign_nearest_code(scaled_data, codebook)
+  codebook
+}
+
+.somalign_new_query <- function(data, scaled_data, som_query, codebook,
+                                sample_map, reference) {
   node_masses <- .somalign_node_masses(sample_map$unit, nrow(codebook))
   sample_id <- rownames(data)
   if (is.null(sample_id)) {

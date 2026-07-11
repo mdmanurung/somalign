@@ -82,15 +82,9 @@ somalign_reference <- function(som_ref,
   data <- .somalign_prepare_feature_matrix(data, features, what = "data")
   features <- colnames(data)
 
-  if (is.null(center) || is.null(scale)) {
-    scaling <- .somalign_compute_scaling(data)
-    if (is.null(center)) {
-      center <- scaling$center
-    }
-    if (is.null(scale)) {
-      scale <- scaling$scale
-    }
-  }
+  resolved <- .somalign_resolve_center_scale(center, scale, data)
+  center <- resolved$center
+  scale <- resolved$scale
   center <- .somalign_named_numeric(center, features, "center")
   scale <- .somalign_named_numeric(scale, features, "scale")
   .somalign_validate_scale(scale)
@@ -126,6 +120,19 @@ somalign_reference <- function(som_ref,
   )
 }
 
+.somalign_resolve_center_scale <- function(center, scale, data) {
+  if (is.null(center) || is.null(scale)) {
+    scaling <- .somalign_compute_scaling(data)
+    if (is.null(center)) {
+      center <- scaling$center
+    }
+    if (is.null(scale)) {
+      scale <- scaling$scale
+    }
+  }
+  list(center = center, scale = scale)
+}
+
 #' Build a reference object from saved node-level artifacts
 #'
 #' @param codebook Reference node codebook matrix.
@@ -158,19 +165,7 @@ somalign_reference_from_nodes <- function(codebook,
                                           label_prob = NULL,
                                           distance_quantiles = NULL,
                                           global_distance_quantiles = NULL) {
-  codebook <- .somalign_as_matrix(codebook, what = "codebook")
-  if (!is.character(features) || length(features) == 0) {
-    stop("`features` must be a non-empty character vector.", call. = FALSE)
-  }
-  if (length(unique(features)) != length(features)) {
-    stop("Duplicated requested features: ", paste(features[duplicated(features)], collapse = ", "), call. = FALSE)
-  }
-  if (is.null(colnames(codebook))) {
-    colnames(codebook) <- features
-  }
-  codebook <- .somalign_select_features(codebook, features, what = "codebook")
-  .somalign_validate_finite(codebook, what = "codebook")
-
+  codebook <- .somalign_validate_node_codebook(codebook, features)
   center <- .somalign_named_numeric(center, features, "center")
   scale <- .somalign_named_numeric(scale, features, "scale")
   .somalign_validate_scale(scale)
@@ -180,26 +175,11 @@ somalign_reference_from_nodes <- function(codebook,
   label_prob <- .somalign_normalize_label_prob(label_prob, n_nodes)
   distance_quantiles <- .somalign_prepare_distance_quantiles(distance_quantiles, n_nodes)
 
-  if (ncol(label_prob) == 0) {
-    message(
-      "somalign_reference_from_nodes: no label probabilities supplied; ",
-      "label transfer will be disabled for this reference."
-    )
-  }
-  if (all(!is.finite(distance_quantiles))) {
-    message(
-      "somalign_reference_from_nodes: distance quantiles not supplied; ",
-      "outside-reference detection will be disabled for this reference."
-    )
-  }
-
-  if (is.null(global_distance_quantiles)) {
-    global_distance_quantiles <- apply(distance_quantiles, 2, max)
-  }
-  global_distance_quantiles <- as.numeric(global_distance_quantiles)
-  if (is.null(names(global_distance_quantiles))) {
-    names(global_distance_quantiles) <- colnames(distance_quantiles)
-  }
+  .somalign_warn_from_nodes(label_prob, distance_quantiles)
+  global_distance_quantiles <- .somalign_resolve_global_quantiles(
+    distance_quantiles,
+    global_distance_quantiles
+  )
 
   structure(
     list(
@@ -218,4 +198,47 @@ somalign_reference_from_nodes <- function(codebook,
     ),
     class = "somalign_reference"
   )
+}
+
+.somalign_validate_node_codebook <- function(codebook, features) {
+  codebook <- .somalign_as_matrix(codebook, what = "codebook")
+  if (!is.character(features) || length(features) == 0) {
+    stop("`features` must be a non-empty character vector.", call. = FALSE)
+  }
+  if (length(unique(features)) != length(features)) {
+    stop("Duplicated requested features: ", paste(features[duplicated(features)], collapse = ", "), call. = FALSE)
+  }
+  if (is.null(colnames(codebook))) {
+    colnames(codebook) <- features
+  }
+  codebook <- .somalign_select_features(codebook, features, what = "codebook")
+  .somalign_validate_finite(codebook, what = "codebook")
+  codebook
+}
+
+.somalign_warn_from_nodes <- function(label_prob, distance_quantiles) {
+  if (ncol(label_prob) == 0) {
+    message(
+      "somalign_reference_from_nodes: no label probabilities supplied; ",
+      "label transfer will be disabled for this reference."
+    )
+  }
+  if (all(!is.finite(distance_quantiles))) {
+    message(
+      "somalign_reference_from_nodes: distance quantiles not supplied; ",
+      "outside-reference detection will be disabled for this reference."
+    )
+  }
+}
+
+.somalign_resolve_global_quantiles <- function(distance_quantiles,
+                                              global_distance_quantiles) {
+  if (is.null(global_distance_quantiles)) {
+    global_distance_quantiles <- apply(distance_quantiles, 2, max)
+  }
+  global_distance_quantiles <- as.numeric(global_distance_quantiles)
+  if (is.null(names(global_distance_quantiles))) {
+    names(global_distance_quantiles) <- colnames(distance_quantiles)
+  }
+  global_distance_quantiles
 }

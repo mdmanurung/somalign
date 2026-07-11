@@ -4,6 +4,8 @@
 ^\.Rproj\.user$
 ^PLAN\.md$
 ^REVIEW\.md$
+^REFACTOR-PLAN\.md$
+^REFACTOR-TASKS\.md$
 ^benchmarks$
 ^doc$
 ^Meta$

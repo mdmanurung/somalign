@@ -69,6 +69,40 @@ somalign_fit <- function(query,
   .somalign_check_reference(reference)
   solver <- match.arg(solver)
 
+  transport <- .somalign_align_transport(
+    query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol
+  )
+
+  label_transfer <- .somalign_transfer_labels(
+    correspondence = transport$correspondence,
+    label_prob = reference$label_prob,
+    match_fraction = transport$match_fraction,
+    min_match_fraction = min_match_fraction,
+    confidence_threshold = confidence_threshold
+  )
+
+  node_shifts <- .somalign_node_shifts(
+    query_codebook = query$codebook,
+    reference_codebook = reference$codebook,
+    correspondence = transport$correspondence,
+    row_mass = transport$row_mass,
+    match_fraction = transport$match_fraction,
+    min_match_fraction = min_match_fraction,
+    correction_min_mass = correction_min_mass
+  )
+
+  projection <- .somalign_project_pair(query, reference, node_shifts, chunk_size)
+  diagnostics <- .somalign_build_diagnostics(
+    transport, query, reference, node_shifts, projection, epsilon, rho_query, rho_ref
+  )
+  .somalign_fit_warnings(diagnostics)
+  .somalign_new_fit(
+    query, reference, transport, label_transfer, node_shifts, projection, diagnostics
+  )
+}
+
+.somalign_align_transport <- function(query, reference, epsilon, rho_query,
+                                      rho_ref, solver, max_iter, tol) {
   cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
   cost_scale <- stats::median(cost[cost > 0])
   if (!is.finite(cost_scale) || cost_scale == 0) {
@@ -98,31 +132,37 @@ somalign_fit <- function(query,
       n_over, max(match_mass_ratio)
     ))
   }
-
-  label_transfer <- .somalign_transfer_labels(
-    correspondence = correspondence,
-    label_prob = reference$label_prob,
-    match_fraction = match_fraction,
-    min_match_fraction = min_match_fraction,
-    confidence_threshold = confidence_threshold
-  )
-
-  node_shifts <- .somalign_node_shifts(
-    query_codebook = query$codebook,
-    reference_codebook = reference$codebook,
+  list(
+    cost = cost,
+    cost_scale = cost_scale,
+    ot = ot,
+    plan = plan,
     correspondence = correspondence,
     row_mass = row_mass,
-    match_fraction = match_fraction,
-    min_match_fraction = min_match_fraction,
-    correction_min_mass = correction_min_mass
+    col_mass = col_mass,
+    match_mass_ratio = match_mass_ratio,
+    match_fraction = match_fraction
   )
+}
 
+.somalign_project_pair <- function(query, reference, node_shifts, chunk_size) {
   direct <- .somalign_project_samples(query$scaled_data, reference, chunk_size = chunk_size)
   corrected_matrix <- query$scaled_data + node_shifts[query$sample_unit, , drop = FALSE]
   corrected <- .somalign_project_samples(corrected_matrix, reference, chunk_size = chunk_size)
   correction_norm <- sqrt(rowSums(node_shifts[query$sample_unit, , drop = FALSE]^2))
+  list(direct = direct, corrected = corrected, correction_norm = correction_norm)
+}
 
-  diagnostics <- list(
+.somalign_build_diagnostics <- function(transport, query, reference, node_shifts,
+                                        projection, epsilon, rho_query,
+                                        rho_ref) {
+  ot <- transport$ot
+  plan <- transport$plan
+  row_mass <- transport$row_mass
+  col_mass <- transport$col_mass
+  direct <- projection$direct
+  corrected <- projection$corrected
+  list(
     solver = list(
       requested = ot$requested_solver,
       used = ot$solver,
@@ -133,7 +173,7 @@ somalign_fit <- function(query,
       epsilon = epsilon,
       rho_query = rho_query,
       rho_ref = rho_ref,
-      cost_scale = cost_scale
+      cost_scale = transport$cost_scale
     ),
     ot = list(
       transport_mass = sum(plan),
@@ -141,8 +181,8 @@ somalign_fit <- function(query,
       col_mass = col_mass,
       query_mass = query$node_masses,
       reference_mass = reference$node_masses,
-      match_fraction = match_fraction,
-      match_mass_ratio = match_mass_ratio,
+      match_fraction = transport$match_fraction,
+      match_mass_ratio = transport$match_mass_ratio,
       max_row_mass_error = max(abs(row_mass - query$node_masses)),
       max_col_mass_error = max(abs(col_mass - reference$node_masses))
     ),
@@ -150,7 +190,7 @@ somalign_fit <- function(query,
       query_node = seq_len(nrow(query$codebook)),
       query_mass = query$node_masses,
       transported_mass = row_mass,
-      match_fraction = match_fraction,
+      match_fraction = transport$match_fraction,
       correction_allowed = attr(node_shifts, "correction_allowed"),
       correction_norm = sqrt(rowSums(node_shifts^2))
     ),
@@ -159,8 +199,10 @@ somalign_fit <- function(query,
       outside_corrected_fraction = mean(corrected$outside)
     )
   )
+}
 
-  query_total_mass <- sum(query$node_masses)
+.somalign_fit_warnings <- function(diagnostics) {
+  query_total_mass <- sum(diagnostics$ot$query_mass)
   if (query_total_mass > 0 && diagnostics$ot$transport_mass < 0.5 * query_total_mass) {
     warning(
       sprintf(
@@ -182,20 +224,24 @@ somalign_fit <- function(query,
       call. = FALSE
     )
   }
+  invisible(NULL)
+}
 
+.somalign_new_fit <- function(query, reference, transport, label_transfer,
+                              node_shifts, projection, diagnostics) {
   structure(
     list(
       query = query,
       reference = reference,
-      cost = cost,
-      transport_plan = plan,
-      correspondence = correspondence,
+      cost = transport$cost,
+      transport_plan = transport$plan,
+      correspondence = transport$correspondence,
       label_transfer = label_transfer,
       node_shifts = node_shifts,
       projection = list(
-        direct = direct,
-        corrected = corrected,
-        correction_norm = correction_norm
+        direct = projection$direct,
+        corrected = projection$corrected,
+        correction_norm = projection$correction_norm
       ),
       diagnostics = diagnostics
     ),
@@ -210,16 +256,7 @@ somalign_fit <- function(query,
                                       confidence_threshold) {
   n_nodes <- nrow(correspondence)
   if (is.null(label_prob) || ncol(label_prob) == 0) {
-    return(data.frame(
-      query_node = seq_len(n_nodes),
-      label = rep(NA_character_, n_nodes),
-      confidence = rep(NA_real_, n_nodes),
-      second_label = rep(NA_character_, n_nodes),
-      second_confidence = rep(NA_real_, n_nodes),
-      entropy = rep(NA_real_, n_nodes),
-      match_fraction = match_fraction,
-      accepted = rep(FALSE, n_nodes)
-    ))
+    return(.somalign_empty_label_transfer(n_nodes, match_fraction))
   }
 
   probs <- correspondence %*% label_prob
@@ -233,19 +270,7 @@ somalign_fit <- function(query,
   confidence <- rep(NA_real_, n_nodes)
   top_label[has_mass] <- label_names[top_idx[has_mass]]
   confidence[has_mass] <- probs_norm[cbind(which(has_mass), top_idx[has_mass])]
-  probs_second <- probs_norm
-  probs_second[cbind(seq_len(n_nodes), top_idx)] <- 0
-  second_idx <- max.col(probs_second, ties.method = "first")
-  second_label <- rep(NA_character_, n_nodes)
-  second_confidence <- rep(NA_real_, n_nodes)
-  if (ncol(probs) == 1L) {
-    second_label <- rep(NA_character_, n_nodes)
-    second_confidence <- rep(NA_real_, n_nodes)
-  } else {
-    second_label[has_mass] <- label_names[second_idx[has_mass]]
-    second_confidence[has_mass] <- probs_second[cbind(which(has_mass), second_idx[has_mass])]
-    second_label[has_mass & (is.na(second_confidence) | second_confidence == 0)] <- NA_character_
-  }
+  second <- .somalign_second_labels(probs_norm, top_idx, has_mass, label_names)
   entropy <- vapply(
     seq_len(n_nodes),
     function(i) if (has_mass[i]) .somalign_entropy(probs_norm[i, ]) else NA_real_,
@@ -262,12 +287,42 @@ somalign_fit <- function(query,
     query_node = seq_len(n_nodes),
     label = top_label,
     confidence = confidence,
-    second_label = second_label,
-    second_confidence = second_confidence,
+    second_label = second$second_label,
+    second_confidence = second$second_confidence,
     entropy = entropy,
     match_fraction = match_fraction,
     accepted = accepted
   )
+}
+
+.somalign_empty_label_transfer <- function(n_nodes, match_fraction) {
+  data.frame(
+    query_node = seq_len(n_nodes),
+    label = rep(NA_character_, n_nodes),
+    confidence = rep(NA_real_, n_nodes),
+    second_label = rep(NA_character_, n_nodes),
+    second_confidence = rep(NA_real_, n_nodes),
+    entropy = rep(NA_real_, n_nodes),
+    match_fraction = match_fraction,
+    accepted = rep(FALSE, n_nodes)
+  )
+}
+
+.somalign_second_labels <- function(probs_norm, top_idx, has_mass, label_names) {
+  n_nodes <- nrow(probs_norm)
+  second_label <- rep(NA_character_, n_nodes)
+  second_confidence <- rep(NA_real_, n_nodes)
+  if (ncol(probs_norm) == 1L) {
+    return(list(second_label = second_label, second_confidence = second_confidence))
+  }
+
+  probs_second <- probs_norm
+  probs_second[cbind(seq_len(n_nodes), top_idx)] <- 0
+  second_idx <- max.col(probs_second, ties.method = "first")
+  second_label[has_mass] <- label_names[second_idx[has_mass]]
+  second_confidence[has_mass] <- probs_second[cbind(which(has_mass), second_idx[has_mass])]
+  second_label[has_mass & (is.na(second_confidence) | second_confidence == 0)] <- NA_character_
+  list(second_label = second_label, second_confidence = second_confidence)
 }
 
 .somalign_node_shifts <- function(query_codebook,

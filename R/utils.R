@@ -139,6 +139,32 @@
 }
 
 .somalign_get_codebook <- function(som, features = NULL, what = "som") {
+  codes <- .somalign_extract_codes(som, what)
+
+  if (!is.null(features)) {
+    if (is.null(colnames(codes))) {
+      stop(
+        "`", what, "` codebook must have column names matching the reference features.",
+        call. = FALSE
+      )
+    }
+    missing <- setdiff(features, colnames(codes))
+    if (length(missing) > 0) {
+      stop(
+        "SOM codebook is missing features: ",
+        paste(missing, collapse = ", "),
+        call. = FALSE
+      )
+    }
+    codes <- codes[, features, drop = FALSE]
+  } else {
+    .somalign_validate_feature_names(codes, what = paste0(what, " codebook"))
+  }
+  .somalign_validate_finite(codes, what = paste0(what, " codebook"))
+  codes
+}
+
+.somalign_extract_codes <- function(som, what) {
   codes <- NULL
 
   if (is.matrix(som) || is.data.frame(som)) {
@@ -166,26 +192,6 @@
   }
 
   codes <- .somalign_as_matrix(codes, what = paste0(what, " codebook"))
-  if (!is.null(features)) {
-    if (is.null(colnames(codes))) {
-      stop(
-        "`", what, "` codebook must have column names matching the reference features.",
-        call. = FALSE
-      )
-    }
-    missing <- setdiff(features, colnames(codes))
-    if (length(missing) > 0) {
-      stop(
-        "SOM codebook is missing features: ",
-        paste(missing, collapse = ", "),
-        call. = FALSE
-      )
-    }
-    codes <- codes[, features, drop = FALSE]
-  } else {
-    .somalign_validate_feature_names(codes, what = paste0(what, " codebook"))
-  }
-  .somalign_validate_finite(codes, what = paste0(what, " codebook"))
   codes
 }
 

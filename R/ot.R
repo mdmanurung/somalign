@@ -39,23 +39,7 @@
                                      max_iter,
                                      tol) {
   tiny <- .Machine$double.xmin
-  k_raw <- exp(-cost / epsilon)
-  underflow_fraction <- sum(k_raw < tiny) / length(k_raw)
-  if (underflow_fraction > 0.01) {
-    safe_eps <- signif(-max(cost) / log(.Machine$double.xmin), 3)
-    warning(
-      sprintf(
-        "%.1f%% of Sinkhorn kernel entries underflowed (epsilon = %g). ",
-        100 * underflow_fraction, epsilon
-      ),
-      sprintf(
-        "Raise epsilon or reduce cost scale. Safe lower bound for epsilon: %g",
-        safe_eps
-      ),
-      call. = FALSE
-    )
-  }
-  k <- pmax(k_raw, tiny)
+  k <- .somalign_sinkhorn_kernel(cost, epsilon, tiny)
   tau_a <- rho_query / (rho_query + epsilon)
   tau_b <- rho_ref / (rho_ref + epsilon)
 
@@ -83,6 +67,36 @@
   }
 
   final_delta <- delta
+  .somalign_warn_convergence(final_delta, iterations, max_iter, tol)
+  converged <- is.finite(final_delta) && final_delta < tol
+
+  plan <- sweep(sweep(k, 1, u, "*"), 2, v, "*")
+  plan[!is.finite(plan)] <- 0
+  plan <- pmax(plan, 0)
+  list(plan = plan, iterations = iterations, converged = converged, final_delta = final_delta)
+}
+
+.somalign_sinkhorn_kernel <- function(cost, epsilon, tiny) {
+  k_raw <- exp(-cost / epsilon)
+  underflow_fraction <- sum(k_raw < tiny) / length(k_raw)
+  if (underflow_fraction > 0.01) {
+    safe_eps <- signif(-max(cost) / log(.Machine$double.xmin), 3)
+    warning(
+      sprintf(
+        "%.1f%% of Sinkhorn kernel entries underflowed (epsilon = %g). ",
+        100 * underflow_fraction, epsilon
+      ),
+      sprintf(
+        "Raise epsilon or reduce cost scale. Safe lower bound for epsilon: %g",
+        safe_eps
+      ),
+      call. = FALSE
+    )
+  }
+  pmax(k_raw, tiny)
+}
+
+.somalign_warn_convergence <- function(final_delta, iterations, max_iter, tol) {
   if (!is.finite(final_delta)) {
     warning(
       sprintf(
@@ -103,12 +117,6 @@
       call. = FALSE
     )
   }
-  converged <- is.finite(final_delta) && final_delta < tol
-
-  plan <- sweep(sweep(k, 1, u, "*"), 2, v, "*")
-  plan[!is.finite(plan)] <- 0
-  plan <- pmax(plan, 0)
-  list(plan = plan, iterations = iterations, converged = converged, final_delta = final_delta)
 }
 
 .somalign_validate_ot_inputs <- function(cost, a, b, epsilon, rho_query, rho_ref) {

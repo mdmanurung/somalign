@@ -58,7 +58,7 @@ graph TD
 ")
 ```
 
----
+***
 
 ```{r shared-data, include = FALSE}
 # Colour palette used across all diagrams
@@ -132,7 +132,7 @@ text(qx, qy, paste0("q", 1:9), col = "white", font = 2, cex = 0.65)
 mtext("(unlabelled)", side = 1, line = 0, cex = 0.7, col = "grey40")
 ```
 
----
+***
 
 ## Stage 1 — Direct projection (primary result)
 
@@ -190,7 +190,7 @@ legend("bottomright",
 **Output:** `old_som_unit = k*`, `old_som_distance`, `outside_reference_distance`,
 `final_status`, `old_som_label`, `old_som_label_confidence`.
 
----
+***
 
 ## Stage 2 — OT on codebooks
 
@@ -302,7 +302,7 @@ text(0.50, 0.01,
 reference nodes; near 0 means little overlap with any reference population.
 Label transfer is rejected for low-match nodes.
 
----
+***
 
 ## Stage 3 — Correction vectors
 
@@ -361,7 +361,7 @@ positions. A large value indicates a systematic offset — potentially a batch
 effect or a true population shift — and is worth examining before accepting
 the corrected projection.
 
----
+***
 
 ## Stage 4 — Corrected projection (auxiliary)
 
@@ -430,7 +430,7 @@ Both assignments are reported in the results table. `old_som_unit` (blue) is
 the primary result; `corrected_som_unit` (red) is intended for visualisation
 and triage, not as a replacement assignment.
 
----
+***
 
 ## Stage 5 — Label transfer (auxiliary)
 
@@ -478,7 +478,7 @@ Transfer is rejected at two gates: `match_fraction < 0.05` (node has no
 meaningful reference overlap) and `transferred_label_confidence < 0.60` (the
 dominant reference node is too mixed to assign a clean label).
 
----
+***
 
 ## Output columns
 

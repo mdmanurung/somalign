@@ -82,22 +82,36 @@ somalign_sensitivity_grid <- function(query,
       solver = solver,
       ...
     )
-    diag <- somalign_diagnostics(fit)
-    data.frame(
-      epsilon = grid$epsilon[i],
-      rho_query = grid$rho_query[i],
-      rho_ref = grid$rho_ref[i],
-      solver = diag$solver$used,
-      transport_mass = diag$ot$transport_mass,
-      mean_match_fraction = mean(diag$ot$match_fraction[is.finite(diag$ot$match_fraction)]),
-      max_row_mass_error = diag$ot$max_row_mass_error,
-      max_col_mass_error = diag$ot$max_col_mass_error,
-      accepted_label_fraction = mean(fit$label_transfer$accepted),
-      outside_direct_fraction = diag$projection$outside_direct_fraction,
-      outside_corrected_fraction = diag$projection$outside_corrected_fraction
+    .somalign_grid_row_summary(
+      fit,
+      grid$epsilon[i],
+      grid$rho_query[i],
+      grid$rho_ref[i]
     )
   }
 
+  rows <- .somalign_run_grid(nrow(grid), .run_one, parallel)
+  do.call(rbind, rows)
+}
+
+.somalign_grid_row_summary <- function(fit, epsilon, rho_query, rho_ref) {
+  diag <- somalign_diagnostics(fit)
+  data.frame(
+    epsilon = epsilon,
+    rho_query = rho_query,
+    rho_ref = rho_ref,
+    solver = diag$solver$used,
+    transport_mass = diag$ot$transport_mass,
+    mean_match_fraction = mean(diag$ot$match_fraction[is.finite(diag$ot$match_fraction)]),
+    max_row_mass_error = diag$ot$max_row_mass_error,
+    max_col_mass_error = diag$ot$max_col_mass_error,
+    accepted_label_fraction = mean(fit$label_transfer$accepted),
+    outside_direct_fraction = diag$projection$outside_direct_fraction,
+    outside_corrected_fraction = diag$projection$outside_corrected_fraction
+  )
+}
+
+.somalign_run_grid <- function(n, run_one, parallel) {
   if (isTRUE(parallel)) {
     if (!requireNamespace("BiocParallel", quietly = TRUE)) {
       stop(
@@ -107,16 +121,16 @@ somalign_sensitivity_grid <- function(query,
       )
     }
     rows <- BiocParallel::bplapply(
-      seq_len(nrow(grid)),
-      .run_one
+      seq_len(n),
+      run_one
     )
   } else {
-    rows <- vector("list", nrow(grid))
-    for (i in seq_len(nrow(grid))) {
-      rows[[i]] <- .run_one(i)
+    rows <- vector("list", n)
+    for (i in seq_len(n)) {
+      rows[[i]] <- run_one(i)
     }
   }
-  do.call(rbind, rows)
+  rows
 }
 
 .somalign_validate_grid_vector <- function(x, what) {
