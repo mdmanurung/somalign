@@ -1,6 +1,6 @@
 Package: somalign
 Title: Align Query SOMs to Fixed Kohonen Reference SOMs
-Version: 0.99.0
+Version: 0.99.1
 Authors@R: person("Mikhael", "Manurung", role = c("aut", "cre"),
     email = "mikhael.manurung@gmail.com",
     comment = c(ORCID = "0000-0000-0000-0000"))
