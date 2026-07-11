@@ -38,6 +38,19 @@ new_som <- kohonen::som(new_scaled_for_som, grid = ...)
 
 `somalign_query()` still receives the original (unscaled) new data matrix; it
 applies the reference scaling internally for the per-sample projection step.
+When you pass a saved query SOM, set `codebook_space` to match the saved
+codebook. The default is `"reference_scaled"`, which is correct for the query
+SOM trained above. Use `"raw"` only when the saved query SOM codebook is in raw
+feature units:
+
+```{r, eval = FALSE}
+query <- somalign_query(
+  new_data,
+  reference,
+  som_query = new_som_trained_on_raw_data,
+  codebook_space = "raw"
+)
+```
 
 ## Building references from saved artifacts
 
@@ -120,21 +133,28 @@ new_som <- kohonen::som(
 query <- somalign_query(
   new_data,
   reference,
-  som_query = new_som
+  som_query = new_som,
+  codebook_space = "reference_scaled"
 )
 
 fit <- somalign_fit(query, reference)
-results <- somalign_results(fit)
+sample_metadata <- data.frame(batch = rep("new_batch", nrow(new_data)))
+results <- somalign_results(fit, data = sample_metadata)
 
 head(results[, c(
+  "sample_id",
+  "query_som_unit",
   "old_som_unit",
   "old_som_label",
+  "old_som_distance_threshold",
   "outside_reference_distance",
   "final_status",
   "corrected_som_unit",
+  "corrected_som_distance_threshold",
   "corrected_outside_reference_distance",
   "correction_norm",
   "transferred_label",
+  "transferred_label_confidence",
   "transferred_label_accepted"
 )])
 ```
@@ -147,23 +167,31 @@ solver and OT diagnostics:
 ```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
 diagnostics <- somalign_diagnostics(fit)
 
-diagnostics$solver                 # solver diagnostics
-diagnostics$ot$match_fraction      # per-query-node matched fraction
-diagnostics$ot$transport_mass      # total transported mass
-diagnostics$ot$max_row_mass_error  # query-side marginal deviation
+diagnostics$solver[c(
+  "used", "converged", "iterations", "final_delta", "cost_scale"
+)]
+diagnostics$ot$match_fraction       # clipped to at most 1
+diagnostics$ot$match_mass_ratio     # raw transported/query mass ratio
+diagnostics$ot$transport_mass       # total transported mass
+diagnostics$ot$max_row_mass_error   # query-side marginal deviation
+diagnostics$projection              # direct/corrected outside fractions
 ```
 
 `diagnostics$ot$match_fraction` is the most actionable single number: a
 query node with low match fraction transported little mass to any reference
 node, which typically means a novel population, a codebook-space mismatch, or
 both. Labels transferred from such nodes should be treated as provisional.
+`diagnostics$ot$match_mass_ratio` stores the unclipped transported-mass ratio;
+values above 1 can occur in unbalanced OT and are not errors.
 
 `diagnostics$ot$transport_mass` tells you how much of the total query mass
 the OT plan moved to reference nodes (as opposed to absorbing it via the KL
 margin penalties). `diagnostics$ot$max_row_mass_error` captures the worst
 per-node marginal deviation; a large value means the unbalanced fit allowed
 substantial mass destruction, which is appropriate for truly novel query
-content but should be visible in QC records.
+content but should be visible in QC records. The `diagnostics$projection`
+fractions report how many samples are outside the saved reference distance
+thresholds before and after the OT-derived correction.
 
 Use `somalign_sensitivity_grid()` to confirm that auxiliary outputs hold
 across OT hyperparameters before drawing conclusions:
@@ -178,10 +206,14 @@ sensitivity <- somalign_sensitivity_grid(
 sensitivity[, c(
   "epsilon",
   "rho_query",
+  "rho_ref",
+  "solver",
   "transport_mass",
   "mean_match_fraction",
   "max_row_mass_error",
-  "accepted_label_fraction"
+  "accepted_label_fraction",
+  "outside_direct_fraction",
+  "outside_corrected_fraction"
 )]
 ```
 
@@ -195,16 +227,21 @@ into downstream analyses.
 - Feature names and order must match exactly. `somalign_query()` reorders
   columns to `reference$features` and will error if any are missing.
 - Both codebooks must be in the reference-scaled feature space. The query SOM
-  must be trained with `reference$center` and `reference$scale`.
+  must be trained with `reference$center` and `reference$scale`, unless you
+  pass a raw saved query SOM with `codebook_space = "raw"`.
 - `old_som_unit`, `outside_reference_distance`, `final_status`, and
   `old_som_label` are the primary result. Corrected projection and transferred
   labels are auxiliary.
+- Use `somalign_results(fit, data = sample_metadata)` to append one metadata
+  row per query sample to the result table.
 - Run `somalign_diagnostics()` before trusting label transfer.
 - Run `somalign_sensitivity_grid()` when conclusions depend on corrected nodes
   or transferred labels.
 - A matrix of codebook vectors can be passed as `som_query` directly, provided
   it is already in reference-scaled space with columns named to match
   `reference$features`.
+- For large query matrices, adjust `somalign_fit(chunk_size = ...)` to control
+  memory use during nearest-node projection.
 
 ## Session info
 

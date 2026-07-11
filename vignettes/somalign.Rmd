@@ -47,7 +47,28 @@ query_obj <- somalign_query(
 
 fit <- somalign_fit(query_obj, reference)
 results <- somalign_results(fit)
+results_with_meta <- somalign_results(
+  fit,
+  data = data.frame(batch = rep("query_1", nrow(query)))
+)
 ```
+
+## Current API surface
+
+The user-facing workflow is built around a small set of exported functions:
+
+- Build a reference with `somalign_train_reference()`, or wrap saved
+  artifacts with `somalign_reference()` / `somalign_reference_from_nodes()`.
+- Prepare query data with `somalign_query()`. Query samples are always scaled
+  with the reference center and scale.
+- Align query and reference SOM nodes with `somalign_fit()`. The default
+  internal solver is used for both `solver = "internal"` and the compatibility
+  alias `solver = "auto"`.
+- Extract per-sample output with `somalign_results()`. Pass
+  `somalign_results(fit, data = sample_metadata)` to append one metadata row
+  per query sample.
+- Inspect fit quality with `somalign_diagnostics()` and tune OT parameters with
+  `somalign_sensitivity_grid()`.
 
 ## What to look at first
 
@@ -55,36 +76,47 @@ results <- somalign_results(fit)
 
 ```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
 head(results[, c(
+  "sample_id",
+  "query_som_unit",
   "old_som_unit",
+  "old_som_distance",
+  "old_som_distance_threshold",
   "old_som_label",
   "outside_reference_distance",
   "final_status",
   "corrected_som_unit",
+  "corrected_som_distance",
+  "corrected_som_distance_threshold",
+  "corrected_outside_reference_distance",
   "correction_norm",
   "transferred_label",
+  "transferred_label_confidence",
   "transferred_label_accepted"
 )])
 ```
 
 ## Interpreting the result
 
-**Direct projection** (`old_som_unit`, `old_som_label`, `outside_reference_distance`,
-`final_status`) is the primary result. Each query sample is assigned to its
-nearest reference node by Euclidean distance in the shared feature space.
-No transport is involved; the assignment is deterministic given the reference
-codebook.
+**Direct projection** (`old_som_unit`, `old_som_distance`,
+`old_som_distance_threshold`, `outside_reference_distance`, `final_status`,
+`old_som_label`, `old_som_label_confidence`) is the primary result. Each query
+sample is assigned to its nearest reference node by Euclidean distance in the
+shared feature space. No transport is involved; the assignment is deterministic
+given the reference codebook.
 
-**Corrected projection** (`corrected_som_unit`, `correction_norm`) is auxiliary.
-The OT plan shifts each query SOM node toward its matched reference nodes, and
-query samples are then re-projected from the shifted position. A large
-`correction_norm` points to a systematic displacement between the query and
-reference populations — useful for visualisation and triage, but not a
-replacement for the direct assignment.
+**Corrected projection** (`corrected_som_unit`, `corrected_som_distance`,
+`corrected_som_distance_threshold`, `corrected_outside_reference_distance`,
+`correction_norm`) is auxiliary. The OT plan shifts each query SOM node toward
+its matched reference nodes, and query samples are then re-projected from the
+shifted position. A large `correction_norm` points to a systematic displacement
+between the query and reference populations — useful for visualisation and
+triage, but not a replacement for the direct assignment.
 
-**Transferred labels** (`transferred_label`, `transferred_label_accepted`) are
-also auxiliary, derived from the same OT correspondence. A label is accepted
-only when the query node has sufficient transported mass and the dominant
-matched reference label is confident enough. Always check
+**Transferred labels** (`transferred_label`,
+`transferred_label_confidence`, `transferred_label_accepted`) are also
+auxiliary, derived from the same OT correspondence. A label is accepted only
+when the query node has sufficient transported mass and the dominant matched
+reference label is confident enough. Always check
 `transferred_label_accepted` before using a transferred label downstream.
 
 ## Next steps
@@ -97,9 +129,12 @@ node-level artifacts, diagnostics, and hyperparameter tuning.
 stage — direct projection, OT correspondence, correction vectors, label
 transfer — and explains how they produce the output columns.
 
-For fitted objects, `somalign_diagnostics()` reports solver convergence and OT
-quality metrics. `somalign_sensitivity_grid()` sweeps OT hyperparameters to
-check whether corrected projection and label transfer are stable.
+For fitted objects, `somalign_diagnostics()` reports solver convergence, OT
+mass behaviour, node-level match fractions, and direct/corrected outside
+reference fractions. `somalign_sensitivity_grid()` sweeps OT hyperparameters to
+check whether corrected projection and label transfer are stable. For large
+query matrices, `somalign_fit(chunk_size = ...)` controls how many samples are
+projected at once during nearest-reference-node searches.
 
 ## Session info
 

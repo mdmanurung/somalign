@@ -187,8 +187,9 @@ legend("bottomright",
        cex = 0.75, bty = "n")
 ```
 
-**Output:** `old_som_unit = k*`, `old_som_distance`, `outside_reference_distance`,
-`final_status`, `old_som_label`, `old_som_label_confidence`.
+**Output:** `old_som_unit = k*`, `old_som_distance`,
+`old_som_distance_threshold`, `outside_reference_distance`, `final_status`,
+`old_som_label`, `old_som_label_confidence`.
 
 ***
 
@@ -427,8 +428,9 @@ legend("bottomright",
 ```
 
 Both assignments are reported in the results table. `old_som_unit` (blue) is
-the primary result; `corrected_som_unit` (red) is intended for visualisation
-and triage, not as a replacement assignment.
+the primary result; `corrected_som_unit` (red), `corrected_som_distance`, and
+`corrected_outside_reference_distance` are intended for visualisation and
+triage, not as replacement assignments.
 
 ***
 
@@ -488,13 +490,19 @@ auxiliary — they should always be read alongside the direct assignment and the
 
 | Column | Stage | Purpose |
 |---|---|---|
+| `sample_id` | 0 | Query sample identifier |
+| `query_som_unit` | 0 | Query SOM node containing the sample |
 | `old_som_unit` | 1 | Primary node assignment |
 | `old_som_distance` | 1 | Distance to that node |
+| `old_som_distance_threshold` | 1 | Direct distance threshold |
 | `outside_reference_distance` | 1 | Novelty flag |
 | `final_status` | 1 | inside / outside / unknown |
 | `old_som_label` | 1 | Primary label |
 | `old_som_label_confidence` | 1 | Label purity at node |
 | `corrected_som_unit` | 4 | OT-corrected assignment |
+| `corrected_som_distance` | 4 | Distance after applying the node correction |
+| `corrected_som_distance_threshold` | 4 | Corrected distance threshold |
+| `corrected_outside_reference_distance` | 4 | Novelty flag after correction |
 | `correction_norm` | 3/4 | Shift magnitude $\|\Delta_i\|$ |
 | `transferred_label` | 5 | OT-derived label |
 | `transferred_label_confidence` | 5 | Purity at dominant ref node |
