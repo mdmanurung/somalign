@@ -279,7 +279,14 @@
     return(rep(NA_real_, length(units)))
   }
   if (!column %in% colnames(q)) {
-    column <- colnames(q)[min(ncol(q), 3L)]
+    warning(
+      sprintf(
+        "Column '%s' not found in distance_quantiles; using '%s' instead.",
+        column, colnames(q)[ncol(q)]
+      ),
+      call. = FALSE
+    )
+    column <- colnames(q)[ncol(q)]
   }
   thresholds <- q[units, column]
   missing <- !is.finite(thresholds)

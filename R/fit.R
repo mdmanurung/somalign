@@ -2,7 +2,13 @@
 #'
 #' @param query A `somalign_query` object.
 #' @param reference A `somalign_reference` object.
-#' @param epsilon Entropic regularisation strength.
+#' @param epsilon Entropic regularisation strength. The cost matrix is
+#'   normalised by its median positive entry before computing the Sinkhorn
+#'   kernel, so `epsilon` is approximately scale- and dimension-invariant.
+#'   Values around `0.5` give meaningful regularisation for typical z-scored
+#'   SOM codebooks; very small values (< 0.1) make the transport increasingly
+#'   discrete. The normalisation scale is stored in
+#'   `diagnostics$solver$cost_scale`.
 #' @param rho_query Query-side unbalanced mass relaxation.
 #' @param rho_ref Reference-side unbalanced mass relaxation.
 #' @param solver `"internal"` or `"auto"`. Both use the internal pure-R
@@ -24,11 +30,17 @@
 #' The transport plan row sums will not equal `query$node_masses` exactly -- this
 #' is by design. Unbalanced optimal transport allows mass destruction, so some
 #' query mass may be absorbed rather than transported. Deviation grows with lower
-#' `rho_query` / `rho_ref` values and higher `epsilon`. At the defaults
-#' (`rho_query = 1`, `rho_ref = 1`, `epsilon = 0.05`), row-sum deviation can
-#' reach approximately 13%. Use `diagnostics$ot$max_row_mass_error` to quantify
-#' the deviation in a given fit; for near-balanced data, increase `rho_query`
-#' (e.g. `rho_query = 10`) to enforce tighter marginal constraints.
+#' `rho_query` / `rho_ref` values and higher `epsilon`. Use
+#' `diagnostics$ot$max_row_mass_error` to quantify the deviation in a given fit;
+#' for near-balanced data, increase `rho_query` (e.g. `rho_query = 10`) to
+#' enforce tighter marginal constraints. A warning is emitted automatically when
+#' more than 50% of query mass is destroyed.
+#'
+#' The cost matrix is normalised by its median positive entry before the
+#' Sinkhorn kernel is computed. This makes `epsilon` scale- and
+#' dimension-invariant: the same value produces the same degree of regularisation
+#' regardless of the number of features or the spread of codebook coordinates.
+#' The raw normalisation factor is stored as `diagnostics$solver$cost_scale`.
 #'
 #' @return A `somalign_fit` object.
 #' @examples
@@ -43,7 +55,7 @@
 #' @export
 somalign_fit <- function(query,
                          reference,
-                         epsilon = 0.05,
+                         epsilon = 0.5,
                          rho_query = 1,
                          rho_ref = 1,
                          solver = c("internal", "auto"),
@@ -58,8 +70,12 @@ somalign_fit <- function(query,
   solver <- match.arg(solver)
 
   cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
+  cost_scale <- stats::median(cost[cost > 0])
+  if (!is.finite(cost_scale) || cost_scale == 0) {
+    cost_scale <- 1
+  }
   ot <- .somalign_solve_ot(
-    cost = cost,
+    cost = cost / cost_scale,
     a = query$node_masses,
     b = reference$node_masses,
     epsilon = epsilon,
@@ -112,9 +128,12 @@ somalign_fit <- function(query,
       used = ot$solver,
       notes = ot$notes,
       iterations = ot$iterations,
+      converged = ot$converged,
+      final_delta = ot$final_delta,
       epsilon = epsilon,
       rho_query = rho_query,
-      rho_ref = rho_ref
+      rho_ref = rho_ref,
+      cost_scale = cost_scale
     ),
     ot = list(
       transport_mass = sum(plan),
@@ -140,6 +159,29 @@ somalign_fit <- function(query,
       outside_corrected_fraction = mean(corrected$outside)
     )
   )
+
+  query_total_mass <- sum(query$node_masses)
+  if (query_total_mass > 0 && diagnostics$ot$transport_mass < 0.5 * query_total_mass) {
+    warning(
+      sprintf(
+        "High mass destruction: only %.1f%% of query mass was transported. ",
+        100 * diagnostics$ot$transport_mass / query_total_mass
+      ),
+      "Consider raising rho_query and rho_ref, or increasing epsilon.",
+      call. = FALSE
+    )
+  }
+  outside_frac <- diagnostics$projection$outside_direct_fraction
+  if (is.finite(outside_frac) && outside_frac > 0.5) {
+    warning(
+      sprintf(
+        "%.1f%% of query samples project outside reference distance thresholds. ",
+        100 * outside_frac
+      ),
+      "This may indicate a distributional mismatch or a coordinate-space misconfiguration.",
+      call. = FALSE
+    )
+  }
 
   structure(
     list(

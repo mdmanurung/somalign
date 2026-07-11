@@ -7,7 +7,7 @@
 somalign_fit(
   query,
   reference,
-  epsilon = 0.05,
+  epsilon = 0.5,
   rho_query = 1,
   rho_ref = 1,
   solver = c("internal", "auto"),
@@ -24,7 +24,13 @@ somalign_fit(
 
 \item{reference}{A \code{somalign_reference} object.}
 
-\item{epsilon}{Entropic regularisation strength.}
+\item{epsilon}{Entropic regularisation strength. The cost matrix is
+normalised by its median positive entry before computing the Sinkhorn
+kernel, so \code{epsilon} is approximately scale- and dimension-invariant.
+Values around \code{0.5} give meaningful regularisation for typical z-scored
+SOM codebooks; very small values (< 0.1) make the transport increasingly
+discrete. The normalisation scale is stored in
+\code{diagnostics$solver$cost_scale}.}
 
 \item{rho_query}{Query-side unbalanced mass relaxation.}
 
@@ -61,11 +67,17 @@ Align a query SOM to a reference SOM
 The transport plan row sums will not equal \code{query$node_masses} exactly -- this
 is by design. Unbalanced optimal transport allows mass destruction, so some
 query mass may be absorbed rather than transported. Deviation grows with lower
-\code{rho_query} / \code{rho_ref} values and higher \code{epsilon}. At the defaults
-(\code{rho_query = 1}, \code{rho_ref = 1}, \code{epsilon = 0.05}), row-sum deviation can
-reach approximately 13\%. Use \code{diagnostics$ot$max_row_mass_error} to quantify
-the deviation in a given fit; for near-balanced data, increase \code{rho_query}
-(e.g. \code{rho_query = 10}) to enforce tighter marginal constraints.
+\code{rho_query} / \code{rho_ref} values and higher \code{epsilon}. Use
+\code{diagnostics$ot$max_row_mass_error} to quantify the deviation in a given fit;
+for near-balanced data, increase \code{rho_query} (e.g. \code{rho_query = 10}) to
+enforce tighter marginal constraints. A warning is emitted automatically when
+more than 50\% of query mass is destroyed.
+
+The cost matrix is normalised by its median positive entry before the
+Sinkhorn kernel is computed. This makes \code{epsilon} scale- and
+dimension-invariant: the same value produces the same degree of regularisation
+regardless of the number of features or the spread of codebook coordinates.
+The raw normalisation factor is stored as \code{diagnostics$solver$cost_scale}.
 }
 \examples{
 set.seed(1)

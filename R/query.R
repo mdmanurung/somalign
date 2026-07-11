@@ -4,9 +4,12 @@
 #'
 #' @param data Numeric query data.
 #' @param reference A `somalign_reference` object.
-#' @param som_query Optional query SOM or SOM-like object with a codebook. The
-#'   codebook must be in the reference-scaled feature space, i.e. trained on
-#'   query data transformed with `reference$center` and `reference$scale`.
+#' @param som_query Optional query SOM or SOM-like object with a codebook.
+#' @param codebook_space Coordinate system of the `som_query` codebook. Only
+#'   used when `som_query` is supplied. `"reference_scaled"` (default) assumes
+#'   the codebook was already trained on query data scaled with
+#'   `reference$center` and `reference$scale`; `"raw"` re-scales the codebook
+#'   into reference-scaled space before use.
 #' @param grid Optional `kohonen::somgrid()` object when `som_query` is omitted.
 #' @param rlen Number of SOM training iterations passed to [kohonen::som()].
 #' @param alpha Learning-rate schedule passed to [kohonen::som()].
@@ -27,6 +30,7 @@
 somalign_query <- function(data,
                            reference,
                            som_query = NULL,
+                           codebook_space = c("reference_scaled", "raw"),
                            grid = NULL,
                            rlen = 100,
                            alpha = c(0.05, 0.01),
@@ -47,14 +51,20 @@ somalign_query <- function(data,
   data <- .somalign_prepare_feature_matrix(data, features, what = "query data")
   scaled_data <- .somalign_scale_matrix(data, reference$center, reference$scale)
 
+  user_supplied_som <- !is.null(som_query)
   if (is.null(som_query)) {
     if (is.null(grid)) {
       grid <- .somalign_default_grid(nrow(data))
     }
     som_query <- kohonen::som(scaled_data, grid = grid, rlen = rlen, alpha = alpha, ...)
+  } else {
+    codebook_space <- match.arg(codebook_space)
   }
 
   codebook <- .somalign_get_codebook(som_query, features = reference$features, what = "som_query")
+  if (user_supplied_som && identical(codebook_space, "raw")) {
+    codebook <- .somalign_scale_matrix(codebook, reference$center, reference$scale)
+  }
   sample_map <- .somalign_nearest_code(scaled_data, codebook)
   node_masses <- .somalign_node_masses(sample_map$unit, nrow(codebook))
   sample_id <- rownames(data)

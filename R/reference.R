@@ -180,6 +180,19 @@ somalign_reference_from_nodes <- function(codebook,
   label_prob <- .somalign_normalize_label_prob(label_prob, n_nodes)
   distance_quantiles <- .somalign_prepare_distance_quantiles(distance_quantiles, n_nodes)
 
+  if (ncol(label_prob) == 0) {
+    message(
+      "somalign_reference_from_nodes: no label probabilities supplied; ",
+      "label transfer will be disabled for this reference."
+    )
+  }
+  if (all(!is.finite(distance_quantiles))) {
+    message(
+      "somalign_reference_from_nodes: distance quantiles not supplied; ",
+      "outside-reference detection will be disabled for this reference."
+    )
+  }
+
   if (is.null(global_distance_quantiles)) {
     global_distance_quantiles <- apply(distance_quantiles, 2, max)
   }

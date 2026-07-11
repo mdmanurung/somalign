@@ -24,7 +24,9 @@
     solver = solver,
     requested_solver = requested_solver,
     notes = notes,
-    iterations = iterations
+    iterations = iterations,
+    converged = internal$converged,
+    final_delta = internal$final_delta
   )
 }
 
@@ -80,21 +82,33 @@
     }
   }
 
-  if (iterations == max_iter && delta >= tol) {
+  final_delta <- delta
+  if (!is.finite(final_delta)) {
+    warning(
+      sprintf(
+        "Sinkhorn solver produced a non-finite iterate delta after %d iterations. ",
+        iterations
+      ),
+      "The solve may be degenerate (e.g. all-zero masses or extreme cost/epsilon ratio). ",
+      "Check diagnostics$solver$final_delta and diagnostics$ot.",
+      call. = FALSE
+    )
+  } else if (iterations == max_iter && final_delta >= tol) {
     warning(
       sprintf(
         "Sinkhorn solver did not converge after %g iterations (final delta = %.3e). ",
-        max_iter, delta
+        max_iter, final_delta
       ),
       "Consider increasing max_iter, raising epsilon, or reducing rho_query / rho_ref.",
       call. = FALSE
     )
   }
+  converged <- is.finite(final_delta) && final_delta < tol
 
   plan <- sweep(sweep(k, 1, u, "*"), 2, v, "*")
   plan[!is.finite(plan)] <- 0
   plan <- pmax(plan, 0)
-  list(plan = plan, iterations = iterations)
+  list(plan = plan, iterations = iterations, converged = converged, final_delta = final_delta)
 }
 
 .somalign_validate_ot_inputs <- function(cost, a, b, epsilon, rho_query, rho_ref) {
@@ -106,6 +120,18 @@
   }
   if (!is.numeric(b) || length(b) != ncol(cost) || any(!is.finite(b)) || any(b < 0)) {
     stop("Reference masses must be non-negative and finite.", call. = FALSE)
+  }
+  if (sum(a) == 0) {
+    warning(
+      "All query node masses are zero; the transport plan will be all zeros.",
+      call. = FALSE
+    )
+  }
+  if (sum(b) == 0) {
+    warning(
+      "All reference node masses are zero; the transport plan will be all zeros.",
+      call. = FALSE
+    )
   }
   if (!is.numeric(epsilon) || length(epsilon) != 1 || !is.finite(epsilon) || epsilon <= 0) {
     stop("`epsilon` must be a positive finite scalar.", call. = FALSE)

@@ -8,6 +8,7 @@ somalign_query(
   data,
   reference,
   som_query = NULL,
+  codebook_space = c("reference_scaled", "raw"),
   grid = NULL,
   rlen = 100,
   alpha = c(0.05, 0.01),
@@ -20,9 +21,13 @@ somalign_query(
 
 \item{reference}{A \code{somalign_reference} object.}
 
-\item{som_query}{Optional query SOM or SOM-like object with a codebook. The
-codebook must be in the reference-scaled feature space, i.e. trained on
-query data transformed with \code{reference$center} and \code{reference$scale}.}
+\item{som_query}{Optional query SOM or SOM-like object with a codebook.}
+
+\item{codebook_space}{Coordinate system of the \code{som_query} codebook. Only
+used when \code{som_query} is supplied. \code{"reference_scaled"} (default) assumes
+the codebook was already trained on query data scaled with
+\code{reference$center} and \code{reference$scale}; \code{"raw"} re-scales the codebook
+into reference-scaled space before use.}
 
 \item{grid}{Optional \code{kohonen::somgrid()} object when \code{som_query} is omitted.}
 
