@@ -75,7 +75,18 @@ somalign_fit <- function(query,
   transport <- .somalign_align_transport(
     query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol
   )
+  .somalign_finish_fit(
+    query, reference, transport,
+    min_match_fraction, confidence_threshold, correction_min_mass,
+    chunk_size, epsilon, rho_query, rho_ref
+  )
+}
 
+.somalign_finish_fit <- function(query, reference, transport,
+                                 min_match_fraction, confidence_threshold,
+                                 correction_min_mass, chunk_size,
+                                 epsilon, rho_query, rho_ref,
+                                 anchors = NULL) {
   label_transfer <- .somalign_transfer_labels(
     correspondence = transport$correspondence,
     label_prob = reference$label_prob,
@@ -83,7 +94,6 @@ somalign_fit <- function(query,
     min_match_fraction = min_match_fraction,
     confidence_threshold = confidence_threshold
   )
-
   node_shifts <- .somalign_node_shifts(
     query_codebook = query$codebook,
     reference_codebook = reference$codebook,
@@ -93,14 +103,14 @@ somalign_fit <- function(query,
     min_match_fraction = min_match_fraction,
     correction_min_mass = correction_min_mass
   )
-
   projection <- .somalign_project_pair(query, reference, node_shifts, chunk_size)
   diagnostics <- .somalign_build_diagnostics(
     transport, query, reference, node_shifts, projection, epsilon, rho_query, rho_ref
   )
   .somalign_fit_warnings(diagnostics)
   .somalign_new_fit(
-    query, reference, transport, label_transfer, node_shifts, projection, diagnostics
+    query, reference, transport, label_transfer, node_shifts, projection, diagnostics,
+    anchors = anchors
   )
 }
 

@@ -10,7 +10,7 @@ test_that("somalign_fit_anchored returns correct classes and anchors slot", {
                                 rho_anchor = 1.0)
   expect_s3_class(fit, "somalign_anchored_fit")
   expect_s3_class(fit, "somalign_fit")
-  expect_true(!is.null(fit$anchors))
+  expect_false(is.null(fit$anchors))
   expect_equal(fit$anchors$n_anchors, nrow(fx$anchor_old))
   expect_equal(fit$anchors$rho_anchor, 1.0)
   expect_true(is.integer(fit$anchors$nodes_covered))
@@ -18,14 +18,30 @@ test_that("somalign_fit_anchored returns correct classes and anchors slot", {
   expect_lte(fit$anchors$coverage_fraction, 1)
 })
 
-test_that("rho_anchor = 0 gives same plan as somalign_fit", {
+test_that("rho_anchor = 0 emits message about equivalence with somalign_fit", {
   skip_if_not_installed("kohonen")
   fx <- make_anchored_fixture(seed = 2L)
-  fit_plain    <- somalign_fit(fx$qry, fx$ref)
-  fit_anchored <- somalign_fit_anchored(fx$qry, fx$ref,
-                                         anchor_old = fx$anchor_old,
-                                         anchor_new = fx$anchor_new,
-                                         rho_anchor = 0.0)
+  expect_message(
+    somalign_fit_anchored(fx$qry, fx$ref,
+                          anchor_old = fx$anchor_old,
+                          anchor_new = fx$anchor_new,
+                          rho_anchor = 0.0),
+    "rho_anchor = 0"
+  )
+})
+
+test_that("rho_anchor = 0 gives same transport plan as somalign_fit", {
+  skip_if_not_installed("kohonen")
+  fx <- make_anchored_fixture(seed = 2L)
+  fit_plain <- suppressMessages(suppressWarnings(
+    somalign_fit(fx$qry, fx$ref)
+  ))
+  fit_anchored <- suppressMessages(suppressWarnings(
+    somalign_fit_anchored(fx$qry, fx$ref,
+                          anchor_old = fx$anchor_old,
+                          anchor_new = fx$anchor_new,
+                          rho_anchor = 0.0)
+  ))
   expect_equal(fit_anchored$transport_plan, fit_plain$transport_plan,
                tolerance = 1e-10)
 })
@@ -69,7 +85,7 @@ test_that("somalign_results and somalign_diagnostics work on anchored fit", {
   diag <- somalign_diagnostics(fit)
   expect_s3_class(res, "data.frame")
   expect_true("corrected_som_unit" %in% names(res))
-  expect_true(!is.null(diag$solver$converged))
+  expect_false(is.null(diag$solver$converged))
 })
 
 test_that("somalign_fit_anchored validates mismatched anchor dimensions", {
@@ -78,9 +94,9 @@ test_that("somalign_fit_anchored validates mismatched anchor dimensions", {
   bad_new <- fx$anchor_new[seq_len(nrow(fx$anchor_new) - 1L), , drop = FALSE]
   expect_error(
     somalign_fit_anchored(fx$qry, fx$ref,
-                           anchor_old = fx$anchor_old,
-                           anchor_new = bad_new,
-                           rho_anchor = 1.0),
+                          anchor_old = fx$anchor_old,
+                          anchor_new = bad_new,
+                          rho_anchor = 1.0),
     "same number of rows"
   )
 })
@@ -92,9 +108,9 @@ test_that("somalign_fit_anchored validates wrong feature columns", {
   colnames(bad) <- paste0("X", seq_len(ncol(bad)))
   expect_error(
     somalign_fit_anchored(fx$qry, fx$ref,
-                           anchor_old = bad,
-                           anchor_new = fx$anchor_new,
-                           rho_anchor = 1.0),
+                          anchor_old = bad,
+                          anchor_new = fx$anchor_new,
+                          rho_anchor = 1.0),
     "Missing features"
   )
 })
@@ -104,9 +120,43 @@ test_that("somalign_fit_anchored rejects invalid rho_anchor", {
   fx <- make_anchored_fixture(seed = 7L)
   expect_error(
     somalign_fit_anchored(fx$qry, fx$ref,
-                           anchor_old = fx$anchor_old,
-                           anchor_new = fx$anchor_new,
-                           rho_anchor = -1.0),
+                          anchor_old = fx$anchor_old,
+                          anchor_new = fx$anchor_new,
+                          rho_anchor = -1.0),
     "rho_anchor"
   )
+})
+
+test_that("somalign_fit_anchored rejects zero-row anchor_old", {
+  skip_if_not_installed("kohonen")
+  fx <- make_anchored_fixture(seed = 8L)
+  expect_error(
+    somalign_fit_anchored(fx$qry, fx$ref,
+                          anchor_old = fx$anchor_old[integer(0L), , drop = FALSE],
+                          anchor_new = fx$anchor_new[integer(0L), , drop = FALSE],
+                          rho_anchor = 1.0),
+    "at least one row"
+  )
+})
+
+test_that("somalign_fit_anchored accepts data.frame anchor inputs", {
+  skip_if_not_installed("kohonen")
+  fx <- make_anchored_fixture(seed = 9L)
+  fit <- somalign_fit_anchored(fx$qry, fx$ref,
+                                anchor_old = as.data.frame(fx$anchor_old),
+                                anchor_new = as.data.frame(fx$anchor_new),
+                                rho_anchor = 1.0)
+  expect_s3_class(fit, "somalign_anchored_fit")
+})
+
+test_that("somalign_fit_anchored works with solver = 'log_domain'", {
+  skip_if_not_installed("kohonen")
+  fx <- make_anchored_fixture(seed = 10L)
+  fit <- somalign_fit_anchored(fx$qry, fx$ref,
+                                anchor_old = fx$anchor_old,
+                                anchor_new = fx$anchor_new,
+                                rho_anchor = 1.0,
+                                solver = "log_domain")
+  expect_s3_class(fit, "somalign_anchored_fit")
+  expect_equal(fit$diagnostics$solver$used, "log_domain")
 })

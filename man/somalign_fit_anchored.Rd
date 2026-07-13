@@ -7,13 +7,13 @@
 somalign_fit_anchored(
   query,
   reference,
+  anchor_old,
+  anchor_new,
+  rho_anchor = 1,
   epsilon = 0.5,
   rho_query = 1,
   rho_ref = 1,
   solver = c("internal", "log_domain", "auto"),
-  anchor_old,
-  anchor_new,
-  rho_anchor = 1,
   min_match_fraction = 0.05,
   confidence_threshold = 0.6,
   correction_min_mass = 1e-08,
@@ -27,6 +27,26 @@ somalign_fit_anchored(
 
 \item{reference}{A \code{somalign_reference} object.}
 
+\item{anchor_old}{Numeric matrix (n_anchors × p). Old-batch measurements
+of the anchor samples. Must be \strong{raw (un-normalized) values in the same
+units and preprocessing pipeline as the data used to train \code{reference}}.
+Do not pre-center or pre-scale; this function applies \code{reference$center}
+and \code{reference$scale} internally. Also accepts a data frame of numeric
+columns.}
+
+\item{anchor_new}{Numeric matrix (n_anchors × p). New-batch measurements
+of the \strong{same} anchor samples. Must be \strong{raw (un-normalized) values in
+the same units and preprocessing pipeline as \code{anchor_old}}. Do not
+pre-center or pre-scale; this function applies \code{reference$center} and
+\code{reference$scale} internally. Rows of \code{anchor_old} and \code{anchor_new} must
+correspond to the same biological units. Also accepts a data frame of
+numeric columns.}
+
+\item{rho_anchor}{Non-negative scalar. Controls how strongly anchor pairs
+bias the OT cost. At \code{rho_anchor = 0} the result equals \code{\link[=somalign_fit]{somalign_fit()}}.
+Larger values reduce the effective cost for anchor-supported node pairs,
+concentrating the transport plan on those routes. Typical range: 0.5--3.}
+
 \item{epsilon}{Entropic regularisation strength (see \code{\link[=somalign_fit]{somalign_fit()}}).}
 
 \item{rho_query}{Query-side unbalanced mass relaxation.}
@@ -34,20 +54,6 @@ somalign_fit_anchored(
 \item{rho_ref}{Reference-side unbalanced mass relaxation.}
 
 \item{solver}{Sinkhorn solver variant. See \code{\link[=somalign_fit]{somalign_fit()}}.}
-
-\item{anchor_old}{Numeric matrix (n_anchors × p). Old-batch measurements
-of the anchor samples, in the same feature space as \code{reference}. Also
-accepts a data frame of numeric columns.}
-
-\item{anchor_new}{Numeric matrix (n_anchors × p). New-batch measurements
-of the \strong{same} anchor samples, in the same feature space as \code{reference}.
-Rows of \code{anchor_old} and \code{anchor_new} must correspond to the same
-biological units. Also accepts a data frame of numeric columns.}
-
-\item{rho_anchor}{Non-negative scalar. Controls how strongly anchor pairs
-bias the OT cost. At \code{rho_anchor = 0} the result equals \code{\link[=somalign_fit]{somalign_fit()}}.
-Larger values reduce the effective cost for anchor-supported node pairs,
-concentrating the transport plan on those routes. Typical range: 0.5–3.}
 
 \item{min_match_fraction}{Minimum transported fraction for label transfer.}
 
@@ -81,6 +87,10 @@ anchor pairs are projected onto the query codebook (old batch) and
 reference codebook (new batch), yielding a count matrix \eqn{A} where
 \eqn{A_{kl}} is the number of anchor pairs whose old measurement maps to
 query node \eqn{k} and new measurement maps to reference node \eqn{l}.
+(The query SOM was trained on new-batch data, so projecting the old-batch
+anchor onto it identifies which query node the anchor occupied before the
+batch shift; projecting the new-batch anchor onto the reference SOM
+identifies the corresponding reference node after the shift.)
 The modified cost is
 \deqn{\tilde{C}_{kl} = \max\!\bigl(C_{kl} - \rho_{\mathrm{anchor}} \cdot
   A_{kl} / n_{\mathrm{anchors}},\; 0\bigr).}

@@ -189,6 +189,13 @@ somalign_som_stability <- function(query_data,
   }
   som_seeds <- as.integer(som_seeds)
 
+  old_seed <- if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
+    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE) else NULL
+  on.exit({
+    if (!is.null(old_seed))
+      assign(".Random.seed", old_seed, envir = .GlobalEnv)
+  }, add = TRUE)
+
   .run_one <- function(i) {
     seed <- som_seeds[i]
     set.seed(seed)

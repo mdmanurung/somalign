@@ -22,11 +22,15 @@ you how far that region has shifted.
 
 `somalign_fit_anchored()` folds that information into the optimal transport
 solve. For each anchor pair, the old measurement is projected onto the query
-SOM and the new measurement onto the reference SOM. This produces a
-node-pair count matrix -- how many anchor pairs link query node *k* to
-reference node *l*. Pairs with anchor support get reduced transport cost,
-so the OT plan preferentially routes mass through those node combinations.
-Uncovered nodes remain unaffected; their cost is identical to the standard
+SOM and the new measurement onto the reference SOM. (The query SOM was
+trained on new-batch data, so projecting the old-batch anchor onto it
+identifies which query node that anchor occupied before the batch shift;
+projecting the new-batch anchor onto the reference SOM identifies the
+corresponding reference node after the shift.) This produces a node-pair
+count matrix -- how many anchor pairs link query node *k* to reference node
+*l*. Pairs with anchor support get reduced transport cost, so the OT plan
+preferentially routes mass through those node combinations. Uncovered nodes
+remain unaffected; their cost is identical to the standard
 `somalign_fit()` solve.
 
 ## Setup
@@ -71,12 +75,13 @@ query
 
 ## Identifying anchor samples
 
-Suppose the first 25 rows of each matrix come from a quality-control pool
-run in both batches -- the same biological material measured under both
-conditions.
+Suppose 25 samples from a quality-control pool -- the same biological
+material measured under both batch conditions -- are spread across both
+phenotypic populations.
 
 ```{r anchors, eval = requireNamespace("kohonen", quietly = TRUE)}
-anc_idx    <- seq_len(25L)
+# 12 anchors from the first population, 13 from the second
+anc_idx    <- c(seq_len(12L), 60L + seq_len(13L))
 anchor_old <- old_data[anc_idx, ]   # QC pool in the old batch
 anchor_new <- new_data[anc_idx, ]   # Same QC pool in the new batch
 
@@ -205,11 +210,12 @@ Use this function when:
 
 - You have samples that were physically run in both the old and new batches
   (QC pools, reference standards, proficiency panels).
-- The number of anchor pairs is small relative to the total dataset -- the
-  standard OT objective handles the bulk of the mass; anchors only shift
-  costs for supported node pairs.
 - You want the OT plan to respect known per-node correspondence, rather
   than relying entirely on node-mass distributions.
+
+Anchor pairs need not cover the entire dataset -- even sparse coverage
+meaningfully constrains the OT plan for covered node pairs, while uncovered
+nodes fall back to the standard OT objective.
 
 If no remeasured samples are available, `somalign_fit()` is the correct
 choice. There is no benefit to calling the anchored variant with fabricated

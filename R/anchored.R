@@ -11,21 +11,27 @@
 #'
 #' @param query A `somalign_query` object.
 #' @param reference A `somalign_reference` object.
+#' @param anchor_old Numeric matrix (n_anchors × p). Old-batch measurements
+#'   of the anchor samples. Must be **raw (un-normalized) values in the same
+#'   units and preprocessing pipeline as the data used to train `reference`**.
+#'   Do not pre-center or pre-scale; this function applies `reference$center`
+#'   and `reference$scale` internally. Also accepts a data frame of numeric
+#'   columns.
+#' @param anchor_new Numeric matrix (n_anchors × p). New-batch measurements
+#'   of the **same** anchor samples. Must be **raw (un-normalized) values in
+#'   the same units and preprocessing pipeline as `anchor_old`**. Do not
+#'   pre-center or pre-scale; this function applies `reference$center` and
+#'   `reference$scale` internally. Rows of `anchor_old` and `anchor_new` must
+#'   correspond to the same biological units. Also accepts a data frame of
+#'   numeric columns.
+#' @param rho_anchor Non-negative scalar. Controls how strongly anchor pairs
+#'   bias the OT cost. At `rho_anchor = 0` the result equals [somalign_fit()].
+#'   Larger values reduce the effective cost for anchor-supported node pairs,
+#'   concentrating the transport plan on those routes. Typical range: 0.5--3.
 #' @param epsilon Entropic regularisation strength (see [somalign_fit()]).
 #' @param rho_query Query-side unbalanced mass relaxation.
 #' @param rho_ref Reference-side unbalanced mass relaxation.
 #' @param solver Sinkhorn solver variant. See [somalign_fit()].
-#' @param anchor_old Numeric matrix (n_anchors × p). Old-batch measurements
-#'   of the anchor samples, in the same feature space as `reference`. Also
-#'   accepts a data frame of numeric columns.
-#' @param anchor_new Numeric matrix (n_anchors × p). New-batch measurements
-#'   of the **same** anchor samples, in the same feature space as `reference`.
-#'   Rows of `anchor_old` and `anchor_new` must correspond to the same
-#'   biological units. Also accepts a data frame of numeric columns.
-#' @param rho_anchor Non-negative scalar. Controls how strongly anchor pairs
-#'   bias the OT cost. At `rho_anchor = 0` the result equals [somalign_fit()].
-#'   Larger values reduce the effective cost for anchor-supported node pairs,
-#'   concentrating the transport plan on those routes. Typical range: 0.5–3.
 #' @param min_match_fraction Minimum transported fraction for label transfer.
 #' @param confidence_threshold Minimum top-label probability for label transfer.
 #' @param correction_min_mass Minimum transported mass for a node correction.
@@ -40,6 +46,10 @@
 #' reference codebook (new batch), yielding a count matrix \eqn{A} where
 #' \eqn{A_{kl}} is the number of anchor pairs whose old measurement maps to
 #' query node \eqn{k} and new measurement maps to reference node \eqn{l}.
+#' (The query SOM was trained on new-batch data, so projecting the old-batch
+#' anchor onto it identifies which query node the anchor occupied before the
+#' batch shift; projecting the new-batch anchor onto the reference SOM
+#' identifies the corresponding reference node after the shift.)
 #' The modified cost is
 #' \deqn{\tilde{C}_{kl} = \max\!\bigl(C_{kl} - \rho_{\mathrm{anchor}} \cdot
 #'   A_{kl} / n_{\mathrm{anchors}},\; 0\bigr).}
@@ -99,13 +109,13 @@
 #' @export
 somalign_fit_anchored <- function(query,
                                    reference,
+                                   anchor_old,
+                                   anchor_new,
+                                   rho_anchor = 1.0,
                                    epsilon = 0.5,
                                    rho_query = 1,
                                    rho_ref = 1,
                                    solver = c("internal", "log_domain", "auto"),
-                                   anchor_old,
-                                   anchor_new,
-                                   rho_anchor = 1.0,
                                    min_match_fraction = 0.05,
                                    confidence_threshold = 0.6,
                                    correction_min_mass = 1e-8,
@@ -139,30 +149,10 @@ somalign_fit_anchored <- function(query,
     cost_bonus = cost_bonus$bonus
   )
 
-  label_transfer <- .somalign_transfer_labels(
-    correspondence = transport$correspondence,
-    label_prob = reference$label_prob,
-    match_fraction = transport$match_fraction,
-    min_match_fraction = min_match_fraction,
-    confidence_threshold = confidence_threshold
-  )
-  node_shifts <- .somalign_node_shifts(
-    query_codebook = query$codebook,
-    reference_codebook = reference$codebook,
-    correspondence = transport$correspondence,
-    row_mass = transport$row_mass,
-    match_fraction = transport$match_fraction,
-    min_match_fraction = min_match_fraction,
-    correction_min_mass = correction_min_mass
-  )
-  projection <- .somalign_project_pair(query, reference, node_shifts, chunk_size)
-  diagnostics <- .somalign_build_diagnostics(
-    transport, query, reference, node_shifts, projection, epsilon, rho_query, rho_ref
-  )
-  .somalign_fit_warnings(diagnostics)
-
-  fit <- .somalign_new_fit(
-    query, reference, transport, label_transfer, node_shifts, projection, diagnostics,
+  fit <- .somalign_finish_fit(
+    query, reference, transport,
+    min_match_fraction, confidence_threshold, correction_min_mass,
+    chunk_size, epsilon, rho_query, rho_ref,
     anchors = list(
       n_anchors         = nrow(anchor_old),
       rho_anchor        = rho_anchor,
@@ -189,24 +179,27 @@ somalign_fit_anchored <- function(query,
     anchor_old <- .somalign_select_features(anchor_old, features, what = "anchor_old")
     anchor_new <- .somalign_select_features(anchor_new, features, what = "anchor_new")
   } else {
-    if (ncol(anchor_old) != length(reference$center))
-      stop("`anchor_old` must have the same number of columns as reference features.",
-           call. = FALSE)
-    if (ncol(anchor_new) != length(reference$center))
-      stop("`anchor_new` must have the same number of columns as reference features.",
-           call. = FALSE)
+    ref_names <- names(reference$center)
+    if (!is.null(ref_names)) {
+      anchor_old <- .somalign_select_features(anchor_old, ref_names, what = "anchor_old")
+      anchor_new <- .somalign_select_features(anchor_new, ref_names, what = "anchor_new")
+    } else {
+      if (ncol(anchor_old) != length(reference$center))
+        stop("`anchor_old` must have the same number of columns as reference features.",
+             call. = FALSE)
+      if (ncol(anchor_new) != length(reference$center))
+        stop("`anchor_new` must have the same number of columns as reference features.",
+             call. = FALSE)
+    }
   }
 
   .somalign_validate_finite(anchor_old, what = "anchor_old")
   .somalign_validate_finite(anchor_new, what = "anchor_new")
 
-  anchor_old_scaled <- sweep(anchor_old, 2, reference$center, "-")
-  anchor_old_scaled <- sweep(anchor_old_scaled, 2, reference$scale, "/")
-  anchor_new_scaled <- sweep(anchor_new, 2, reference$center, "-")
-  anchor_new_scaled <- sweep(anchor_new_scaled, 2, reference$scale, "/")
-
-  list(anchor_old_scaled = anchor_old_scaled,
-       anchor_new_scaled = anchor_new_scaled)
+  list(
+    anchor_old_scaled = .somalign_scale_matrix(anchor_old, reference$center, reference$scale),
+    anchor_new_scaled = .somalign_scale_matrix(anchor_new, reference$center, reference$scale)
+  )
 }
 
 .somalign_anchor_cost_bonus <- function(anchor_old_scaled, anchor_new_scaled,

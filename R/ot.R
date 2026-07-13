@@ -83,7 +83,7 @@
   list(plan = plan, iterations = iterations, converged = converged, final_delta = final_delta)
 }
 
-.logsumexp <- function(x) {
+.somalign_logsumexp <- function(x) {
   finite_x <- x[is.finite(x)]
   if (length(finite_x) == 0L) return(-Inf)
   m <- max(finite_x)
@@ -120,13 +120,13 @@
 
     # f_i = tau_a * (eps * log_a_i - eps * logsumexp_j((g_j - C_ij) / eps))
     M_g <- sweep(-cost_over_eps, 2, g / epsilon, "+")
-    lse_g <- apply(M_g, 1, .logsumexp)
+    lse_g <- apply(M_g, 1, .somalign_logsumexp)
     f <- tau_a * (epsilon * log_a - epsilon * lse_g)
     f[is.nan(f)] <- 0
 
     # g_j = tau_b * (eps * log_b_j - eps * logsumexp_i((f_i - C_ij) / eps))
     M_f <- sweep(-cost_over_eps, 1, f / epsilon, "+")
-    lse_f <- apply(M_f, 2, .logsumexp)
+    lse_f <- apply(M_f, 2, .somalign_logsumexp)
     g <- tau_b * (epsilon * log_b - epsilon * lse_f)
     g[is.nan(g)] <- 0
 
