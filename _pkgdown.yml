@@ -19,6 +19,8 @@ navbar:
         href: articles/somalign.html
       - text: "Advanced workflow: existing SOMs"
         href: articles/pretrained-old-and-new-soms.html
+      - text: "Anchoring samples"
+        href: articles/anchor-samples.html
       - text: Algorithm and interpretation
         href: articles/algorithm.html
     github:
@@ -35,17 +37,26 @@ reference:
 - title: Fitting and results
   contents:
   - somalign_fit
+  - somalign_fit_anchored
   - somalign_results
 - title: Diagnostics and sensitivity
   contents:
   - somalign_diagnostics
   - somalign_sensitivity_grid
+  - somalign_som_stability
+- title: Print methods
+  contents:
+  - print.somalign_anchored_fit
+  - print.somalign_fit
+  - print.somalign_query
+  - print.somalign_reference
 
 articles:
 - title: Articles
   contents:
   - somalign
   - pretrained-old-and-new-soms
+  - anchor-samples
   - algorithm
 
 news:
