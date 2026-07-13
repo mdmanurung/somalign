@@ -1,0 +1,232 @@
+---
+title: "API smoke test — all public functions"
+output: BiocStyle::html_document
+vignette: >
+  %\VignetteIndexEntry{API smoke test — all public functions}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+This vignette exercises every public function in the package so that build-time
+vignette rendering catches breaking changes or silent regressions. It is not a
+tutorial — see the other vignettes for annotated workflows. Each section calls
+the function, checks the return type, and prints a key field to confirm the
+object was constructed correctly.
+
+```{r setup, eval = requireNamespace("kohonen", quietly = TRUE)}
+library(kohonen)
+library(somalign)
+
+set.seed(42)
+p <- 4L
+
+old_data <- rbind(
+  matrix(rnorm(30 * p, mean = -2, sd = 0.5), ncol = p),
+  matrix(rnorm(30 * p, mean =  2, sd = 0.5), ncol = p)
+)
+colnames(old_data) <- paste0("M", seq_len(p))
+labels_old <- rep(c("pop_A", "pop_B"), each = 30)
+
+new_data <- old_data + 0.3
+grid_small <- kohonen::somgrid(3, 3, "hexagonal")
+```
+
+## `somalign_train_reference`
+
+Trains a SOM on old-batch data and returns a `somalign_reference`.
+
+```{r train-reference, eval = requireNamespace("kohonen", quietly = TRUE)}
+ref <- somalign_train_reference(
+  old_data, labels = labels_old,
+  grid = grid_small, rlen = 20
+)
+stopifnot(inherits(ref, "somalign_reference"))
+ref
+```
+
+## `somalign_reference`
+
+Builds a reference from an *existing* `kohonen` SOM object rather than
+training a new one. This path is used when the reference SOM was trained
+externally or loaded from a saved file.
+
+```{r reference-from-som, eval = requireNamespace("kohonen", quietly = TRUE)}
+scaled_old <- scale(old_data)
+som_obj    <- kohonen::som(scaled_old, grid = grid_small, rlen = 20)
+ref2 <- somalign_reference(
+  som_ref = som_obj,
+  data    = old_data,
+  labels  = labels_old,
+  codebook_space = "reference_scaled"
+)
+stopifnot(inherits(ref2, "somalign_reference"))
+cat("n_samples:", ref2$n_samples, "\n")
+```
+
+## `somalign_reference_from_nodes`
+
+Reconstructs a reference from stored node-level artifacts. This is useful
+when loading a pre-computed reference from disk without re-running the SOM.
+
+```{r reference-from-nodes, eval = requireNamespace("kohonen", quietly = TRUE)}
+ref3 <- somalign_reference_from_nodes(
+  codebook                  = ref$codebook,
+  features                  = ref$features,
+  center                    = ref$center,
+  scale                     = ref$scale,
+  node_masses               = ref$node_masses,
+  label_prob                = ref$label_prob,
+  distance_quantiles        = ref$distance_quantiles,
+  global_distance_quantiles = ref$global_distance_quantiles
+)
+stopifnot(inherits(ref3, "somalign_reference"))
+stopifnot(identical(ref3$features, ref$features))
+cat("Nodes:", nrow(ref3$codebook), "\n")
+```
+
+## `somalign_query`
+
+Trains a query SOM on new-batch data and projects it against the reference.
+
+```{r query, eval = requireNamespace("kohonen", quietly = TRUE)}
+qry <- somalign_query(new_data, ref, grid = grid_small, rlen = 20)
+stopifnot(inherits(qry, "somalign_query"))
+qry
+```
+
+## `somalign_fit`
+
+Standard (unanchored) unbalanced entropic OT alignment.
+
+```{r fit, eval = requireNamespace("kohonen", quietly = TRUE)}
+fit <- somalign_fit(qry, ref)
+stopifnot(inherits(fit, "somalign_fit"))
+fit
+```
+
+## `somalign_fit_anchored`
+
+Anchor-regularized alignment using remeasured QC samples.
+
+```{r fit-anchored, eval = requireNamespace("kohonen", quietly = TRUE)}
+anc_idx    <- c(1:10, 31:40)
+anchor_old <- old_data[anc_idx, ]
+anchor_new <- new_data[anc_idx, ]
+
+fit_anc <- somalign_fit_anchored(
+  qry, ref,
+  anchor_old = anchor_old,
+  anchor_new = anchor_new,
+  rho_anchor = 1.0
+)
+stopifnot(inherits(fit_anc, "somalign_anchored_fit"))
+stopifnot(inherits(fit_anc, "somalign_fit"))
+cat("n_anchors:        ", fit_anc$anchors$n_anchors, "\n")
+cat("coverage_fraction:", round(fit_anc$anchors$coverage_fraction, 3), "\n")
+```
+
+`rho_anchor = 0` short-circuits to the plain-OT path and emits a message:
+
+```{r fit-anchored-rho0, eval = requireNamespace("kohonen", quietly = TRUE)}
+fit_anc0 <- somalign_fit_anchored(
+  qry, ref,
+  anchor_old = anchor_old,
+  anchor_new = anchor_new,
+  rho_anchor = 0
+)
+stopifnot(inherits(fit_anc0, "somalign_anchored_fit"))
+stopifnot(fit_anc0$anchors$rho_anchor == 0)
+```
+
+## `somalign_results`
+
+Extracts the per-sample projection data frame from a fit. Works on both
+plain and anchored fits.
+
+```{r results, eval = requireNamespace("kohonen", quietly = TRUE)}
+res     <- somalign_results(fit)
+res_anc <- somalign_results(fit_anc)
+
+stopifnot(is.data.frame(res))
+stopifnot(is.data.frame(res_anc))
+stopifnot("corrected_som_unit" %in% names(res))
+stopifnot("final_status" %in% names(res))
+cat("Rows:", nrow(res), "  Columns:", ncol(res), "\n")
+
+# somalign_results with explicit data argument
+res_sub <- somalign_results(fit, data = new_data[1:5, ])
+stopifnot(nrow(res_sub) == 5L)
+```
+
+## `somalign_diagnostics`
+
+Returns a named list of solver, OT, node, and projection diagnostics.
+
+```{r diagnostics, eval = requireNamespace("kohonen", quietly = TRUE)}
+diag <- somalign_diagnostics(fit)
+stopifnot(is.list(diag))
+stopifnot(all(c("solver", "ot", "nodes", "projection") %in% names(diag)))
+cat("Converged:     ", diag$solver$converged, "\n")
+cat("Transport mass:", round(diag$ot$transport_mass, 4), "\n")
+
+# Same interface on anchored fit
+diag_anc <- somalign_diagnostics(fit_anc)
+stopifnot(!is.null(diag_anc$solver$converged))
+```
+
+## `somalign_sensitivity_grid`
+
+Sweeps `epsilon` × `rho_query` × `rho_ref` and returns a summary data frame.
+
+```{r sensitivity-grid, eval = requireNamespace("kohonen", quietly = TRUE)}
+sg <- somalign_sensitivity_grid(
+  qry, ref,
+  epsilon   = c(0.3, 0.7),
+  rho_query = c(0.5, 1.0),
+  rho_ref   = 1.0
+)
+stopifnot(is.data.frame(sg))
+stopifnot(nrow(sg) == 4L)
+stopifnot("transport_mass" %in% names(sg))
+sg[, c("epsilon", "rho_query", "transport_mass")]
+```
+
+## `somalign_som_stability`
+
+Measures how much OT statistics vary with query SOM random seed by
+re-training the query SOM from scratch for each seed.
+
+```{r som-stability, eval = requireNamespace("kohonen", quietly = TRUE)}
+stab <- somalign_som_stability(
+  new_data, ref,
+  som_seeds = 1:3,
+  grid = grid_small,
+  rlen = 20
+)
+stopifnot(is.data.frame(stab))
+stopifnot(nrow(stab) == 3L)
+stopifnot("som_seed" %in% names(stab))
+stab[, c("som_seed", "transport_mass", "converged")]
+```
+
+## Print methods
+
+All four main classes have print methods that should return the object
+invisibly.
+
+```{r print-methods, eval = requireNamespace("kohonen", quietly = TRUE)}
+invisible(print(ref))
+invisible(print(qry))
+invisible(print(fit))
+invisible(print(fit_anc))
+```
+
+## Session info
+
+```{r sessionInfo, echo = FALSE}
+sessionInfo()
+```
