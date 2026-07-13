@@ -10,7 +10,7 @@ somalign_fit(
   epsilon = 0.5,
   rho_query = 1,
   rho_ref = 1,
-  solver = c("internal", "auto"),
+  solver = c("internal", "log_domain", "auto"),
   min_match_fraction = 0.05,
   confidence_threshold = 0.6,
   correction_min_mass = 1e-08,
@@ -36,8 +36,11 @@ discrete. The normalisation scale is stored in
 
 \item{rho_ref}{Reference-side unbalanced mass relaxation.}
 
-\item{solver}{\code{"internal"} or \code{"auto"}. Both use the internal pure-R
-generalized Sinkhorn solver; \code{"auto"} is retained as a compatibility alias.}
+\item{solver}{Sinkhorn solver variant. \code{"internal"} (default) and \code{"auto"}
+both use the primal-domain scaling iteration. \code{"log_domain"} uses a
+numerically stable log-potential variant that avoids kernel underflow for
+small \code{epsilon} or high-dimensional codebooks; it is slower per iteration
+but tolerates cost/epsilon ratios that cause \code{"internal"} to warn.}
 
 \item{min_match_fraction}{Minimum transported fraction required before a
 query node label transfer is accepted.}

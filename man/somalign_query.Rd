@@ -31,14 +31,14 @@ into reference-scaled space before use.}
 
 \item{grid}{Optional \code{kohonen::somgrid()} object when \code{som_query} is omitted.}
 
-\item{rlen}{Number of SOM training iterations passed to \code{\link[kohonen:som]{kohonen::som()}}.}
+\item{rlen}{Number of SOM training iterations passed to \code{\link[kohonen:supersom]{kohonen::som()}}.}
 
-\item{alpha}{Learning-rate schedule passed to \code{\link[kohonen:som]{kohonen::som()}}.}
+\item{alpha}{Learning-rate schedule passed to \code{\link[kohonen:supersom]{kohonen::som()}}.}
 
 \item{features}{Optional feature names. Defaults to the reference feature
 order.}
 
-\item{...}{Additional arguments passed to \code{\link[kohonen:som]{kohonen::som()}}.}
+\item{...}{Additional arguments passed to \code{\link[kohonen:supersom]{kohonen::som()}}.}
 }
 \value{
 A \code{somalign_query} object.

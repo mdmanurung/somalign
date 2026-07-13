@@ -1,3 +1,41 @@
+# somalign 0.99.2
+
+## New features
+
+* `somalign_fit()` gains a `solver = "log_domain"` option. The log-domain
+  Sinkhorn variant works with log-potentials $f$ (query) and $g$ (reference)
+  rather than the primal scaling vectors, avoiding `exp(-C/epsilon)` kernel
+  underflow entirely. It is slower per iteration but tolerates cost/epsilon
+  ratios that cause the default `"internal"` solver to warn.
+
+* `somalign_som_stability()` — new function that sweeps a vector of random
+  seeds for query SOM training, holds the reference fixed, and returns a
+  per-seed summary data frame. Reports `transport_mass`,
+  `mean_match_fraction`, `max_row_mass_error`, `accepted_label_fraction`,
+  `outside_direct_fraction`, `outside_corrected_fraction`,
+  `mean_correction_norm`, and `converged` for each seed, quantifying
+  run-to-run variance from SOM training randomness — the largest uncontrolled
+  variance source in the `somalign` workflow.
+
+## Improvements
+
+* `somalign_fit()` diagnostics now include two scale-invariant marginal-error
+  fields: `diagnostics$solver$rel_marginal_row_error` and
+  `diagnostics$solver$rel_marginal_col_error`. These normalise the absolute
+  marginal violations by total query and reference mass respectively, making
+  it easier to distinguish expected mass destruction from solver
+  non-convergence.
+
+## Documentation
+
+* `vignette("algorithm")` gains a new **Limitations of the OT correction**
+  section covering barycentric contraction (the correction target is a
+  conditional mean that contracts toward dense reference nodes and grows with
+  `epsilon`), the unpaired OT design (mass distributions, not individual
+  samples, are matched — anchor-based methods exploit sample-level pairing),
+  and the uncalibrated novelty score (`match_fraction` reflects the
+  epsilon/rho regime as much as any true novel population).
+
 # somalign 0.99.1
 
 ## Breaking changes

@@ -10,13 +10,17 @@ The package keeps direct projection into a fixed reference \code{kohonen} SOM as
 the conservative primary result and returns auxiliary optimal-transport
 corrected projections for visualisation and annotation.
 }
-\author{
-\strong{Maintainer}: Mikhael Manurung \email{mikhael.manurung@gmail.com}
-
-Authors:
+\seealso{
+Useful links:
 \itemize{
-  \item Mikhael Manurung \email{mikhael.manurung@gmail.com}
+  \item \url{https://mdmanurung.github.io/somalign}
+  \item \url{https://github.com/mdmanurung/somalign}
+  \item Report bugs at \url{https://github.com/mdmanurung/somalign/issues}
 }
+
+}
+\author{
+\strong{Maintainer}: Mikhael Manurung \email{mikhael.manurung@gmail.com} (\href{https://orcid.org/0000-0000-0000-0000}{ORCID})
 
 }
 \keyword{internal}

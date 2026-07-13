@@ -31,10 +31,10 @@ compatibility alias for the internal pure-R solver.}
 
 \item{parallel}{Logical. When \code{TRUE}, grid rows are evaluated in parallel
 using \code{\link[BiocParallel:bplapply]{BiocParallel::bplapply()}} with the registered
-\code{BiocParallel} back-end (see \code{\link[BiocParallel:register]{BiocParallel::register()}}).
-Configure the back-end before calling this function, e.g.
-\code{BiocParallel::register(BiocParallel::MulticoreParam(workers = 4))}.
-When \code{FALSE} (default) a sequential for-loop is used, which is fully
+\code{BiocParallel} back-end (see \code{\link[BiocParallel:register]{BiocParallel::register()}}). Configure the
+back-end before calling this function, e.g.
+\code{BiocParallel::register(BiocParallel::MulticoreParam(workers = 4))}. When
+\code{FALSE} (default) a sequential for-loop is used, which is fully
 reproducible across platforms.}
 
 \item{...}{Additional arguments passed to \code{somalign_fit()}.}
