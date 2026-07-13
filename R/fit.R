@@ -11,8 +11,11 @@
 #'   `diagnostics$solver$cost_scale`.
 #' @param rho_query Query-side unbalanced mass relaxation.
 #' @param rho_ref Reference-side unbalanced mass relaxation.
-#' @param solver `"internal"` or `"auto"`. Both use the internal pure-R
-#'   generalized Sinkhorn solver; `"auto"` is retained as a compatibility alias.
+#' @param solver Sinkhorn solver variant. `"internal"` (default) and `"auto"`
+#'   both use the primal-domain scaling iteration. `"log_domain"` uses a
+#'   numerically stable log-potential variant that avoids kernel underflow for
+#'   small `epsilon` or high-dimensional codebooks; it is slower per iteration
+#'   but tolerates cost/epsilon ratios that cause `"internal"` to warn.
 #' @param min_match_fraction Minimum transported fraction required before a
 #'   query node label transfer is accepted.
 #' @param confidence_threshold Minimum top-label probability required before a
@@ -58,7 +61,7 @@ somalign_fit <- function(query,
                          epsilon = 0.5,
                          rho_query = 1,
                          rho_ref = 1,
-                         solver = c("internal", "auto"),
+                         solver = c("internal", "log_domain", "auto"),
                          min_match_fraction = 0.05,
                          confidence_threshold = 0.6,
                          correction_min_mass = 1e-8,
@@ -67,7 +70,7 @@ somalign_fit <- function(query,
                          chunk_size = 10000L) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
-  solver <- match.arg(solver)
+  solver <- match.arg(solver, c("internal", "log_domain", "auto"))
 
   transport <- .somalign_align_transport(
     query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol
@@ -102,14 +105,19 @@ somalign_fit <- function(query,
 }
 
 .somalign_align_transport <- function(query, reference, epsilon, rho_query,
-                                      rho_ref, solver, max_iter, tol) {
+                                      rho_ref, solver, max_iter, tol,
+                                      cost_bonus = NULL) {
   cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
   cost_scale <- stats::median(cost[cost > 0])
   if (!is.finite(cost_scale) || cost_scale == 0) {
     cost_scale <- 1
   }
+  cost_normalized <- cost / cost_scale
+  if (!is.null(cost_bonus)) {
+    cost_normalized <- pmax(cost_normalized - cost_bonus, 0)
+  }
   ot <- .somalign_solve_ot(
-    cost = cost / cost_scale,
+    cost = cost_normalized,
     a = query$node_masses,
     b = reference$node_masses,
     epsilon = epsilon,
@@ -173,7 +181,11 @@ somalign_fit <- function(query,
       epsilon = epsilon,
       rho_query = rho_query,
       rho_ref = rho_ref,
-      cost_scale = transport$cost_scale
+      cost_scale = transport$cost_scale,
+      rel_marginal_row_error = max(abs(row_mass - query$node_masses)) /
+        max(sum(query$node_masses), .Machine$double.eps),
+      rel_marginal_col_error = max(abs(col_mass - reference$node_masses)) /
+        max(sum(reference$node_masses), .Machine$double.eps)
     ),
     ot = list(
       transport_mass = sum(plan),
@@ -228,8 +240,9 @@ somalign_fit <- function(query,
 }
 
 .somalign_new_fit <- function(query, reference, transport, label_transfer,
-                              node_shifts, projection, diagnostics) {
-  structure(
+                              node_shifts, projection, diagnostics,
+                              anchors = NULL) {
+  fit <- structure(
     list(
       query = query,
       reference = reference,
@@ -247,6 +260,10 @@ somalign_fit <- function(query,
     ),
     class = "somalign_fit"
   )
+  if (!is.null(anchors)) {
+    fit$anchors <- anchors
+  }
+  fit
 }
 
 .somalign_transfer_labels <- function(correspondence,

@@ -120,6 +120,63 @@ test_that("all-zero query mass triggers a warning from .somalign_validate_ot_inp
   )
 })
 
+test_that("log_domain solver plan agrees with internal solver on simple case", {
+  set.seed(77)
+  cost <- matrix(c(0.0, 1.2, 1.5,
+                   1.2, 0.0, 0.9,
+                   1.5, 0.9, 0.0), nrow = 3)
+  a <- c(0.3, 0.5, 0.2)
+  b <- c(0.4, 0.3, 0.3)
+  internal <- somalign:::.somalign_solve_internal(
+    cost, a, b, epsilon = 0.5, rho_query = 1, rho_ref = 1,
+    max_iter = 1000, tol = 1e-9
+  )
+  log_dom <- somalign:::.somalign_solve_internal(
+    cost, a, b, epsilon = 0.5, rho_query = 1, rho_ref = 1,
+    max_iter = 1000, tol = 1e-9, log_domain = TRUE
+  )
+  expect_equal(log_dom$plan, internal$plan, tolerance = 1e-5)
+})
+
+test_that("log_domain solver gives zero plan row for zero-mass query node", {
+  cost <- matrix(c(0.0, 1.0,
+                   1.0, 0.0,
+                   0.5, 0.5), nrow = 3)
+  a <- c(0.6, 0.0, 0.4)   # second node has zero mass
+  b <- c(0.5, 0.5)
+  result <- somalign:::.somalign_solve_internal(
+    cost, a, b, epsilon = 0.5, rho_query = 1, rho_ref = 1,
+    max_iter = 1000, tol = 1e-9, log_domain = TRUE
+  )
+  expect_true(all(result$plan[2, ] == 0),
+              info = "zero-mass node must have all-zero plan row")
+  expect_true(all(result$plan >= 0))
+})
+
+test_that("log_domain solver via somalign_fit: corrected accuracy matches internal solver", {
+  skip_if_not_installed("kohonen")
+  withr::local_seed(88)
+  n <- 40L
+  ref_data <- rbind(
+    matrix(rnorm(n * 3, mean = -4, sd = 0.5), ncol = 3),
+    matrix(rnorm(n * 3, mean =  4, sd = 0.5), ncol = 3)
+  )
+  colnames(ref_data) <- paste0("f", seq_len(3))
+  ref <- somalign_train_reference(
+    ref_data, grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 10
+  )
+  qry_data <- ref_data + 0.5
+  qry <- somalign_query(
+    qry_data, ref, grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 10
+  )
+  fit_int <- somalign_fit(qry, ref, epsilon = 0.5, solver = "internal")
+  fit_log <- somalign_fit(qry, ref, epsilon = 0.5, solver = "log_domain")
+  # Plans should agree closely
+  expect_equal(fit_log$transport_plan, fit_int$transport_plan, tolerance = 1e-4)
+  expect_true(fit_log$diagnostics$solver$converged)
+  expect_identical(fit_log$diagnostics$solver$used, "log_domain")
+})
+
 test_that("codebook_space = 'raw' in somalign_query rescales codebook to reference space", {
   skip_if_not_installed("kohonen")
   withr::local_seed(55)
