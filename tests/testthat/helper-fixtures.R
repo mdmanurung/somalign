@@ -1,3 +1,31 @@
+make_anchored_fixture <- function(seed = 1L) {
+  withr::local_seed(seed)
+  p <- 3L
+  ref_data <- rbind(
+    matrix(rnorm(30 * p, mean = -3, sd = 0.5), ncol = p),
+    matrix(rnorm(30 * p, mean =  3, sd = 0.5), ncol = p)
+  )
+  colnames(ref_data) <- paste0("F", seq_len(p))
+  ref <- somalign_train_reference(
+    ref_data, grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 10
+  )
+  shift    <- rep(1.0, p)
+  qry_data <- ref_data + matrix(shift, nrow = nrow(ref_data), ncol = p, byrow = TRUE)
+  qry <- somalign_query(
+    qry_data, ref, grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 10
+  )
+  anc_idx <- seq_len(20L)
+  list(
+    ref      = ref,
+    qry      = qry,
+    ref_data = ref_data,
+    qry_data = qry_data,
+    anc_idx  = anc_idx,
+    anchor_old = ref_data[anc_idx, , drop = FALSE],
+    anchor_new = qry_data[anc_idx, , drop = FALSE]
+  )
+}
+
 make_som <- function(codebook) {
   codebook <- as.matrix(codebook)
   if (is.null(colnames(codebook)) && ncol(codebook) == 2) {

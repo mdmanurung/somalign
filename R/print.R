@@ -52,3 +52,24 @@ print.somalign_fit <- function(x, ...) {
   )
   invisible(x)
 }
+
+#' Print a somalign_anchored_fit object
+#'
+#' @param x A \code{somalign_anchored_fit} object.
+#' @param ... Ignored.
+#'
+#' @return \code{x}, invisibly.
+#' @export
+print.somalign_anchored_fit <- function(x, ...) {
+  cat(
+    "<somalign_anchored_fit>\n",
+    "  solver: ", x$diagnostics$solver$used, "\n",
+    "  query nodes: ", nrow(x$query$codebook), "\n",
+    "  reference nodes: ", nrow(x$reference$codebook), "\n",
+    "  transport mass: ", signif(x$diagnostics$ot$transport_mass, 4), "\n",
+    "  anchors: ", x$anchors$n_anchors,
+    " (", round(100 * x$anchors$coverage_fraction, 1), "% node coverage)\n",
+    sep = ""
+  )
+  invisible(x)
+}
