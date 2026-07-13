@@ -1,0 +1,222 @@
+---
+title: "Anchor-regularized alignment with remeasured samples"
+output: BiocStyle::html_document
+vignette: >
+  %\VignetteIndexEntry{Anchor-regularized alignment with remeasured samples}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+In many longitudinal and multi-site studies, a small set of quality-control
+samples -- control cell lines, reference bead populations, or proficiency
+panel specimens -- gets run alongside every batch. When those same samples
+appear in both the old batch (from which the reference SOM was trained) and
+the new batch (from which the query SOM was trained), they carry direct
+information about the per-node batch displacement: wherever an anchor sample
+lands in the reference codebook, the corresponding query measurement tells
+you how far that region has shifted.
+
+`somalign_fit_anchored()` folds that information into the optimal transport
+solve. For each anchor pair, the old measurement is projected onto the query
+SOM and the new measurement onto the reference SOM. This produces a
+node-pair count matrix -- how many anchor pairs link query node *k* to
+reference node *l*. Pairs with anchor support get reduced transport cost,
+so the OT plan preferentially routes mass through those node combinations.
+Uncovered nodes remain unaffected; their cost is identical to the standard
+`somalign_fit()` solve.
+
+## Setup
+
+```{r setup, eval = requireNamespace("kohonen", quietly = TRUE)}
+library(kohonen)
+library(somalign)
+
+set.seed(42)
+p <- 5L
+
+# Old batch: two well-separated populations
+old_data <- rbind(
+  matrix(rnorm(60 * p, mean = -2, sd = 0.6), ncol = p),
+  matrix(rnorm(60 * p, mean =  2, sd = 0.6), ncol = p)
+)
+colnames(old_data) <- paste0("CD", seq_len(p))
+
+# Train reference SOM and build reference object in one call
+reference <- somalign_train_reference(
+  old_data,
+  grid = kohonen::somgrid(4, 4, "hexagonal"),
+  rlen = 50
+)
+reference
+```
+
+The new batch carries a modest uniform batch offset -- realistic for
+reagent lot changes or inter-instrument calibration drift.
+
+```{r new-batch, eval = requireNamespace("kohonen", quietly = TRUE)}
+shift    <- rep(0.2, p)
+new_data <- old_data + matrix(shift, nrow = nrow(old_data), ncol = p, byrow = TRUE)
+
+query <- somalign_query(
+  new_data, reference,
+  grid = kohonen::somgrid(4, 4, "hexagonal"),
+  rlen = 50
+)
+query
+```
+
+## Identifying anchor samples
+
+Suppose the first 25 rows of each matrix come from a quality-control pool
+run in both batches -- the same biological material measured under both
+conditions.
+
+```{r anchors, eval = requireNamespace("kohonen", quietly = TRUE)}
+anc_idx    <- seq_len(25L)
+anchor_old <- old_data[anc_idx, ]   # QC pool in the old batch
+anchor_new <- new_data[anc_idx, ]   # Same QC pool in the new batch
+
+cat("Anchor pairs:", nrow(anchor_old), "\n")
+cat("Features:    ", ncol(anchor_old), "\n")
+```
+
+## Comparing standard and anchored fits
+
+```{r fits, eval = requireNamespace("kohonen", quietly = TRUE)}
+fit_plain <- somalign_fit(query, reference)
+fit_anc   <- somalign_fit_anchored(query, reference,
+                                    anchor_old = anchor_old,
+                                    anchor_new = anchor_new,
+                                    rho_anchor = 1.5)
+```
+
+Printing either object gives a concise summary:
+
+```{r print-fits, eval = requireNamespace("kohonen", quietly = TRUE)}
+fit_plain
+fit_anc
+```
+
+The anchored fit reports how many query nodes had at least one anchor pair
+and the fraction of the codebook they cover:
+
+```{r anchors-slot, eval = requireNamespace("kohonen", quietly = TRUE)}
+fit_anc$anchors
+```
+
+`nodes_covered` counts distinct query SOM nodes onto which at least one
+anchor sample's old-batch measurement was projected. `coverage_fraction` is
+that count divided by the total number of query nodes. Nodes with no anchor
+coverage are solved with unchanged costs, so they behave exactly as they
+would under `somalign_fit()`.
+
+## Effect on node correction vectors
+
+Anchor regularization shifts mass toward node pairs that anchors confirm.
+A practical way to see this is to compare the per-node correction magnitudes
+between the two fits. Each correction vector points from a query SOM node
+toward its barycentric target in the reference, so nodes whose OT
+correspondence changed will show different norms:
+
+```{r plan-comparison, eval = requireNamespace("kohonen", quietly = TRUE)}
+plain_norms <- sqrt(rowSums(fit_plain$node_shifts^2))
+anc_norms   <- sqrt(rowSums(fit_anc$node_shifts^2))
+
+cat("Mean correction norm -- plain:    ", round(mean(plain_norms), 4), "\n")
+cat("Mean correction norm -- anchored: ", round(mean(anc_norms),   4), "\n")
+cat("Max  correction norm -- plain:    ", round(max(plain_norms),  4), "\n")
+cat("Max  correction norm -- anchored: ", round(max(anc_norms),    4), "\n")
+```
+
+When anchors consistently confirm the same direction of displacement,
+anchor-regularized fits produce more coherent correction vectors: the OT
+plan concentrates mass on anchor-supported routes, reducing the influence
+of diffuse entropic transport on uncovered node pairs.
+
+## Downstream results
+
+Both fit objects expose the same downstream interface. `somalign_results()`
+returns the standard projection data frame for all query samples:
+
+```{r results, eval = requireNamespace("kohonen", quietly = TRUE)}
+res_plain <- somalign_results(fit_plain)
+res_anc   <- somalign_results(fit_anc)
+
+# Fraction of samples landing outside reference distance thresholds
+cat("Outside fraction (plain):    ",
+    mean(res_plain$final_status == "outside_reference"), "\n")
+cat("Outside fraction (anchored): ",
+    mean(res_anc$final_status   == "outside_reference"), "\n")
+```
+
+`somalign_diagnostics()` works identically on anchored fits:
+
+```{r diagnostics, eval = requireNamespace("kohonen", quietly = TRUE)}
+diag <- somalign_diagnostics(fit_anc)
+cat("Solver converged:", diag$solver$converged, "\n")
+cat("Transport mass:  ", round(diag$ot$transport_mass, 4), "\n")
+```
+
+## Tuning `rho_anchor`
+
+`rho_anchor` controls how much the anchor bonus reduces the normalized OT
+cost. At `rho_anchor = 0`, the bonus vanishes and the result is identical
+to `somalign_fit()`. As `rho_anchor` grows, anchor-supported pairs become
+progressively cheaper. Once the bonus exceeds the normalized cost for a
+pair, that pair's effective cost is clamped to zero -- the plan then spreads
+mass among all zero-cost pairs according to entropic regularization rather
+than differential anchor support, so very large values do not continue to
+concentrate mass.
+
+A practical upper bound is `rho_anchor * max_A / n_anchors <= 1`, where
+`max_A` is the highest anchor count for any single node pair. Values in
+the range 0.5--2 are a reasonable starting point. When coverage is sparse
+(< 30% of nodes) or anchor pairs are unevenly distributed, a smaller value
+avoids over-weighting a few node pairs.
+
+```{r rho-sweep, eval = requireNamespace("kohonen", quietly = TRUE)}
+rhos <- c(0.5, 1, 1.5, 2, 4)
+sweep_results <- lapply(rhos, function(rho) {
+  f <- somalign_fit_anchored(query, reference,
+                              anchor_old = anchor_old,
+                              anchor_new = anchor_new,
+                              rho_anchor = rho)
+  data.frame(
+    rho_anchor     = rho,
+    transport_mass = round(f$diagnostics$ot$transport_mass, 5),
+    mean_corr_norm = round(mean(sqrt(rowSums(f$node_shifts^2))), 5)
+  )
+})
+do.call(rbind, sweep_results)
+```
+
+For a more targeted diagnostic, compare the `somalign_diagnostics()`
+node-level `match_fraction` and `correction_norm` across values, and use
+`somalign_results()` to check whether corrected node assignments shift in a
+direction consistent with your biological expectations.
+
+## When to use `somalign_fit_anchored()`
+
+Use this function when:
+
+- You have samples that were physically run in both the old and new batches
+  (QC pools, reference standards, proficiency panels).
+- The number of anchor pairs is small relative to the total dataset -- the
+  standard OT objective handles the bulk of the mass; anchors only shift
+  costs for supported node pairs.
+- You want the OT plan to respect known per-node correspondence, rather
+  than relying entirely on node-mass distributions.
+
+If no remeasured samples are available, `somalign_fit()` is the correct
+choice. There is no benefit to calling the anchored variant with fabricated
+or imputed anchor pairs.
+
+## Session info
+
+```{r sessionInfo, echo = FALSE}
+sessionInfo()
+```

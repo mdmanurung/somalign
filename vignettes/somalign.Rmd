@@ -125,6 +125,10 @@ reference label is confident enough. Always check
 workflow for existing reference or query SOMs: reference-scaled codebooks,
 node-level artifacts, diagnostics, and hyperparameter tuning.
 
+`vignette("anchor-samples", package = "somalign")` covers
+`somalign_fit_anchored()`: supplying remeasured QC samples as anchor pairs,
+tuning `rho_anchor`, and inspecting anchor node coverage.
+
 `vignette("algorithm", package = "somalign")` walks through each pipeline
 stage — direct projection, OT correspondence, correction vectors, label
 transfer — and explains how they produce the output columns.

@@ -482,6 +482,57 @@ dominant reference node is too mixed to assign a clean label).
 
 ***
 
+## Limitations of the OT correction
+
+The OT-derived columns are auxiliary. Three structural limitations govern when
+they should and should not be trusted.
+
+### Barycentric contraction (F1)
+
+The correction target for node $i$ is the transport-weighted mean of matched
+reference codebook vectors:
+
+$$\hat{C}_i = \frac{\sum_j P_{ij}\,C_{\text{ref},j}}{\sum_j P_{ij}}$$
+
+This is a **conditional mean**, so the corrected positions always lie inside
+the convex hull of the reference codebook. Two consequences follow. First,
+variance shrinks: query nodes that genuinely sit near the periphery of a
+reference cluster will be pulled inward. Second, dense reference regions
+attract mass — if the reference has one very large T-cell cluster and one
+small NK cluster, even a predominantly NK query node will have its correction
+vector biased toward the T-cell centroid. Contraction grows as `epsilon`
+increases, because a larger entropic penalty spreads each transport row $P[i,
+\cdot]$ across more reference nodes. Interpret `corrected_som_unit` with
+`correction_norm`: a large shift ($\|\Delta_i\|$) in a high-epsilon fit is the
+most suspect combination.
+
+### Unpaired OT (F2)
+
+OT operates on **node mass distributions**, not on individual samples. If the
+query batch consists of literally remeasured biological units (the same cells
+or patients measured again), that ground-truth sample-level correspondence is
+available but unused here. Anchor-based methods such as CytoNorm exploit
+exactly this pairing, using anchor controls measured in both old and new
+batches to identify the batch map with minimal ambiguity. `somalign` is
+designed for the common case where no such anchors exist: only the phenotypic
+structure of the populations (encoded in the codebooks) is shared. If you do
+have remeasured anchor controls, incorporate them at the reference-building
+stage rather than relying on the OT correction.
+
+### Uncalibrated novelty score (F3)
+
+`match_fraction` (and the derived label-transfer gate) reflects the
+$\varepsilon$/$\rho$ regime as much as any biological novelty. A low
+`match_fraction` means little query mass reached reference nodes, but that
+can happen because (a) the query contains a genuinely novel population, or (b)
+`rho_query` is small, (c) `epsilon` is large, or (d) the query SOM topology
+differs from the reference. There is no null model calibrating how much
+destroyed mass constitutes evidence of novelty. Use `somalign_sensitivity_grid()`
+to assess whether low-match nodes are stable across $\varepsilon$/$\rho$ values
+before interpreting them as novel populations.
+
+***
+
 ## Output columns
 
 Direct projection columns are the primary result. OT-derived columns are
