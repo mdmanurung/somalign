@@ -17,13 +17,13 @@ optimal transport problem over the full codebook.
 somalign_fit_anchored(
   query,
   reference,
+  anchor_old,
+  anchor_new,
+  rho_anchor = 1,
   epsilon = 0.5,
   rho_query = 1,
   rho_ref = 1,
   solver = c("internal", "log_domain", "auto"),
-  anchor_old,
-  anchor_new,
-  rho_anchor = 1,
   min_match_fraction = 0.05,
   confidence_threshold = 0.6,
   correction_min_mass = 1e-08,
@@ -43,6 +43,34 @@ somalign_fit_anchored(
 
   A `somalign_reference` object.
 
+- anchor_old:
+
+  Numeric matrix (n_anchors × p). Old-batch measurements of the anchor
+  samples. Must be **raw (un-normalized) values in the same units and
+  preprocessing pipeline as the data used to train `reference`**. Do not
+  pre-center or pre-scale; this function applies `reference$center` and
+  `reference$scale` internally. Also accepts a data frame of numeric
+  columns.
+
+- anchor_new:
+
+  Numeric matrix (n_anchors × p). New-batch measurements of the **same**
+  anchor samples. Must be **raw (un-normalized) values in the same units
+  and preprocessing pipeline as `anchor_old`**. Do not pre-center or
+  pre-scale; this function applies `reference$center` and
+  `reference$scale` internally. Rows of `anchor_old` and `anchor_new`
+  must correspond to the same biological units. Also accepts a data
+  frame of numeric columns.
+
+- rho_anchor:
+
+  Non-negative scalar. Controls how strongly anchor pairs bias the OT
+  cost. At `rho_anchor = 0` the result equals
+  [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
+  Larger values reduce the effective cost for anchor-supported node
+  pairs, concentrating the transport plan on those routes. Typical
+  range: 0.5–3.
+
 - epsilon:
 
   Entropic regularisation strength (see
@@ -60,28 +88,6 @@ somalign_fit_anchored(
 
   Sinkhorn solver variant. See
   [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
-
-- anchor_old:
-
-  Numeric matrix (n_anchors × p). Old-batch measurements of the anchor
-  samples, in the same feature space as `reference`. Also accepts a data
-  frame of numeric columns.
-
-- anchor_new:
-
-  Numeric matrix (n_anchors × p). New-batch measurements of the **same**
-  anchor samples, in the same feature space as `reference`. Rows of
-  `anchor_old` and `anchor_new` must correspond to the same biological
-  units. Also accepts a data frame of numeric columns.
-
-- rho_anchor:
-
-  Non-negative scalar. Controls how strongly anchor pairs bias the OT
-  cost. At `rho_anchor = 0` the result equals
-  [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
-  Larger values reduce the effective cost for anchor-supported node
-  pairs, concentrating the transport plan on those routes. Typical
-  range: 0.5–3.
 
 - min_match_fraction:
 
@@ -119,7 +125,11 @@ normalised by its median positive entry (as in
 The anchor pairs are projected onto the query codebook (old batch) and
 reference codebook (new batch), yielding a count matrix \\A\\ where
 \\A\_{kl}\\ is the number of anchor pairs whose old measurement maps to
-query node \\k\\ and new measurement maps to reference node \\l\\. The
+query node \\k\\ and new measurement maps to reference node \\l\\. (The
+query SOM was trained on new-batch data, so projecting the old-batch
+anchor onto it identifies which query node the anchor occupied before
+the batch shift; projecting the new-batch anchor onto the reference SOM
+identifies the corresponding reference node after the shift.) The
 modified cost is \$\$\tilde{C}\_{kl} = \max\\\bigl(C\_{kl} -
 \rho\_{\mathrm{anchor}} \cdot A\_{kl} / n\_{\mathrm{anchors}},\\
 0\bigr).\$\$ Pairs with many anchor observations get cost reduced toward

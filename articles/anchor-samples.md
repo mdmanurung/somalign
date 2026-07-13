@@ -13,12 +13,15 @@ shifted.
 [`somalign_fit_anchored()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_anchored.md)
 folds that information into the optimal transport solve. For each anchor
 pair, the old measurement is projected onto the query SOM and the new
-measurement onto the reference SOM. This produces a node-pair count
-matrix – how many anchor pairs link query node *k* to reference node
-*l*. Pairs with anchor support get reduced transport cost, so the OT
-plan preferentially routes mass through those node combinations.
-Uncovered nodes remain unaffected; their cost is identical to the
-standard
+measurement onto the reference SOM. (The query SOM was trained on
+new-batch data, so projecting the old-batch anchor onto it identifies
+which query node that anchor occupied before the batch shift; projecting
+the new-batch anchor onto the reference SOM identifies the corresponding
+reference node after the shift.) This produces a node-pair count matrix
+– how many anchor pairs link query node *k* to reference node *l*. Pairs
+with anchor support get reduced transport cost, so the OT plan
+preferentially routes mass through those node combinations. Uncovered
+nodes remain unaffected; their cost is identical to the standard
 [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)
 solve.
 
@@ -74,13 +77,14 @@ query
 
 ## Identifying anchor samples
 
-Suppose the first 25 rows of each matrix come from a quality-control
-pool run in both batches – the same biological material measured under
-both conditions.
+Suppose 25 samples from a quality-control pool – the same biological
+material measured under both batch conditions – are spread across both
+phenotypic populations.
 
 ``` r
 
-anc_idx    <- seq_len(25L)
+# 12 anchors from the first population, 13 from the second
+anc_idx    <- c(seq_len(12L), 60L + seq_len(13L))
 anchor_old <- old_data[anc_idx, ]   # QC pool in the old batch
 anchor_new <- new_data[anc_idx, ]   # Same QC pool in the new batch
 
@@ -100,7 +104,7 @@ fit_anc   <- somalign_fit_anchored(query, reference,
                                     anchor_old = anchor_old,
                                     anchor_new = anchor_new,
                                     rho_anchor = 1.5)
-#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.48); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.52); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 ```
 
 Printing either object gives a concise summary:
@@ -118,8 +122,8 @@ fit_anc
 #>   solver: internal
 #>   query nodes: 16
 #>   reference nodes: 16
-#>   transport mass: 2.122
-#>   anchors: 25 (37.5% node coverage)
+#>   transport mass: 2.114
+#>   anchors: 25 (75% node coverage)
 ```
 
 The anchored fit reports how many query nodes had at least one anchor
@@ -135,10 +139,10 @@ fit_anc$anchors
 #> [1] 1.5
 #> 
 #> $nodes_covered
-#> [1] 6
+#> [1] 12
 #> 
 #> $coverage_fraction
-#> [1] 0.375
+#> [1] 0.75
 ```
 
 `nodes_covered` counts distinct query SOM nodes onto which at least one
@@ -165,11 +169,11 @@ anc_norms   <- sqrt(rowSums(fit_anc$node_shifts^2))
 cat("Mean correction norm -- plain:    ", round(mean(plain_norms), 4), "\n")
 #> Mean correction norm -- plain:     0.3801
 cat("Mean correction norm -- anchored: ", round(mean(anc_norms),   4), "\n")
-#> Mean correction norm -- anchored:  0.3688
+#> Mean correction norm -- anchored:  0.3734
 cat("Max  correction norm -- plain:    ", round(max(plain_norms),  4), "\n")
 #> Max  correction norm -- plain:     0.6273
 cat("Max  correction norm -- anchored: ", round(max(anc_norms),    4), "\n")
-#> Max  correction norm -- anchored:  0.6255
+#> Max  correction norm -- anchored:  0.623
 ```
 
 When anchors consistently confirm the same direction of displacement,
@@ -206,7 +210,7 @@ diag <- somalign_diagnostics(fit_anc)
 cat("Solver converged:", diag$solver$converged, "\n")
 #> Solver converged: TRUE
 cat("Transport mass:  ", round(diag$ot$transport_mass, 4), "\n")
-#> Transport mass:   2.1215
+#> Transport mass:   2.1137
 ```
 
 ## Tuning `rho_anchor`
@@ -243,17 +247,17 @@ sweep_results <- lapply(rhos, function(rho) {
   )
 })
 #> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.49); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.49); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.48); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.48); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.48); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.50); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.52); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.53); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.60); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 do.call(rbind, sweep_results)
 #>   rho_anchor transport_mass mean_corr_norm
-#> 1        0.5        2.10358        0.37574
-#> 2        1.0        2.11352        0.37137
-#> 3        1.5        2.12155        0.36881
-#> 4        2.0        2.12600        0.36803
-#> 5        4.0        2.12833        0.36782
+#> 1        0.5        2.10163        0.37732
+#> 2        1.0        2.10824        0.37503
+#> 3        1.5        2.11371        0.37341
+#> 4        2.0        2.11936        0.37181
+#> 5        4.0        2.13675        0.36734
 ```
 
 For a more targeted diagnostic, compare the
@@ -269,11 +273,12 @@ Use this function when:
 
 - You have samples that were physically run in both the old and new
   batches (QC pools, reference standards, proficiency panels).
-- The number of anchor pairs is small relative to the total dataset –
-  the standard OT objective handles the bulk of the mass; anchors only
-  shift costs for supported node pairs.
 - You want the OT plan to respect known per-node correspondence, rather
   than relying entirely on node-mass distributions.
+
+Anchor pairs need not cover the entire dataset – even sparse coverage
+meaningfully constrains the OT plan for covered node pairs, while
+uncovered nodes fall back to the standard OT objective.
 
 If no remeasured samples are available,
 [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)

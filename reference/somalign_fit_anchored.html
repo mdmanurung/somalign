@@ -77,13 +77,13 @@ valid optimal transport problem over the full codebook.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">somalign_fit_anchored</span><span class="op">(</span></span>
 <span>  <span class="va">query</span>,</span>
 <span>  <span class="va">reference</span>,</span>
+<span>  <span class="va">anchor_old</span>,</span>
+<span>  <span class="va">anchor_new</span>,</span>
+<span>  rho_anchor <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  epsilon <span class="op">=</span> <span class="fl">0.5</span>,</span>
 <span>  rho_query <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  rho_ref <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  solver <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"internal"</span>, <span class="st">"log_domain"</span>, <span class="st">"auto"</span><span class="op">)</span>,</span>
-<span>  <span class="va">anchor_old</span>,</span>
-<span>  <span class="va">anchor_new</span>,</span>
-<span>  rho_anchor <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  min_match_fraction <span class="op">=</span> <span class="fl">0.05</span>,</span>
 <span>  confidence_threshold <span class="op">=</span> <span class="fl">0.6</span>,</span>
 <span>  correction_min_mass <span class="op">=</span> <span class="fl">1e-08</span>,</span>
@@ -105,6 +105,32 @@ valid optimal transport problem over the full codebook.</p>
 <dd><p>A <code>somalign_reference</code> object.</p></dd>
 
 
+<dt id="arg-anchor-old">anchor_old<a class="anchor" aria-label="anchor" href="#arg-anchor-old"></a></dt>
+<dd><p>Numeric matrix (n_anchors × p). Old-batch measurements
+of the anchor samples. Must be <strong>raw (un-normalized) values in the same
+units and preprocessing pipeline as the data used to train <code>reference</code></strong>.
+Do not pre-center or pre-scale; this function applies <code>reference$center</code>
+and <code>reference$scale</code> internally. Also accepts a data frame of numeric
+columns.</p></dd>
+
+
+<dt id="arg-anchor-new">anchor_new<a class="anchor" aria-label="anchor" href="#arg-anchor-new"></a></dt>
+<dd><p>Numeric matrix (n_anchors × p). New-batch measurements
+of the <strong>same</strong> anchor samples. Must be <strong>raw (un-normalized) values in
+the same units and preprocessing pipeline as <code>anchor_old</code></strong>. Do not
+pre-center or pre-scale; this function applies <code>reference$center</code> and
+<code>reference$scale</code> internally. Rows of <code>anchor_old</code> and <code>anchor_new</code> must
+correspond to the same biological units. Also accepts a data frame of
+numeric columns.</p></dd>
+
+
+<dt id="arg-rho-anchor">rho_anchor<a class="anchor" aria-label="anchor" href="#arg-rho-anchor"></a></dt>
+<dd><p>Non-negative scalar. Controls how strongly anchor pairs
+bias the OT cost. At <code>rho_anchor = 0</code> the result equals <code><a href="somalign_fit.html">somalign_fit()</a></code>.
+Larger values reduce the effective cost for anchor-supported node pairs,
+concentrating the transport plan on those routes. Typical range: 0.5–3.</p></dd>
+
+
 <dt id="arg-epsilon">epsilon<a class="anchor" aria-label="anchor" href="#arg-epsilon"></a></dt>
 <dd><p>Entropic regularisation strength (see <code><a href="somalign_fit.html">somalign_fit()</a></code>).</p></dd>
 
@@ -119,26 +145,6 @@ valid optimal transport problem over the full codebook.</p>
 
 <dt id="arg-solver">solver<a class="anchor" aria-label="anchor" href="#arg-solver"></a></dt>
 <dd><p>Sinkhorn solver variant. See <code><a href="somalign_fit.html">somalign_fit()</a></code>.</p></dd>
-
-
-<dt id="arg-anchor-old">anchor_old<a class="anchor" aria-label="anchor" href="#arg-anchor-old"></a></dt>
-<dd><p>Numeric matrix (n_anchors × p). Old-batch measurements
-of the anchor samples, in the same feature space as <code>reference</code>. Also
-accepts a data frame of numeric columns.</p></dd>
-
-
-<dt id="arg-anchor-new">anchor_new<a class="anchor" aria-label="anchor" href="#arg-anchor-new"></a></dt>
-<dd><p>Numeric matrix (n_anchors × p). New-batch measurements
-of the <strong>same</strong> anchor samples, in the same feature space as <code>reference</code>.
-Rows of <code>anchor_old</code> and <code>anchor_new</code> must correspond to the same
-biological units. Also accepts a data frame of numeric columns.</p></dd>
-
-
-<dt id="arg-rho-anchor">rho_anchor<a class="anchor" aria-label="anchor" href="#arg-rho-anchor"></a></dt>
-<dd><p>Non-negative scalar. Controls how strongly anchor pairs
-bias the OT cost. At <code>rho_anchor = 0</code> the result equals <code><a href="somalign_fit.html">somalign_fit()</a></code>.
-Larger values reduce the effective cost for anchor-supported node pairs,
-concentrating the transport plan on those routes. Typical range: 0.5–3.</p></dd>
 
 
 <dt id="arg-min-match-fraction">min_match_fraction<a class="anchor" aria-label="anchor" href="#arg-min-match-fraction"></a></dt>
@@ -177,6 +183,10 @@ anchor pairs are projected onto the query codebook (old batch) and
 reference codebook (new batch), yielding a count matrix \(A\) where
 \(A_{kl}\) is the number of anchor pairs whose old measurement maps to
 query node \(k\) and new measurement maps to reference node \(l\).
+(The query SOM was trained on new-batch data, so projecting the old-batch
+anchor onto it identifies which query node the anchor occupied before the
+batch shift; projecting the new-batch anchor onto the reference SOM
+identifies the corresponding reference node after the shift.)
 The modified cost is
 $$\tilde{C}_{kl} = \max\!\bigl(C_{kl} - \rho_{\mathrm{anchor}} \cdot
   A_{kl} / n_{\mathrm{anchors}},\; 0\bigr).$$
