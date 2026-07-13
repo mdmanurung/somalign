@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -17,7 +17,13 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="../articles/somalign.html">Get started</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/somalign.html">Quick start</a></li>
+    <li><a class="dropdown-item" href="../articles/pretrained-old-and-new-soms.html">Advanced workflow: existing SOMs</a></li>
+    <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchoring samples</a></li>
+    <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+  </ul></li>
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-news"><li><h6 class="dropdown-header" data-toc-skip>Releases</h6></li>
@@ -41,16 +47,56 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="0.1.0" id="somalign-010">somalign 0.1.0<a class="anchor" aria-label="anchor" href="#somalign-010"></a></h2>
+<h2 class="pkg-version" data-toc-text="0.99.2" id="somalign-0992">somalign 0.99.2<a class="anchor" aria-label="anchor" href="#somalign-0992"></a></h2>
+<div class="section level3">
+<h3 id="new-features-0-99-2">New features<a class="anchor" aria-label="anchor" href="#new-features-0-99-2"></a></h3>
+<ul><li><p><code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> gains a <code>solver = "log_domain"</code> option. The log-domain Sinkhorn variant works with log-potentials <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>f</mi><annotation encoding="application/x-tex">f</annotation></semantics></math> (query) and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math> (reference) rather than the primal scaling vectors, avoiding <code>exp(-C/epsilon)</code> kernel underflow entirely. It is slower per iteration but tolerates cost/epsilon ratios that cause the default <code>"internal"</code> solver to warn.</p></li>
+<li><p><code><a href="../reference/somalign_som_stability.html">somalign_som_stability()</a></code> — new function that sweeps a vector of random seeds for query SOM training, holds the reference fixed, and returns a per-seed summary data frame. Reports <code>transport_mass</code>, <code>mean_match_fraction</code>, <code>max_row_mass_error</code>, <code>accepted_label_fraction</code>, <code>outside_direct_fraction</code>, <code>outside_corrected_fraction</code>, <code>mean_correction_norm</code>, and <code>converged</code> for each seed, quantifying run-to-run variance from SOM training randomness — the largest uncontrolled variance source in the <code>somalign</code> workflow.</p></li>
+</ul></div>
+<div class="section level3">
+<h3 id="improvements-0-99-2">Improvements<a class="anchor" aria-label="anchor" href="#improvements-0-99-2"></a></h3>
+<ul><li>
+<code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> diagnostics now include two scale-invariant marginal-error fields: <code>diagnostics$solver$rel_marginal_row_error</code> and <code>diagnostics$solver$rel_marginal_col_error</code>. These normalise the absolute marginal violations by total query and reference mass respectively, making it easier to distinguish expected mass destruction from solver non-convergence.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="documentation-0-99-2">Documentation<a class="anchor" aria-label="anchor" href="#documentation-0-99-2"></a></h3>
+<ul><li>
+<code><a href="../articles/algorithm.html">vignette("algorithm")</a></code> gains a new <strong>Limitations of the OT correction</strong> section covering barycentric contraction (the correction target is a conditional mean that contracts toward dense reference nodes and grows with <code>epsilon</code>), the unpaired OT design (mass distributions, not individual samples, are matched — anchor-based methods exploit sample-level pairing), and the uncalibrated novelty score (<code>match_fraction</code> reflects the epsilon/rho regime as much as any true novel population).</li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.99.1" id="somalign-0991">somalign 0.99.1<a class="anchor" aria-label="anchor" href="#somalign-0991"></a></h2>
+<div class="section level3">
+<h3 id="breaking-changes-0-99-1">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-0-99-1"></a></h3>
+<ul><li>
+<code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> default <code>epsilon</code> changed from <code>0.05</code> to <code>0.5</code>. The cost matrix is now normalised by its median positive entry before the Sinkhorn kernel is computed, making <code>epsilon</code> scale- and dimension-invariant across feature sets of different size and spread. Users who set <code>epsilon</code> explicitly relative to raw codebook distances should re-tune against the normalised scale (inspect <code>diagnostics$solver$cost_scale</code>).</li>
+</ul></div>
+<div class="section level3">
+<h3 id="new-features-and-improvements-0-99-1">New features and improvements<a class="anchor" aria-label="anchor" href="#new-features-and-improvements-0-99-1"></a></h3>
+<ul><li><p><code><a href="../reference/somalign_query.html">somalign_query()</a></code> gains a <code>codebook_space</code> argument (default <code>"reference_scaled"</code>). When a user-supplied <code>som_query</code> is provided, setting <code>codebook_space = "raw"</code> instructs <code><a href="../reference/somalign_query.html">somalign_query()</a></code> to re-scale the codebook into reference-scaled space, mirroring the existing behaviour of <code><a href="../reference/somalign_reference.html">somalign_reference()</a></code>.</p></li>
+<li><p><code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> diagnostics now include <code>diagnostics$solver$converged</code> (logical), <code>diagnostics$solver$final_delta</code> (final iterate change), and <code>diagnostics$solver$cost_scale</code> (cost normalisation factor).</p></li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-and-hardening-0-99-1">Bug fixes and hardening<a class="anchor" aria-label="anchor" href="#bug-fixes-and-hardening-0-99-1"></a></h3>
+<ul><li><p><code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> now emits a warning when more than 50 % of query mass is destroyed during transport, or when more than 50 % of query samples fall outside reference distance thresholds.</p></li>
+<li><p>A non-finite Sinkhorn iterate delta now triggers an explicit warning instead of finishing silently (previously, a NaN delta suppressed both the early-break condition and the non-convergence warning).</p></li>
+<li><p><code><a href="../reference/somalign_reference_from_nodes.html">somalign_reference_from_nodes()</a></code> now emits informational messages when no label probabilities or distance quantiles are supplied, so users are aware that label transfer and outside-reference detection are disabled.</p></li>
+<li><p>The internal OT input validator now warns when all query or reference node masses are zero, preventing a silent all-zero transport plan.</p></li>
+<li><p>Fixed a silent fallback in <code>.somalign_thresholds()</code>: when the requested distance-quantile column is absent, a warning is now emitted rather than silently substituting the third column by position.</p></li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.99.0" id="somalign-0990">somalign 0.99.0<a class="anchor" aria-label="anchor" href="#somalign-0990"></a></h2>
 <ul><li><p>Added <code><a href="../reference/somalign_train_reference.html">somalign_train_reference()</a></code> and <code><a href="../reference/somalign_reference.html">somalign_reference()</a></code> to train or wrap an existing <code>kohonen</code> SOM as a fixed reference object, including node mass, per-node label probability, and per-node distance quantile summaries.</p></li>
 <li><p>Added <code><a href="../reference/somalign_reference_from_nodes.html">somalign_reference_from_nodes()</a></code> to reconstruct a reference object from pre-computed node-level artifacts (codebook, center, scale, masses, label probabilities, distance quantiles) without needing the original data.</p></li>
 <li><p>Added <code><a href="../reference/somalign_query.html">somalign_query()</a></code> to scale query data against reference parameters, optionally train a query SOM, and return a <code>somalign_query</code> object containing per-sample node assignments and distances.</p></li>
 <li><p>Added <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> to align a query SOM to the fixed reference SOM via codebook-level unbalanced entropic optimal transport. Uses an internal pure-R generalized Sinkhorn solver; <code>"auto"</code> is retained as a compatibility alias for the internal solver.</p></li>
 <li><p>Added <code><a href="../reference/somalign_results.html">somalign_results()</a></code> to extract a per-sample data frame with direct reference projection columns (canonical) and transport-corrected projection columns (auxiliary, for annotation and visualisation).</p></li>
 <li><p>Added <code><a href="../reference/somalign_diagnostics.html">somalign_diagnostics()</a></code> to return solver, OT plan, node-level, and projection diagnostics from a <code>somalign_fit</code> object.</p></li>
-<li><p>Added <code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code> to sweep a grid of OT hyperparameters (<code>epsilon</code>, <code>rho_query</code>, <code>rho_ref</code>) and return a summary data frame for tuning and stability assessment. Supports optional parallelisation via <code><a href="https://rdrr.io/r/parallel/mclapply.html" class="external-link">parallel::mclapply()</a></code>.</p></li>
+<li><p>Added <code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code> to sweep a grid of OT hyperparameters (<code>epsilon</code>, <code>rho_query</code>, <code>rho_ref</code>) and return a summary data frame for tuning and stability assessment. Supports optional parallelisation via <code><a href="https://rdrr.io/pkg/BiocParallel/man/bplapply.html" class="external-link">BiocParallel::bplapply()</a></code> when <code>parallel = TRUE</code>.</p></li>
 </ul></div>
-  </main></div>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">

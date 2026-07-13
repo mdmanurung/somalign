@@ -58,7 +58,6 @@ A `somalign_reference` object.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
 cb <- matrix(c(0.1, 0.2, -0.1, 0.3, 0.4, -0.2, 0.0, 0.1),
              nrow = 4, ncol = 2,
              dimnames = list(NULL, c("F1", "F2")))
@@ -68,5 +67,6 @@ ref <- somalign_reference_from_nodes(
   center   = c(F1 = 0, F2 = 0),
   scale    = c(F1 = 1, F2 = 1)
 )
-} # }
+#> somalign_reference_from_nodes: no label probabilities supplied; label transfer will be disabled for this reference.
+#> somalign_reference_from_nodes: distance quantiles not supplied; outside-reference detection will be disabled for this reference.
 ```

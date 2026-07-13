@@ -1,32 +1,20 @@
-# Using trained old and new SOMs
+# Advanced workflow: existing SOMs
 
-This workflow applies when you have an existing reference SOM and a
-separately trained query SOM. Both codebooks must be in the same feature
-coordinate system: the reference-scaled space.
+Many analysis pipelines train a reference SOM once and save it, then
+process new batches against that fixed reference at a later stage.
+`somalign` supports this: you can supply an existing reference SOM, a
+separately trained query SOM, or pre-computed node-level artifacts
+rather than letting `somalign` train everything from scratch.
 
-## Building a reference from an existing SOM
+## Coordinate-space requirements
 
-When building a reference from a saved old SOM, state the codebook
-coordinate system explicitly:
-
-``` r
-
-reference <- somalign_reference(
-  old_som,
-  old_data,
-  codebook_space = "reference_scaled"
-)
-```
-
-Use `codebook_space = "raw"` only if the old SOM codebook is in raw
-feature units and should be internally transformed with the reference
-center and scale.
-
-## Training the query SOM in reference-scaled space
-
-The query SOM must be trained on new samples transformed with the
-**reference** center and scale, not in raw feature units or new-data
-z-scores:
+The single constraint that ties the whole approach together is that both
+the reference and query codebooks must live in the same feature
+coordinate system: z-scored with the **old/reference** data’s mean and
+standard deviation. When the reference SOM was trained on old data
+scaled to $`\mu_\text{ref}`$ and $`\sigma_\text{ref}`$, the query SOM
+must be trained on new samples transformed by those same parameters —
+not by new-data z-scores, and not in raw units.
 
 ``` r
 
@@ -39,7 +27,67 @@ new_scaled_for_som <- sweep(
 new_som <- kohonen::som(new_scaled_for_som, grid = ...)
 ```
 
-## Full example
+[`somalign_query()`](https://mdmanurung.github.io/somalign/reference/somalign_query.md)
+still receives the original (unscaled) new data matrix; it applies the
+reference scaling internally for the per-sample projection step. When
+you pass a saved query SOM, set `codebook_space` to match the saved
+codebook. The default is `"reference_scaled"`, which is correct for the
+query SOM trained above. Use `"raw"` only when the saved query SOM
+codebook is in raw feature units:
+
+``` r
+
+query <- somalign_query(
+  new_data,
+  reference,
+  som_query = new_som_trained_on_raw_data,
+  codebook_space = "raw"
+)
+```
+
+## Building references from saved artifacts
+
+[`somalign_reference()`](https://mdmanurung.github.io/somalign/reference/somalign_reference.md)
+is the preferred route when you have the old SOM object and the old
+sample matrix. It recomputes node masses, per-node label probabilities,
+and reference-distance thresholds from the data:
+
+``` r
+
+reference <- somalign_reference(
+  old_som,
+  old_data,
+  codebook_space = "reference_scaled"
+)
+```
+
+Set `codebook_space = "raw"` only when the saved SOM was trained on raw
+(unscaled) feature values;
+[`somalign_reference()`](https://mdmanurung.github.io/somalign/reference/somalign_reference.md)
+will apply the reference scaling to the codebook before use.
+
+[`somalign_reference_from_nodes()`](https://mdmanurung.github.io/somalign/reference/somalign_reference_from_nodes.md)
+covers the case where neither the SOM object nor the original samples
+are available, but node-level summaries were archived:
+
+``` r
+
+reference <- somalign_reference_from_nodes(
+  codebook = old_codebook,
+  features = feature_names,
+  center = old_center,
+  scale = old_scale,
+  node_masses = old_node_masses,
+  label_prob = old_label_prob,
+  distance_quantiles = old_distance_quantiles
+)
+```
+
+Without saved distance quantiles, the outside-reference distance flag
+will be disabled; without saved label probabilities, label transfer will
+be disabled. Direct node assignment continues to work in both cases.
+
+## Full existing-SOM example
 
 ``` r
 
@@ -84,128 +132,239 @@ new_som <- kohonen::som(
 query <- somalign_query(
   new_data,
   reference,
-  som_query = new_som
+  som_query = new_som,
+  codebook_space = "reference_scaled"
 )
 
-fit <- somalign_fit(query, reference, solver = "internal")
-results <- somalign_results(fit)
+fit <- somalign_fit(query, reference)
+#> somalign_fit: 5 query node(s) have match_mass_ratio > 1 (max 2.96); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+sample_metadata <- data.frame(batch = rep("new_batch", nrow(new_data)))
+results <- somalign_results(fit, data = sample_metadata)
 
 head(results[, c(
+  "sample_id",
+  "query_som_unit",
   "old_som_unit",
   "old_som_label",
+  "old_som_distance_threshold",
   "outside_reference_distance",
   "final_status",
   "corrected_som_unit",
+  "corrected_som_distance_threshold",
   "corrected_outside_reference_distance",
   "correction_norm",
   "transferred_label",
+  "transferred_label_confidence",
   "transferred_label_accepted"
 )])
-#>   old_som_unit old_som_label outside_reference_distance     final_status
-#> 1            1       old_low                      FALSE inside_reference
-#> 2            5       old_low                      FALSE inside_reference
-#> 3            1       old_low                      FALSE inside_reference
-#> 4            1       old_low                      FALSE inside_reference
-#> 5            4       old_low                      FALSE inside_reference
-#> 6            1       old_low                      FALSE inside_reference
-#>   corrected_som_unit corrected_outside_reference_distance correction_norm
-#> 1                  1                                FALSE       0.3358327
-#> 2                  5                                 TRUE       0.7297865
-#> 3                  5                                FALSE       1.2892911
-#> 4                  1                                FALSE       0.3358327
-#> 5                  4                                FALSE       0.3358327
-#> 6                  1                                FALSE       0.3358327
-#>   transferred_label transferred_label_accepted
-#> 1           old_low                       TRUE
-#> 2           old_low                       TRUE
-#> 3          old_high                       TRUE
-#> 4           old_low                       TRUE
-#> 5           old_low                       TRUE
-#> 6           old_low                       TRUE
+#>   sample_id query_som_unit old_som_unit old_som_label
+#> 1         1              3            1       old_low
+#> 2         2              6            5       old_low
+#> 3         3              2            1       old_low
+#> 4         4              3            1       old_low
+#> 5         5              3            4       old_low
+#> 6         6              3            1       old_low
+#>   old_som_distance_threshold outside_reference_distance     final_status
+#> 1                   2.483497                      FALSE inside_reference
+#> 2                   1.255846                      FALSE inside_reference
+#> 3                   2.483497                      FALSE inside_reference
+#> 4                   2.483497                      FALSE inside_reference
+#> 5                   2.023005                      FALSE inside_reference
+#> 6                   2.483497                      FALSE inside_reference
+#>   corrected_som_unit corrected_som_distance_threshold
+#> 1                  1                         2.483497
+#> 2                  5                         1.255846
+#> 3                  1                         2.483497
+#> 4                  1                         2.483497
+#> 5                  4                         2.023005
+#> 6                  1                         2.483497
+#>   corrected_outside_reference_distance correction_norm transferred_label
+#> 1                                FALSE       0.3919543           old_low
+#> 2                                FALSE       0.2845118              <NA>
+#> 3                                FALSE       0.9455698              <NA>
+#> 4                                FALSE       0.3919543           old_low
+#> 5                                FALSE       0.3919543           old_low
+#> 6                                FALSE       0.3919543           old_low
+#>   transferred_label_confidence transferred_label_accepted
+#> 1                    0.9156568                       TRUE
+#> 2                           NA                      FALSE
+#> 3                           NA                      FALSE
+#> 4                    0.9156568                       TRUE
+#> 5                    0.9156568                       TRUE
+#> 6                    0.9156568                       TRUE
 ```
 
-## Interpreting the output
+## Quality control and tuning
 
-**Direct projection columns** (`old_som_unit`, `old_som_distance`,
-`outside_reference_distance`, `final_status`, `old_som_label`,
-`old_som_label_confidence`) are the primary result. They are based on
-nearest-node assignment and are independent of the OT correction.
-
-**OT-corrected columns** (`corrected_som_unit`,
-`corrected_som_distance`, `corrected_outside_reference_distance`,
-`correction_norm`) are auxiliary.
-[`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)
-aligns query SOM nodes to reference SOM nodes via OT and computes
-node-level correction shifts. For each sample, the shift is applied to
-the query SOM position and the corrected position is projected to the
-nearest reference node. Use `corrected_som_unit` for visualisation and
-triage; keep `old_som_unit` and `final_status` for conservative
-classification.
-
-**Label transfer columns** (`transferred_label`,
-`transferred_label_confidence`, `transferred_label_accepted`) propagate
-reference node labels through the OT correspondence. A transfer is
-accepted only when the query node’s match fraction ≥
-`min_match_fraction` (default 0.05) and the top-label confidence of the
-matched reference node ≥ `confidence_threshold` (default 0.6). Compare
-`transferred_label` against `old_som_label` as a cross-check: large
-systematic differences indicate a poor OT alignment or a high-novelty
-query.
-
-## Checking OT quality
-
-Inspect `diagnostics$ot$match_fraction` before trusting label transfers.
-A query node with low match fraction is poorly matched to the reference
-and its `transferred_label_accepted` will be `FALSE`.
+Before acting on label transfer or corrected node assignments, inspect
+the solver and OT diagnostics:
 
 ``` r
 
-diag <- somalign_diagnostics(fit)
-diag$ot$match_fraction   # per query node
-#> [1] 0.61832217 0.45163748 0.85627399 0.05511686 0.73599227 0.78775970
-diag$ot$transport_mass   # total transported mass (< 1 = some mass discarded)
-#> [1] 0.6046437
+diagnostics <- somalign_diagnostics(fit)
+
+diagnostics$solver[c(
+  "used", "converged", "iterations", "final_delta", "cost_scale"
+)]
+#> $used
+#> [1] "internal"
+#> 
+#> $converged
+#> [1] TRUE
+#> 
+#> $iterations
+#> [1] 21
+#> 
+#> $final_delta
+#> [1] 4.506898e-08
+#> 
+#> $cost_scale
+#> [1] 2.161104
+diagnostics$ot$match_fraction       # clipped to at most 1
+#> [1] 1.0000000 1.0000000 1.0000000 0.5618213 1.0000000 1.0000000
+diagnostics$ot$match_mass_ratio     # raw transported/query mass ratio
+#> [1] 1.5061041 2.1678198 1.4372052 0.5618213 1.3130925 2.9624749
+diagnostics$ot$transport_mass       # total transported mass
+#> [1] 1.302831
+diagnostics$ot$max_row_mass_error   # query-side marginal deviation
+#> [1] 0.1380648
+diagnostics$projection              # direct/corrected outside fractions
+#> $outside_direct_fraction
+#> [1] 0.2631579
+#> 
+#> $outside_corrected_fraction
+#> [1] 0.05263158
 ```
+
+`diagnostics$ot$match_fraction` is the most actionable single number: a
+query node with low match fraction transported little mass to any
+reference node, which typically means a novel population, a
+codebook-space mismatch, or both. Labels transferred from such nodes
+should be treated as provisional. `diagnostics$ot$match_mass_ratio`
+stores the unclipped transported-mass ratio; values above 1 can occur in
+unbalanced OT and are not errors.
+
+`diagnostics$ot$transport_mass` tells you how much of the total query
+mass the OT plan moved to reference nodes (as opposed to absorbing it
+via the KL margin penalties). `diagnostics$ot$max_row_mass_error`
+captures the worst per-node marginal deviation; a large value means the
+unbalanced fit allowed substantial mass destruction, which is
+appropriate for truly novel query content but should be visible in QC
+records. The `diagnostics$projection` fractions report how many samples
+are outside the saved reference distance thresholds before and after the
+OT-derived correction.
 
 Use
 [`somalign_sensitivity_grid()`](https://mdmanurung.github.io/somalign/reference/somalign_sensitivity_grid.md)
-to check that findings are stable across OT hyperparameters:
+to confirm that auxiliary outputs hold across OT hyperparameters before
+drawing conclusions:
 
 ``` r
 
-somalign_sensitivity_grid(
+sensitivity <- somalign_sensitivity_grid(
   query, reference,
   epsilon   = c(0.05, 0.1),
   rho_query = c(0.5, 1),
-  rho_ref   = 1,
-  solver    = "internal"
+  rho_ref   = 1
 )
+#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.07); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 1 query node(s) have match_mass_ratio > 1 (max 1.05); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+sensitivity[, c(
+  "epsilon",
+  "rho_query",
+  "rho_ref",
+  "solver",
+  "transport_mass",
+  "mean_match_fraction",
+  "max_row_mass_error",
+  "accepted_label_fraction",
+  "outside_direct_fraction",
+  "outside_corrected_fraction"
+)]
 #>   epsilon rho_query rho_ref   solver transport_mass mean_match_fraction
-#> 1    0.05       0.5       1 internal      0.5509337           0.5195532
-#> 2    0.10       0.5       1 internal      0.5963177           0.5862370
-#> 3    0.05       1.0       1 internal      0.6046437           0.5841837
-#> 4    0.10       1.0       1 internal      0.6418082           0.6353367
-#>   max_row_mass_error max_col_mass_error accepted_label_fraction
-#> 1          0.2094605          0.1317681               0.6666667
-#> 2          0.2089333          0.1228897               0.6666667
-#> 3          0.1989228          0.1239883               1.0000000
-#> 4          0.1973681          0.1173270               0.8333333
-#>   outside_direct_fraction outside_corrected_fraction
-#> 1               0.2631579                  0.2894737
-#> 2               0.2631579                  0.2894737
-#> 3               0.2631579                  0.1052632
-#> 4               0.2631579                  0.1052632
+#> 1    0.05       0.5       1 internal      0.7567440           0.7269262
+#> 2    0.10       0.5       1 internal      0.8146693           0.7742114
+#> 3    0.05       1.0       1 internal      0.7866239           0.7705905
+#> 4    0.10       1.0       1 internal      0.8325581           0.8150006
+#>   max_row_mass_error accepted_label_fraction outside_direct_fraction
+#> 1          0.1925167               0.8333333               0.2631579
+#> 2          0.1885548               0.6666667               0.2631579
+#> 3          0.1576913               0.6666667               0.2631579
+#> 4          0.1531149               0.6666667               0.2631579
+#>   outside_corrected_fraction
+#> 1                 0.10526316
+#> 2                 0.10526316
+#> 3                 0.07894737
+#> 4                 0.13157895
 ```
+
+Strong sensitivity to `epsilon` or `rho_query` is a signal that the
+OT-derived outputs are not reliable for this dataset. In that case, rely
+on direct projection and do not carry transferred labels or corrected
+assignments into downstream analyses.
 
 ## Practical checklist
 
-- Use identical feature names and feature order.
+- Feature names and order must match exactly.
   [`somalign_query()`](https://mdmanurung.github.io/somalign/reference/somalign_query.md)
-  reorders columns to `reference$features` and fails if any are missing.
-- Train the query SOM in reference-scaled space as shown above.
-- Treat `corrected_som_unit` and `transferred_label` as annotation
-  support. Keep `old_som_unit`, `outside_reference_distance`, and
-  `final_status` as the conservative classification.
-- If you only have a saved query SOM codebook, you can pass a matrix as
-  `som_query`, provided it is already in the reference-scaled feature
-  space with columns named with `reference$features`.
+  reorders columns to `reference$features` and will error if any are
+  missing.
+- Both codebooks must be in the reference-scaled feature space. The
+  query SOM must be trained with `reference$center` and
+  `reference$scale`, unless you pass a raw saved query SOM with
+  `codebook_space = "raw"`.
+- `old_som_unit`, `outside_reference_distance`, `final_status`, and
+  `old_som_label` are the primary result. Corrected projection and
+  transferred labels are auxiliary.
+- Use `somalign_results(fit, data = sample_metadata)` to append one
+  metadata row per query sample to the result table.
+- Run
+  [`somalign_diagnostics()`](https://mdmanurung.github.io/somalign/reference/somalign_diagnostics.md)
+  before trusting label transfer.
+- Run
+  [`somalign_sensitivity_grid()`](https://mdmanurung.github.io/somalign/reference/somalign_sensitivity_grid.md)
+  when conclusions depend on corrected nodes or transferred labels.
+- A matrix of codebook vectors can be passed as `som_query` directly,
+  provided it is already in reference-scaled space with columns named to
+  match `reference$features`.
+- For large query matrices, adjust `somalign_fit(chunk_size = ...)` to
+  control memory use during nearest-node projection.
+
+## Session info
+
+    #> R version 4.6.1 (2026-06-24)
+    #> Platform: x86_64-pc-linux-gnu
+    #> Running under: Ubuntu 24.04.4 LTS
+    #> 
+    #> Matrix products: default
+    #> BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
+    #> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
+    #> 
+    #> locale:
+    #>  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       
+    #>  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   
+    #>  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          
+    #> [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   
+    #> 
+    #> time zone: UTC
+    #> tzcode source: system (glibc)
+    #> 
+    #> attached base packages:
+    #> [1] stats     graphics  grDevices utils     datasets  methods   base     
+    #> 
+    #> other attached packages:
+    #> [1] somalign_0.99.1  kohonen_3.0.13   BiocStyle_2.40.0
+    #> 
+    #> loaded via a namespace (and not attached):
+    #>  [1] cli_3.6.6           knitr_1.51          rlang_1.3.0        
+    #>  [4] xfun_0.60           otel_0.2.0          textshaping_1.0.5  
+    #>  [7] jsonlite_2.0.0      htmltools_0.5.9     ragg_1.5.2         
+    #> [10] sass_0.4.10         rmarkdown_2.31      evaluate_1.0.5     
+    #> [13] jquerylib_0.1.4     fastmap_1.2.0       yaml_2.3.12        
+    #> [16] lifecycle_1.0.5     bookdown_0.47       BiocManager_1.30.27
+    #> [19] compiler_4.6.1      fs_2.1.0            htmlwidgets_1.6.4  
+    #> [22] Rcpp_1.1.2          systemfonts_1.3.2   digest_0.6.39      
+    #> [25] R6_2.6.1            bslib_0.11.0        tools_4.6.1        
+    #> [28] pkgdown_2.2.1       cachem_1.1.0        desc_1.4.3

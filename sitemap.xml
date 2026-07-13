@@ -2,7 +2,10 @@
 <url><loc>https://mdmanurung.github.io/somalign/404.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/LICENSE-text.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/LICENSE.html</loc></url>
+<url><loc>https://mdmanurung.github.io/somalign/REFACTOR-PLAN.html</loc></url>
+<url><loc>https://mdmanurung.github.io/somalign/REFACTOR-TASKS.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/articles/algorithm.html</loc></url>
+<url><loc>https://mdmanurung.github.io/somalign/articles/anchor-samples.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/articles/index.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/articles/pretrained-old-and-new-soms.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/articles/somalign.html</loc></url>
@@ -10,14 +13,20 @@
 <url><loc>https://mdmanurung.github.io/somalign/index.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/news/index.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/reference/index.html</loc></url>
+<url><loc>https://mdmanurung.github.io/somalign/reference/print.somalign_anchored_fit.html</loc></url>
+<url><loc>https://mdmanurung.github.io/somalign/reference/print.somalign_fit.html</loc></url>
+<url><loc>https://mdmanurung.github.io/somalign/reference/print.somalign_query.html</loc></url>
+<url><loc>https://mdmanurung.github.io/somalign/reference/print.somalign_reference.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/reference/somalign-package.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/reference/somalign_diagnostics.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/reference/somalign_fit.html</loc></url>
+<url><loc>https://mdmanurung.github.io/somalign/reference/somalign_fit_anchored.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/reference/somalign_query.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/reference/somalign_reference.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/reference/somalign_reference_from_nodes.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/reference/somalign_results.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/reference/somalign_sensitivity_grid.html</loc></url>
+<url><loc>https://mdmanurung.github.io/somalign/reference/somalign_som_stability.html</loc></url>
 <url><loc>https://mdmanurung.github.io/somalign/reference/somalign_train_reference.html</loc></url>
 </urlset>
 

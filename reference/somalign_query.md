@@ -9,6 +9,7 @@ somalign_query(
   data,
   reference,
   som_query = NULL,
+  codebook_space = c("reference_scaled", "raw"),
   grid = NULL,
   rlen = 100,
   alpha = c(0.05, 0.01),
@@ -29,9 +30,15 @@ somalign_query(
 
 - som_query:
 
-  Optional query SOM or SOM-like object with a codebook. The codebook
-  must be in the reference-scaled feature space, i.e. trained on query
-  data transformed with `reference$center` and `reference$scale`.
+  Optional query SOM or SOM-like object with a codebook.
+
+- codebook_space:
+
+  Coordinate system of the `som_query` codebook. Only used when
+  `som_query` is supplied. `"reference_scaled"` (default) assumes the
+  codebook was already trained on query data scaled with
+  `reference$center` and `reference$scale`; `"raw"` re-scales the
+  codebook into reference-scaled space before use.
 
 - grid:
 
@@ -65,11 +72,11 @@ A `somalign_query` object.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
 set.seed(1)
 mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
               dimnames = list(NULL, c("F1", "F2")))
-ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"))
-qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"))
-} # }
+ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+                                rlen = 5)
+qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
+                      rlen = 5)
 ```

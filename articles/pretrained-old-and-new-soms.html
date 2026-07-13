@@ -5,12 +5,12 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Using trained old and new SOMs • somalign</title>
+<title>Advanced workflow: existing SOMs • somalign</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Using trained old and new SOMs">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Advanced workflow: existing SOMs">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -31,7 +31,15 @@
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="../articles/somalign.html">Get started</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="active nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
+<li class="active nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
+<li><a class="dropdown-item" href="../articles/somalign.html">Quick start</a></li>
+    <li><a class="dropdown-item" href="../articles/pretrained-old-and-new-soms.html">Advanced workflow: existing SOMs</a></li>
+    <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchoring samples</a></li>
+    <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+  </ul>
+</li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-news">
@@ -60,7 +68,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
-      <h1>Using trained old and new SOMs</h1>
+      <h1>Advanced workflow: existing SOMs</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/mdmanurung/somalign/blob/main/vignettes/pretrained-old-and-new-soms.Rmd" class="external-link"><code>vignettes/pretrained-old-and-new-soms.Rmd</code></a></small>
@@ -69,31 +77,26 @@
 
     
     
-<p>This workflow applies when you have an existing reference SOM and a
-separately trained query SOM. Both codebooks must be in the same feature
-coordinate system: the reference-scaled space.</p>
+<p>Many analysis pipelines train a reference SOM once and save it, then
+process new batches against that fixed reference at a later stage.
+<code>somalign</code> supports this: you can supply an existing
+reference SOM, a separately trained query SOM, or pre-computed
+node-level artifacts rather than letting <code>somalign</code> train
+everything from scratch.</p>
 <div class="section level2">
-<h2 id="building-a-reference-from-an-existing-som">Building a reference from an existing SOM<a class="anchor" aria-label="anchor" href="#building-a-reference-from-an-existing-som"></a>
+<h2 id="coordinate-space-requirements">Coordinate-space requirements<a class="anchor" aria-label="anchor" href="#coordinate-space-requirements"></a>
 </h2>
-<p>When building a reference from a saved old SOM, state the codebook
-coordinate system explicitly:</p>
+<p>The single constraint that ties the whole approach together is that
+both the reference and query codebooks must live in the same feature
+coordinate system: z-scored with the <strong>old/reference</strong>
+data’s mean and standard deviation. When the reference SOM was trained
+on old data scaled to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>μ</mi><mtext mathvariant="normal">ref</mtext></msub><annotation encoding="application/x-tex">\mu_\text{ref}</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>σ</mi><mtext mathvariant="normal">ref</mtext></msub><annotation encoding="application/x-tex">\sigma_\text{ref}</annotation></semantics></math>,
+the query SOM must be trained on new samples transformed by those same
+parameters — not by new-data z-scores, and not in raw units.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">reference</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_reference.html">somalign_reference</a></span><span class="op">(</span></span>
-<span>  <span class="va">old_som</span>,</span>
-<span>  <span class="va">old_data</span>,</span>
-<span>  codebook_space <span class="op">=</span> <span class="st">"reference_scaled"</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-<p>Use <code>codebook_space = "raw"</code> only if the old SOM codebook
-is in raw feature units and should be internally transformed with the
-reference center and scale.</p>
-</div>
-<div class="section level2">
-<h2 id="training-the-query-som-in-reference-scaled-space">Training the query SOM in reference-scaled space<a class="anchor" aria-label="anchor" href="#training-the-query-som-in-reference-scaled-space"></a>
-</h2>
-<p>The query SOM must be trained on new samples transformed with the
-<strong>reference</strong> center and scale, not in raw feature units or
-new-data z-scores:</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">new_scaled_for_som</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sweep.html" class="external-link">sweep</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/sweep.html" class="external-link">sweep</a></span><span class="op">(</span><span class="va">new_data</span><span class="op">[</span>, <span class="va">reference</span><span class="op">$</span><span class="va">features</span><span class="op">]</span>, <span class="fl">2</span>, <span class="va">reference</span><span class="op">$</span><span class="va">center</span>, <span class="st">"-"</span><span class="op">)</span>,</span>
 <span>  <span class="fl">2</span>,</span>
@@ -101,11 +104,59 @@ new-data z-scores:</p>
 <span>  <span class="st">"/"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">new_som</span> <span class="op">&lt;-</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/supersom.html" class="external-link">som</a></span><span class="op">(</span><span class="va">new_scaled_for_som</span>, grid <span class="op">=</span> <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<p><code><a href="../reference/somalign_query.html">somalign_query()</a></code> still receives the original (unscaled)
+new data matrix; it applies the reference scaling internally for the
+per-sample projection step. When you pass a saved query SOM, set
+<code>codebook_space</code> to match the saved codebook. The default is
+<code>"reference_scaled"</code>, which is correct for the query SOM
+trained above. Use <code>"raw"</code> only when the saved query SOM
+codebook is in raw feature units:</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">query</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_query.html">somalign_query</a></span><span class="op">(</span></span>
+<span>  <span class="va">new_data</span>,</span>
+<span>  <span class="va">reference</span>,</span>
+<span>  som_query <span class="op">=</span> <span class="va">new_som_trained_on_raw_data</span>,</span>
+<span>  codebook_space <span class="op">=</span> <span class="st">"raw"</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="full-example">Full example<a class="anchor" aria-label="anchor" href="#full-example"></a>
+<h2 id="building-references-from-saved-artifacts">Building references from saved artifacts<a class="anchor" aria-label="anchor" href="#building-references-from-saved-artifacts"></a>
 </h2>
+<p><code><a href="../reference/somalign_reference.html">somalign_reference()</a></code> is the preferred route when you
+have the old SOM object and the old sample matrix. It recomputes node
+masses, per-node label probabilities, and reference-distance thresholds
+from the data:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">reference</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_reference.html">somalign_reference</a></span><span class="op">(</span></span>
+<span>  <span class="va">old_som</span>,</span>
+<span>  <span class="va">old_data</span>,</span>
+<span>  codebook_space <span class="op">=</span> <span class="st">"reference_scaled"</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Set <code>codebook_space = "raw"</code> only when the saved SOM was
+trained on raw (unscaled) feature values;
+<code><a href="../reference/somalign_reference.html">somalign_reference()</a></code> will apply the reference scaling to
+the codebook before use.</p>
+<p><code><a href="../reference/somalign_reference_from_nodes.html">somalign_reference_from_nodes()</a></code> covers the case where
+neither the SOM object nor the original samples are available, but
+node-level summaries were archived:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">reference</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_reference_from_nodes.html">somalign_reference_from_nodes</a></span><span class="op">(</span></span>
+<span>  codebook <span class="op">=</span> <span class="va">old_codebook</span>,</span>
+<span>  features <span class="op">=</span> <span class="va">feature_names</span>,</span>
+<span>  center <span class="op">=</span> <span class="va">old_center</span>,</span>
+<span>  scale <span class="op">=</span> <span class="va">old_scale</span>,</span>
+<span>  node_masses <span class="op">=</span> <span class="va">old_node_masses</span>,</span>
+<span>  label_prob <span class="op">=</span> <span class="va">old_label_prob</span>,</span>
+<span>  distance_quantiles <span class="op">=</span> <span class="va">old_distance_quantiles</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Without saved distance quantiles, the outside-reference distance flag
+will be disabled; without saved label probabilities, label transfer will
+be disabled. Direct node assignment continues to work in both cases.</p>
+</div>
+<div class="section level2">
+<h2 id="full-existing-som-example">Full existing-SOM example<a class="anchor" aria-label="anchor" href="#full-existing-som-example"></a>
+</h2>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">kohonen</span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://mdmanurung.github.io/somalign">somalign</a></span><span class="op">)</span></span>
 <span></span>
@@ -147,132 +198,238 @@ new-data z-scores:</p>
 <span><span class="va">query</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_query.html">somalign_query</a></span><span class="op">(</span></span>
 <span>  <span class="va">new_data</span>,</span>
 <span>  <span class="va">reference</span>,</span>
-<span>  som_query <span class="op">=</span> <span class="va">new_som</span></span>
+<span>  som_query <span class="op">=</span> <span class="va">new_som</span>,</span>
+<span>  codebook_space <span class="op">=</span> <span class="st">"reference_scaled"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit.html">somalign_fit</a></span><span class="op">(</span><span class="va">query</span>, <span class="va">reference</span>, solver <span class="op">=</span> <span class="st">"internal"</span><span class="op">)</span></span>
-<span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_results.html">somalign_results</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
+<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit.html">somalign_fit</a></span><span class="op">(</span><span class="va">query</span>, <span class="va">reference</span><span class="op">)</span></span>
+<span><span class="co">#&gt; somalign_fit: 5 query node(s) have match_mass_ratio &gt; 1 (max 2.96); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="va">sample_metadata</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>batch <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"new_batch"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">new_data</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_results.html">somalign_results</a></span><span class="op">(</span><span class="va">fit</span>, data <span class="op">=</span> <span class="va">sample_metadata</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">results</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>  <span class="st">"sample_id"</span>,</span>
+<span>  <span class="st">"query_som_unit"</span>,</span>
 <span>  <span class="st">"old_som_unit"</span>,</span>
 <span>  <span class="st">"old_som_label"</span>,</span>
+<span>  <span class="st">"old_som_distance_threshold"</span>,</span>
 <span>  <span class="st">"outside_reference_distance"</span>,</span>
 <span>  <span class="st">"final_status"</span>,</span>
 <span>  <span class="st">"corrected_som_unit"</span>,</span>
+<span>  <span class="st">"corrected_som_distance_threshold"</span>,</span>
 <span>  <span class="st">"corrected_outside_reference_distance"</span>,</span>
 <span>  <span class="st">"correction_norm"</span>,</span>
 <span>  <span class="st">"transferred_label"</span>,</span>
+<span>  <span class="st">"transferred_label_confidence"</span>,</span>
 <span>  <span class="st">"transferred_label_accepted"</span></span>
 <span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   old_som_unit old_som_label outside_reference_distance     final_status</span></span>
-<span><span class="co">#&gt; 1            1       old_low                      FALSE inside_reference</span></span>
-<span><span class="co">#&gt; 2            5       old_low                      FALSE inside_reference</span></span>
-<span><span class="co">#&gt; 3            1       old_low                      FALSE inside_reference</span></span>
-<span><span class="co">#&gt; 4            1       old_low                      FALSE inside_reference</span></span>
-<span><span class="co">#&gt; 5            4       old_low                      FALSE inside_reference</span></span>
-<span><span class="co">#&gt; 6            1       old_low                      FALSE inside_reference</span></span>
-<span><span class="co">#&gt;   corrected_som_unit corrected_outside_reference_distance correction_norm</span></span>
-<span><span class="co">#&gt; 1                  1                                FALSE       0.3358327</span></span>
-<span><span class="co">#&gt; 2                  5                                 TRUE       0.7297865</span></span>
-<span><span class="co">#&gt; 3                  5                                FALSE       1.2892911</span></span>
-<span><span class="co">#&gt; 4                  1                                FALSE       0.3358327</span></span>
-<span><span class="co">#&gt; 5                  4                                FALSE       0.3358327</span></span>
-<span><span class="co">#&gt; 6                  1                                FALSE       0.3358327</span></span>
-<span><span class="co">#&gt;   transferred_label transferred_label_accepted</span></span>
-<span><span class="co">#&gt; 1           old_low                       TRUE</span></span>
-<span><span class="co">#&gt; 2           old_low                       TRUE</span></span>
-<span><span class="co">#&gt; 3          old_high                       TRUE</span></span>
-<span><span class="co">#&gt; 4           old_low                       TRUE</span></span>
-<span><span class="co">#&gt; 5           old_low                       TRUE</span></span>
-<span><span class="co">#&gt; 6           old_low                       TRUE</span></span></code></pre></div>
+<span><span class="co">#&gt;   sample_id query_som_unit old_som_unit old_som_label</span></span>
+<span><span class="co">#&gt; 1         1              3            1       old_low</span></span>
+<span><span class="co">#&gt; 2         2              6            5       old_low</span></span>
+<span><span class="co">#&gt; 3         3              2            1       old_low</span></span>
+<span><span class="co">#&gt; 4         4              3            1       old_low</span></span>
+<span><span class="co">#&gt; 5         5              3            4       old_low</span></span>
+<span><span class="co">#&gt; 6         6              3            1       old_low</span></span>
+<span><span class="co">#&gt;   old_som_distance_threshold outside_reference_distance     final_status</span></span>
+<span><span class="co">#&gt; 1                   2.483497                      FALSE inside_reference</span></span>
+<span><span class="co">#&gt; 2                   1.255846                      FALSE inside_reference</span></span>
+<span><span class="co">#&gt; 3                   2.483497                      FALSE inside_reference</span></span>
+<span><span class="co">#&gt; 4                   2.483497                      FALSE inside_reference</span></span>
+<span><span class="co">#&gt; 5                   2.023005                      FALSE inside_reference</span></span>
+<span><span class="co">#&gt; 6                   2.483497                      FALSE inside_reference</span></span>
+<span><span class="co">#&gt;   corrected_som_unit corrected_som_distance_threshold</span></span>
+<span><span class="co">#&gt; 1                  1                         2.483497</span></span>
+<span><span class="co">#&gt; 2                  5                         1.255846</span></span>
+<span><span class="co">#&gt; 3                  1                         2.483497</span></span>
+<span><span class="co">#&gt; 4                  1                         2.483497</span></span>
+<span><span class="co">#&gt; 5                  4                         2.023005</span></span>
+<span><span class="co">#&gt; 6                  1                         2.483497</span></span>
+<span><span class="co">#&gt;   corrected_outside_reference_distance correction_norm transferred_label</span></span>
+<span><span class="co">#&gt; 1                                FALSE       0.3919543           old_low</span></span>
+<span><span class="co">#&gt; 2                                FALSE       0.2845118              &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 3                                FALSE       0.9455698              &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 4                                FALSE       0.3919543           old_low</span></span>
+<span><span class="co">#&gt; 5                                FALSE       0.3919543           old_low</span></span>
+<span><span class="co">#&gt; 6                                FALSE       0.3919543           old_low</span></span>
+<span><span class="co">#&gt;   transferred_label_confidence transferred_label_accepted</span></span>
+<span><span class="co">#&gt; 1                    0.9156568                       TRUE</span></span>
+<span><span class="co">#&gt; 2                           NA                      FALSE</span></span>
+<span><span class="co">#&gt; 3                           NA                      FALSE</span></span>
+<span><span class="co">#&gt; 4                    0.9156568                       TRUE</span></span>
+<span><span class="co">#&gt; 5                    0.9156568                       TRUE</span></span>
+<span><span class="co">#&gt; 6                    0.9156568                       TRUE</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="interpreting-the-output">Interpreting the output<a class="anchor" aria-label="anchor" href="#interpreting-the-output"></a>
+<h2 id="quality-control-and-tuning">Quality control and tuning<a class="anchor" aria-label="anchor" href="#quality-control-and-tuning"></a>
 </h2>
-<p><strong>Direct projection columns</strong>
-(<code>old_som_unit</code>, <code>old_som_distance</code>,
-<code>outside_reference_distance</code>, <code>final_status</code>,
-<code>old_som_label</code>, <code>old_som_label_confidence</code>) are
-the primary result. They are based on nearest-node assignment and are
-independent of the OT correction.</p>
-<p><strong>OT-corrected columns</strong>
-(<code>corrected_som_unit</code>, <code>corrected_som_distance</code>,
-<code>corrected_outside_reference_distance</code>,
-<code>correction_norm</code>) are auxiliary. <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>
-aligns query SOM nodes to reference SOM nodes via OT and computes
-node-level correction shifts. For each sample, the shift is applied to
-the query SOM position and the corrected position is projected to the
-nearest reference node. Use <code>corrected_som_unit</code> for
-visualisation and triage; keep <code>old_som_unit</code> and
-<code>final_status</code> for conservative classification.</p>
-<p><strong>Label transfer columns</strong>
-(<code>transferred_label</code>,
-<code>transferred_label_confidence</code>,
-<code>transferred_label_accepted</code>) propagate reference node labels
-through the OT correspondence. A transfer is accepted only when the
-query node’s match fraction ≥ <code>min_match_fraction</code> (default
-0.05) and the top-label confidence of the matched reference node ≥
-<code>confidence_threshold</code> (default 0.6). Compare
-<code>transferred_label</code> against <code>old_som_label</code> as a
-cross-check: large systematic differences indicate a poor OT alignment
-or a high-novelty query.</p>
-</div>
-<div class="section level2">
-<h2 id="checking-ot-quality">Checking OT quality<a class="anchor" aria-label="anchor" href="#checking-ot-quality"></a>
-</h2>
-<p>Inspect <code>diagnostics$ot$match_fraction</code> before trusting
-label transfers. A query node with low match fraction is poorly matched
-to the reference and its <code>transferred_label_accepted</code> will be
-<code>FALSE</code>.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">diag</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_diagnostics.html">somalign_diagnostics</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
-<span><span class="va">diag</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">match_fraction</span>   <span class="co"># per query node</span></span>
-<span><span class="co">#&gt; [1] 0.61832217 0.45163748 0.85627399 0.05511686 0.73599227 0.78775970</span></span>
-<span><span class="va">diag</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">transport_mass</span>   <span class="co"># total transported mass (&lt; 1 = some mass discarded)</span></span>
-<span><span class="co">#&gt; [1] 0.6046437</span></span></code></pre></div>
-<p>Use <code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code> to check that findings
-are stable across OT hyperparameters:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid</a></span><span class="op">(</span></span>
+<p>Before acting on label transfer or corrected node assignments,
+inspect the solver and OT diagnostics:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">diagnostics</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_diagnostics.html">somalign_diagnostics</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">diagnostics</span><span class="op">$</span><span class="va">solver</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>  <span class="st">"used"</span>, <span class="st">"converged"</span>, <span class="st">"iterations"</span>, <span class="st">"final_delta"</span>, <span class="st">"cost_scale"</span></span>
+<span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt; $used</span></span>
+<span><span class="co">#&gt; [1] "internal"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $converged</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $iterations</span></span>
+<span><span class="co">#&gt; [1] 21</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $final_delta</span></span>
+<span><span class="co">#&gt; [1] 4.506898e-08</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $cost_scale</span></span>
+<span><span class="co">#&gt; [1] 2.161104</span></span>
+<span><span class="va">diagnostics</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">match_fraction</span>       <span class="co"># clipped to at most 1</span></span>
+<span><span class="co">#&gt; [1] 1.0000000 1.0000000 1.0000000 0.5618213 1.0000000 1.0000000</span></span>
+<span><span class="va">diagnostics</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">match_mass_ratio</span>     <span class="co"># raw transported/query mass ratio</span></span>
+<span><span class="co">#&gt; [1] 1.5061041 2.1678198 1.4372052 0.5618213 1.3130925 2.9624749</span></span>
+<span><span class="va">diagnostics</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">transport_mass</span>       <span class="co"># total transported mass</span></span>
+<span><span class="co">#&gt; [1] 1.302831</span></span>
+<span><span class="va">diagnostics</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">max_row_mass_error</span>   <span class="co"># query-side marginal deviation</span></span>
+<span><span class="co">#&gt; [1] 0.1380648</span></span>
+<span><span class="va">diagnostics</span><span class="op">$</span><span class="va">projection</span>              <span class="co"># direct/corrected outside fractions</span></span>
+<span><span class="co">#&gt; $outside_direct_fraction</span></span>
+<span><span class="co">#&gt; [1] 0.2631579</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $outside_corrected_fraction</span></span>
+<span><span class="co">#&gt; [1] 0.05263158</span></span></code></pre></div>
+<p><code>diagnostics$ot$match_fraction</code> is the most actionable
+single number: a query node with low match fraction transported little
+mass to any reference node, which typically means a novel population, a
+codebook-space mismatch, or both. Labels transferred from such nodes
+should be treated as provisional.
+<code>diagnostics$ot$match_mass_ratio</code> stores the unclipped
+transported-mass ratio; values above 1 can occur in unbalanced OT and
+are not errors.</p>
+<p><code>diagnostics$ot$transport_mass</code> tells you how much of the
+total query mass the OT plan moved to reference nodes (as opposed to
+absorbing it via the KL margin penalties).
+<code>diagnostics$ot$max_row_mass_error</code> captures the worst
+per-node marginal deviation; a large value means the unbalanced fit
+allowed substantial mass destruction, which is appropriate for truly
+novel query content but should be visible in QC records. The
+<code>diagnostics$projection</code> fractions report how many samples
+are outside the saved reference distance thresholds before and after the
+OT-derived correction.</p>
+<p>Use <code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code> to confirm that
+auxiliary outputs hold across OT hyperparameters before drawing
+conclusions:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sensitivity</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid</a></span><span class="op">(</span></span>
 <span>  <span class="va">query</span>, <span class="va">reference</span>,</span>
 <span>  epsilon   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.1</span><span class="op">)</span>,</span>
 <span>  rho_query <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  rho_ref   <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  solver    <span class="op">=</span> <span class="st">"internal"</span></span>
+<span>  rho_ref   <span class="op">=</span> <span class="fl">1</span></span>
 <span><span class="op">)</span></span>
+<span><span class="co">#&gt; somalign_fit: 2 query node(s) have match_mass_ratio &gt; 1 (max 1.07); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 2 query node(s) have match_mass_ratio &gt; 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 1 query node(s) have match_mass_ratio &gt; 1 (max 1.05); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 2 query node(s) have match_mass_ratio &gt; 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="va">sensitivity</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>  <span class="st">"epsilon"</span>,</span>
+<span>  <span class="st">"rho_query"</span>,</span>
+<span>  <span class="st">"rho_ref"</span>,</span>
+<span>  <span class="st">"solver"</span>,</span>
+<span>  <span class="st">"transport_mass"</span>,</span>
+<span>  <span class="st">"mean_match_fraction"</span>,</span>
+<span>  <span class="st">"max_row_mass_error"</span>,</span>
+<span>  <span class="st">"accepted_label_fraction"</span>,</span>
+<span>  <span class="st">"outside_direct_fraction"</span>,</span>
+<span>  <span class="st">"outside_corrected_fraction"</span></span>
+<span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;   epsilon rho_query rho_ref   solver transport_mass mean_match_fraction</span></span>
-<span><span class="co">#&gt; 1    0.05       0.5       1 internal      0.5509337           0.5195532</span></span>
-<span><span class="co">#&gt; 2    0.10       0.5       1 internal      0.5963177           0.5862370</span></span>
-<span><span class="co">#&gt; 3    0.05       1.0       1 internal      0.6046437           0.5841837</span></span>
-<span><span class="co">#&gt; 4    0.10       1.0       1 internal      0.6418082           0.6353367</span></span>
-<span><span class="co">#&gt;   max_row_mass_error max_col_mass_error accepted_label_fraction</span></span>
-<span><span class="co">#&gt; 1          0.2094605          0.1317681               0.6666667</span></span>
-<span><span class="co">#&gt; 2          0.2089333          0.1228897               0.6666667</span></span>
-<span><span class="co">#&gt; 3          0.1989228          0.1239883               1.0000000</span></span>
-<span><span class="co">#&gt; 4          0.1973681          0.1173270               0.8333333</span></span>
-<span><span class="co">#&gt;   outside_direct_fraction outside_corrected_fraction</span></span>
-<span><span class="co">#&gt; 1               0.2631579                  0.2894737</span></span>
-<span><span class="co">#&gt; 2               0.2631579                  0.2894737</span></span>
-<span><span class="co">#&gt; 3               0.2631579                  0.1052632</span></span>
-<span><span class="co">#&gt; 4               0.2631579                  0.1052632</span></span></code></pre></div>
+<span><span class="co">#&gt; 1    0.05       0.5       1 internal      0.7567440           0.7269262</span></span>
+<span><span class="co">#&gt; 2    0.10       0.5       1 internal      0.8146693           0.7742114</span></span>
+<span><span class="co">#&gt; 3    0.05       1.0       1 internal      0.7866239           0.7705905</span></span>
+<span><span class="co">#&gt; 4    0.10       1.0       1 internal      0.8325581           0.8150006</span></span>
+<span><span class="co">#&gt;   max_row_mass_error accepted_label_fraction outside_direct_fraction</span></span>
+<span><span class="co">#&gt; 1          0.1925167               0.8333333               0.2631579</span></span>
+<span><span class="co">#&gt; 2          0.1885548               0.6666667               0.2631579</span></span>
+<span><span class="co">#&gt; 3          0.1576913               0.6666667               0.2631579</span></span>
+<span><span class="co">#&gt; 4          0.1531149               0.6666667               0.2631579</span></span>
+<span><span class="co">#&gt;   outside_corrected_fraction</span></span>
+<span><span class="co">#&gt; 1                 0.10526316</span></span>
+<span><span class="co">#&gt; 2                 0.10526316</span></span>
+<span><span class="co">#&gt; 3                 0.07894737</span></span>
+<span><span class="co">#&gt; 4                 0.13157895</span></span></code></pre></div>
+<p>Strong sensitivity to <code>epsilon</code> or <code>rho_query</code>
+is a signal that the OT-derived outputs are not reliable for this
+dataset. In that case, rely on direct projection and do not carry
+transferred labels or corrected assignments into downstream
+analyses.</p>
 </div>
 <div class="section level2">
 <h2 id="practical-checklist">Practical checklist<a class="anchor" aria-label="anchor" href="#practical-checklist"></a>
 </h2>
 <ul>
-<li>Use identical feature names and feature order.
+<li>Feature names and order must match exactly.
 <code><a href="../reference/somalign_query.html">somalign_query()</a></code> reorders columns to
-<code>reference$features</code> and fails if any are missing.</li>
-<li>Train the query SOM in reference-scaled space as shown above.</li>
-<li>Treat <code>corrected_som_unit</code> and
-<code>transferred_label</code> as annotation support. Keep
-<code>old_som_unit</code>, <code>outside_reference_distance</code>, and
-<code>final_status</code> as the conservative classification.</li>
-<li>If you only have a saved query SOM codebook, you can pass a matrix
-as <code>som_query</code>, provided it is already in the
-reference-scaled feature space with columns named with
-<code>reference$features</code>.</li>
+<code>reference$features</code> and will error if any are missing.</li>
+<li>Both codebooks must be in the reference-scaled feature space. The
+query SOM must be trained with <code>reference$center</code> and
+<code>reference$scale</code>, unless you pass a raw saved query SOM with
+<code>codebook_space = "raw"</code>.</li>
+<li>
+<code>old_som_unit</code>, <code>outside_reference_distance</code>,
+<code>final_status</code>, and <code>old_som_label</code> are the
+primary result. Corrected projection and transferred labels are
+auxiliary.</li>
+<li>Use <code>somalign_results(fit, data = sample_metadata)</code> to
+append one metadata row per query sample to the result table.</li>
+<li>Run <code><a href="../reference/somalign_diagnostics.html">somalign_diagnostics()</a></code> before trusting label
+transfer.</li>
+<li>Run <code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code> when conclusions depend
+on corrected nodes or transferred labels.</li>
+<li>A matrix of codebook vectors can be passed as <code>som_query</code>
+directly, provided it is already in reference-scaled space with columns
+named to match <code>reference$features</code>.</li>
+<li>For large query matrices, adjust
+<code>somalign_fit(chunk_size = ...)</code> to control memory use during
+nearest-node projection.</li>
 </ul>
+</div>
+<div class="section level2">
+<h2 id="session-info">Session info<a class="anchor" aria-label="anchor" href="#session-info"></a>
+</h2>
+<pre><code><span><span class="co">#&gt; R version 4.6.1 (2026-06-24)</span></span>
+<span><span class="co">#&gt; Platform: x86_64-pc-linux-gnu</span></span>
+<span><span class="co">#&gt; Running under: Ubuntu 24.04.4 LTS</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Matrix products: default</span></span>
+<span><span class="co">#&gt; BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 </span></span>
+<span><span class="co">#&gt; LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; locale:</span></span>
+<span><span class="co">#&gt;  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       </span></span>
+<span><span class="co">#&gt;  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   </span></span>
+<span><span class="co">#&gt;  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          </span></span>
+<span><span class="co">#&gt; [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   </span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; time zone: UTC</span></span>
+<span><span class="co">#&gt; tzcode source: system (glibc)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; attached base packages:</span></span>
+<span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; other attached packages:</span></span>
+<span><span class="co">#&gt; [1] somalign_0.99.1  kohonen_3.0.13   BiocStyle_2.40.0</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
+<span><span class="co">#&gt;  [1] cli_3.6.6           knitr_1.51          rlang_1.3.0        </span></span>
+<span><span class="co">#&gt;  [4] xfun_0.60           otel_0.2.0          textshaping_1.0.5  </span></span>
+<span><span class="co">#&gt;  [7] jsonlite_2.0.0      htmltools_0.5.9     ragg_1.5.2         </span></span>
+<span><span class="co">#&gt; [10] sass_0.4.10         rmarkdown_2.31      evaluate_1.0.5     </span></span>
+<span><span class="co">#&gt; [13] jquerylib_0.1.4     fastmap_1.2.0       yaml_2.3.12        </span></span>
+<span><span class="co">#&gt; [16] lifecycle_1.0.5     bookdown_0.47       BiocManager_1.30.27</span></span>
+<span><span class="co">#&gt; [19] compiler_4.6.1      fs_2.1.0            htmlwidgets_1.6.4  </span></span>
+<span><span class="co">#&gt; [22] Rcpp_1.1.2          systemfonts_1.3.2   digest_0.6.39      </span></span>
+<span><span class="co">#&gt; [25] R6_2.6.1            bslib_0.11.0        tools_4.6.1        </span></span>
+<span><span class="co">#&gt; [28] pkgdown_2.2.1       cachem_1.1.0        desc_1.4.3</span></span></code></pre>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

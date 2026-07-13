@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -17,7 +17,13 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="../articles/somalign.html">Get started</a></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/somalign.html">Quick start</a></li>
+    <li><a class="dropdown-item" href="../articles/pretrained-old-and-new-soms.html">Advanced workflow: existing SOMs</a></li>
+    <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchoring samples</a></li>
+    <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+  </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-news"><li><h6 class="dropdown-header" data-toc-skip>Releases</h6></li>
@@ -90,8 +96,10 @@ compatibility alias for the internal pure-R solver.</p></dd>
 
 <dt id="arg-parallel">parallel<a class="anchor" aria-label="anchor" href="#arg-parallel"></a></dt>
 <dd><p>Logical. When <code>TRUE</code>, grid rows are evaluated in parallel
-using <code><a href="https://rdrr.io/r/parallel/mclapply.html" class="external-link">parallel::mclapply()</a></code> with <code>mc.cores = getOption("mc.cores", 1L)</code>.
-On Windows <code>mclapply</code> falls back to a single core automatically. When
+using <code><a href="https://rdrr.io/pkg/BiocParallel/man/bplapply.html" class="external-link">BiocParallel::bplapply()</a></code> with the registered
+<code>BiocParallel</code> back-end (see <code><a href="https://rdrr.io/pkg/BiocParallel/man/register.html" class="external-link">BiocParallel::register()</a></code>). Configure the
+back-end before calling this function, e.g.
+<code>BiocParallel::register(BiocParallel::MulticoreParam(workers = 4))</code>. When
 <code>FALSE</code> (default) a sequential for-loop is used, which is fully
 reproducible across platforms.</p></dd>
 
@@ -107,17 +115,36 @@ reproducible across platforms.</p></dd>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">20</span><span class="op">)</span>, nrow <span class="op">=</span> <span class="fl">10</span>, ncol <span class="op">=</span> <span class="fl">2</span>,</span></span>
 <span class="r-in"><span>              dimnames <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="cn">NULL</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"F1"</span>, <span class="st">"F2"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">ref</span> <span class="op">&lt;-</span> <span class="fu"><a href="somalign_train_reference.html">somalign_train_reference</a></span><span class="op">(</span><span class="va">mat</span>, grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span>, <span class="st">"hexagonal"</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">qry</span> <span class="op">&lt;-</span> <span class="fu"><a href="somalign_query.html">somalign_query</a></span><span class="op">(</span><span class="va">mat</span>, <span class="va">ref</span>, grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span>, <span class="st">"hexagonal"</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">ref</span> <span class="op">&lt;-</span> <span class="fu"><a href="somalign_train_reference.html">somalign_train_reference</a></span><span class="op">(</span><span class="va">mat</span>, grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span>, <span class="st">"hexagonal"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                                rlen <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">qry</span> <span class="op">&lt;-</span> <span class="fu"><a href="somalign_query.html">somalign_query</a></span><span class="op">(</span><span class="va">mat</span>, <span class="va">ref</span>, grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span>, <span class="st">"hexagonal"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>                      rlen <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">somalign_sensitivity_grid</span><span class="op">(</span><span class="va">qry</span>, <span class="va">ref</span>,</span></span>
 <span class="r-in"><span>                          epsilon <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.1</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>                          rho_query <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>                          rho_ref <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 2 query node(s) have match_mass_ratio &gt; 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 2 query node(s) have match_mass_ratio &gt; 1 (max 1.38); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 2 query node(s) have match_mass_ratio &gt; 1 (max 1.12); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 2 query node(s) have match_mass_ratio &gt; 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   epsilon rho_query rho_ref   solver transport_mass mean_match_fraction</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1    0.05       0.5       1 internal      0.8711764           0.8958259</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2    0.10       0.5       1 internal      0.9210089           0.9214855</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3    0.05       1.0       1 internal      0.8991056           0.9252915</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4    0.10       1.0       1 internal      0.9372579           0.9449376</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   max_row_mass_error max_col_mass_error accepted_label_fraction</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1         0.09013118         0.08489199                       0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2         0.08120687         0.06314924                       0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3         0.06178872         0.07665801                       0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4         0.05393120         0.05850111                       0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   outside_direct_fraction outside_corrected_fraction</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                     0.3                        0.3</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                     0.3                        0.1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                     0.3                        0.2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                     0.3                        0.1</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

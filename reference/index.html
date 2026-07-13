@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -17,7 +17,13 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="../articles/somalign.html">Get started</a></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/somalign.html">Quick start</a></li>
+    <li><a class="dropdown-item" href="../articles/pretrained-old-and-new-soms.html">Advanced workflow: existing SOMs</a></li>
+    <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchoring samples</a></li>
+    <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+  </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-news"><li><h6 class="dropdown-header" data-toc-skip>Releases</h6></li>
@@ -95,6 +101,13 @@
 
         <dt>
 
+          <code><a href="somalign_fit_anchored.html">somalign_fit_anchored()</a></code>
+
+        </dt>
+        <dd>Align a query SOM to a reference SOM using anchor sample pairs</dd>
+
+        <dt>
+
           <code><a href="somalign_results.html">somalign_results()</a></code>
 
         </dt>
@@ -122,6 +135,50 @@
 
         </dt>
         <dd>Run an OT sensitivity grid</dd>
+
+        <dt>
+
+          <code><a href="somalign_som_stability.html">somalign_som_stability()</a></code>
+
+        </dt>
+        <dd>Assess alignment stability across query SOM random seeds</dd>
+      </dl></div><div class="section level2">
+      <h2 id="print-methods">Print methods<a class="anchor" aria-label="anchor" href="#print-methods"></a></h2>
+
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="print.somalign_anchored_fit.html">print(<i>&lt;somalign_anchored_fit&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print a somalign_anchored_fit object</dd>
+
+        <dt>
+
+          <code><a href="print.somalign_fit.html">print(<i>&lt;somalign_fit&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print a somalign_fit object</dd>
+
+        <dt>
+
+          <code><a href="print.somalign_query.html">print(<i>&lt;somalign_query&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print a somalign_query object</dd>
+
+        <dt>
+
+          <code><a href="print.somalign_reference.html">print(<i>&lt;somalign_reference&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print a somalign_reference object</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

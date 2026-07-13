@@ -63,13 +63,11 @@ A `somalign_reference` object.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
 set.seed(1)
 mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
               dimnames = list(NULL, c("F1", "F2")))
 g <- kohonen::somgrid(2, 2, "hexagonal")
-som_obj <- kohonen::som(scale(mat), grid = g, rlen = 10)
+som_obj <- kohonen::som(scale(mat), grid = g, rlen = 5)
 ref <- somalign_reference(som_obj, mat, labels = rep(c("A", "B"), each = 5),
                           codebook_space = "reference_scaled")
-} # }
 ```

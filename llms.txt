@@ -50,74 +50,14 @@ Key output columns in `results`:
 | `transferred_label_confidence` | Confidence of the transferred label |
 | `transferred_label_accepted` | `TRUE` if match fraction and confidence thresholds are met |
 
-## Sensitivity analysis
+## Learn more
 
-``` r
-
-grid <- somalign_sensitivity_grid(
-  query, reference,
-  epsilon   = c(0.05, 0.1, 0.5),
-  rho_query = c(0.5, 1, 5),
-  rho_ref   = 1
-)
-```
-
-Returns a data frame with one row per parameter combination, reporting
-transport mass, match fraction, and mass error. Consistent values across
-the grid indicate the alignment is not sensitive to the choice of OT
-hyperparameters.
-
-## Large datasets
-
-For large query sets,
-[`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)
-projects samples in chunks to bound peak memory:
-
-``` r
-
-fit <- somalign_fit(query, reference, chunk_size = 5000L)  # default: 10000L
-```
-
-Set `chunk_size = Inf` to disable chunking and allocate the full
-`n_samples × n_nodes` distance matrix at once.
-
-## OT solver
-
-By default, `somalign` uses an internal pure-R generalized Sinkhorn
-solver for KL-unbalanced entropic optimal transport. The solver has no
-Python dependency. `solver = "auto"` is accepted as a compatibility
-alias and also uses the internal solver.
-
-``` r
-
-# Explicitly select the internal solver
-fit <- somalign_fit(query, reference, solver = "internal")
-
-# Inspect which solver was used and any notes
-somalign_diagnostics(fit)$solver
-```
-
-## Pre-trained SOMs
-
-If you already trained a query SOM, train it on new samples transformed
-with the reference `center` and `scale`, then pass it as
-`somalign_query(new_data, reference, som_query = new_som)`.
-
-If you build a reference from an existing SOM, state the codebook
-coordinate system explicitly:
-
-``` r
-
-reference <- somalign_reference(
-  old_som,
-  old_matrix,
-  codebook_space = "reference_scaled"  # or "raw"
-)
-```
-
-See
-[`vignette("pretrained-old-and-new-soms", package = "somalign")`](https://mdmanurung.github.io/somalign/articles/pretrained-old-and-new-soms.md)
-for the full pre-trained SOM workflow.
+- [`vignette("somalign", package = "somalign")`](https://mdmanurung.github.io/somalign/articles/somalign.md):
+  quick start from reference training to result inspection.
+- [`vignette("pretrained-old-and-new-soms", package = "somalign")`](https://mdmanurung.github.io/somalign/articles/pretrained-old-and-new-soms.md):
+  existing SOMs, saved codebooks, diagnostics, and tuning.
+- [`vignette("algorithm", package = "somalign")`](https://mdmanurung.github.io/somalign/articles/algorithm.md):
+  algorithm and output-column interpretation.
 
 # Package index
 
@@ -136,6 +76,8 @@ for the full pre-trained SOM workflow.
 
 - [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)
   : Align a query SOM to a reference SOM
+- [`somalign_fit_anchored()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_anchored.md)
+  : Align a query SOM to a reference SOM using anchor sample pairs
 - [`somalign_results()`](https://mdmanurung.github.io/somalign/reference/somalign_results.md)
   : Return per-sample somalign results
 
@@ -145,14 +87,29 @@ for the full pre-trained SOM workflow.
   : Extract somalign diagnostics
 - [`somalign_sensitivity_grid()`](https://mdmanurung.github.io/somalign/reference/somalign_sensitivity_grid.md)
   : Run an OT sensitivity grid
+- [`somalign_som_stability()`](https://mdmanurung.github.io/somalign/reference/somalign_som_stability.md)
+  : Assess alignment stability across query SOM random seeds
+
+## Print methods
+
+- [`print(`*`<somalign_anchored_fit>`*`)`](https://mdmanurung.github.io/somalign/reference/print.somalign_anchored_fit.md)
+  : Print a somalign_anchored_fit object
+- [`print(`*`<somalign_fit>`*`)`](https://mdmanurung.github.io/somalign/reference/print.somalign_fit.md)
+  : Print a somalign_fit object
+- [`print(`*`<somalign_query>`*`)`](https://mdmanurung.github.io/somalign/reference/print.somalign_query.md)
+  : Print a somalign_query object
+- [`print(`*`<somalign_reference>`*`)`](https://mdmanurung.github.io/somalign/reference/print.somalign_reference.md)
+  : Print a somalign_reference object
 
 # Articles
 
-### Vignettes
+### Articles
 
-- [Aligning SOMs with
-  somalign](https://mdmanurung.github.io/somalign/articles/somalign.md):
-- [Using trained old and new
+- [Quick
+  start](https://mdmanurung.github.io/somalign/articles/somalign.md):
+- [Advanced workflow: existing
   SOMs](https://mdmanurung.github.io/somalign/articles/pretrained-old-and-new-soms.md):
-- [Algorithm:
-  step-by-step](https://mdmanurung.github.io/somalign/articles/algorithm.md):
+- [Anchor-regularized alignment with remeasured
+  samples](https://mdmanurung.github.io/somalign/articles/anchor-samples.md):
+- [Algorithm and
+  interpretation](https://mdmanurung.github.io/somalign/articles/algorithm.md):

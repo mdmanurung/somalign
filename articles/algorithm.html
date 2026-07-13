@@ -5,12 +5,12 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Algorithm: step-by-step • somalign</title>
+<title>Algorithm and interpretation • somalign</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Algorithm: step-by-step">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Algorithm and interpretation">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -31,7 +31,15 @@
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="../articles/somalign.html">Get started</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="active nav-item"><a class="nav-link" href="../articles/index.html">Articles</a></li>
+<li class="active nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
+<li><a class="dropdown-item" href="../articles/somalign.html">Quick start</a></li>
+    <li><a class="dropdown-item" href="../articles/pretrained-old-and-new-soms.html">Advanced workflow: existing SOMs</a></li>
+    <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchoring samples</a></li>
+    <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+  </ul>
+</li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-news">
@@ -60,7 +68,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
-      <h1>Algorithm: step-by-step</h1>
+      <h1>Algorithm and interpretation</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/mdmanurung/somalign/blob/main/vignettes/algorithm.Rmd" class="external-link"><code>vignettes/algorithm.Rmd</code></a></small>
@@ -70,9 +78,14 @@
     
     
 <p><code>somalign</code> aligns a query SOM to a fixed reference SOM
-using codebook-level KL-unbalanced entropic optimal transport. This
-vignette traces each stage from raw data to the final per-sample output
-columns.</p>
+using codebook-level KL-unbalanced entropic optimal transport. This page
+walks through each stage of the pipeline, explaining how direct
+projection, the OT correspondence, correction vectors, and label
+transfer each contribute to the output columns.</p>
+<p>The OT stage uses the internal pure-R Sinkhorn solver. There is no
+external transport backend to configure. Direct projection is always
+computed first and is the primary result; the OT-derived columns are
+auxiliary.</p>
 <div class="section level2">
 <h2 id="pipeline-overview">Pipeline overview<a class="anchor" aria-label="anchor" href="#pipeline-overview"></a>
 </h2>
@@ -83,17 +96,13 @@ columns.</p>
 <h2 id="stage-0-training-both-soms">Stage 0 — Training both SOMs<a class="anchor" aria-label="anchor" href="#stage-0-training-both-soms"></a>
 </h2>
 <p>The reference SOM is trained on labelled old data after z-score
-normalisation (centre
+normalisation with the old-data mean
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>μ</mi><annotation encoding="application/x-tex">\mu</annotation></semantics></math>
-and scale
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>σ</mi><annotation encoding="application/x-tex">\sigma</annotation></semantics></math>
-computed from old data). The query SOM is trained on new data
-transformed with the <strong>reference</strong>
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>μ</mi><annotation encoding="application/x-tex">\mu</annotation></semantics></math>
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>σ</mi><annotation encoding="application/x-tex">\sigma</annotation></semantics></math>
-— not new-data z-scores — so both codebooks live in the same feature
-coordinate system.</p>
+and standard deviation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>σ</mi><annotation encoding="application/x-tex">\sigma</annotation></semantics></math>.
+The query SOM must be trained on new data transformed with those same
+reference parameters — not new-data z-scores — so that both codebooks
+lie in the same feature coordinate system.</p>
 <p><img src="algorithm_files/figure-html/stage0-1.png" class="r-plt" alt="" width="100%"></p>
 <hr>
 </div>
@@ -102,25 +111,26 @@ coordinate system.</p>
 </h2>
 <p>Every new sample
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>x</mi><mi>s</mi></msub><annotation encoding="application/x-tex">x_s</annotation></semantics></math>
-is assigned to the nearest reference node:
+is assigned to its nearest reference node by Euclidean distance:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>k</mi><mo>*</mo></msup><mo>=</mo><mrow><mi mathvariant="normal">arg</mi><mo>⁡</mo></mrow><munder><mi mathvariant="normal">min</mi><mi>k</mi></munder><mo stretchy="false" form="postfix">∥</mo><msub><mi>x</mi><mi>s</mi></msub><mo>−</mo><msub><mi>C</mi><mrow><mtext mathvariant="normal">ref</mtext><mo>,</mo><mi>k</mi></mrow></msub><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">k^* = \arg\min_k \|x_s - C_{\text{ref},k}\|</annotation></semantics></math></p>
-<p>No optimal transport is involved. This is the primary, conservative
-result.</p>
+<p>No transport is involved. The assignment is deterministic given the
+reference codebook and is the result to use for downstream analysis.</p>
 <p><img src="algorithm_files/figure-html/stage1-1.png" class="r-plt" alt="" width="100%"></p>
 <p><strong>Output:</strong> <code>old_som_unit = k*</code>,
-<code>old_som_distance</code>, <code>outside_reference_distance</code>,
-<code>final_status</code>, <code>old_som_label</code>,
-<code>old_som_label_confidence</code>.</p>
+<code>old_som_distance</code>, <code>old_som_distance_threshold</code>,
+<code>outside_reference_distance</code>, <code>final_status</code>,
+<code>old_som_label</code>, <code>old_som_label_confidence</code>.</p>
 <hr>
 </div>
 <div class="section level2">
 <h2 id="stage-2-ot-on-codebooks">Stage 2 — OT on codebooks<a class="anchor" aria-label="anchor" href="#stage-2-ot-on-codebooks"></a>
 </h2>
-<p>OT is solved once on the <strong>codebooks</strong>
+<p>Transport is solved once on the <strong>codebooks</strong>
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
 query nodes ×
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>
-reference nodes), not on individual samples.</p>
+reference nodes), not on individual samples, keeping the problem
+dimensionality independent of sample count.</p>
 <div class="section level3">
 <h3 id="a-cost-matrix">2a — Cost matrix<a class="anchor" aria-label="anchor" href="#a-cost-matrix"></a>
 </h3>
@@ -140,18 +150,20 @@ minimises:</p>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝐚</mi><annotation encoding="application/x-tex">\mathbf{a}</annotation></semantics></math>
 and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝐛</mi><annotation encoding="application/x-tex">\mathbf{b}</annotation></semantics></math>
-are the query and reference node masses. The KL marginal penalties allow
-each side to discard unmatched mass: a novel query node can route only a
-small fraction of its mass to any reference node. Solved by the internal
-pure-R alternating Sinkhorn scaling implementation.</p>
+are the query and reference node masses. The KL marginal penalties relax
+the balance constraint: mass can be destroyed rather than transported,
+so a query node with no good reference counterpart routes only a small
+fraction of its mass rather than forcing an artificial match. The plan
+is found by the internal pure-R Sinkhorn scaling implementation.</p>
 </div>
 <div class="section level3">
 <h3 id="c-transport-plan">2c — Transport plan<a class="anchor" aria-label="anchor" href="#c-transport-plan"></a>
 </h3>
 <p><img src="algorithm_files/figure-html/stage2c-1.png" class="r-plt" alt="" width="100%"></p>
-<p><code>match_fraction</code> near 1 indicates a well-matched node;
-near 0 indicates a novel population with no good reference counterpart
-(label transfer will be rejected for such nodes).</p>
+<p><code>match_fraction</code> near 1 means the node transported most of
+its mass to reference nodes; near 0 means little overlap with any
+reference population. Label transfer is rejected for low-match
+nodes.</p>
 <hr>
 </div>
 </div>
@@ -165,12 +177,12 @@ reference nodes:</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo>=</mo><mfrac><mrow><munder><mo>∑</mo><mi>j</mi></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mspace width="0.167em"></mspace><mo stretchy="false" form="prefix">(</mo><msub><mi>C</mi><mrow><mtext mathvariant="normal">ref</mtext><mo>,</mo><mi>j</mi></mrow></msub><mo>−</mo><msub><mi>C</mi><mrow><mtext mathvariant="normal">query</mtext><mo>,</mo><mi>i</mi></mrow></msub><mo stretchy="false" form="postfix">)</mo></mrow><mrow><munder><mo>∑</mo><mi>j</mi></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub></mrow></mfrac></mrow><annotation encoding="application/x-tex">\Delta_i = \frac{\displaystyle\sum_j P_{ij}\,(C_{\text{ref},j} - C_{\text{query},i})}
                   {\displaystyle\sum_j P_{ij}}</annotation></semantics></math></p>
 <p><img src="algorithm_files/figure-html/stage3-1.png" class="r-plt" alt="" width="100%"></p>
-<p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">∥</mo><mo>≈</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\|\Delta_i\| \approx 0</annotation></semantics></math>
-means the query node already aligns with its reference counterpart. A
-large
+<p>A small
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">\|\Delta_i\|</annotation></semantics></math>
-indicates a systematic displacement (batch effect or population
-shift).</p>
+means the query node sits close to its matched reference positions. A
+large value indicates a systematic offset — potentially a batch effect
+or a true population shift — and is worth examining before accepting the
+corrected projection.</p>
 <hr>
 </div>
 <div class="section level2">
@@ -183,36 +195,122 @@ is shifted by the same
 and re-projected:</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">corrected_som_unit</mtext><mi>s</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">arg</mi><mo>⁡</mo></mrow><munder><mi mathvariant="normal">min</mi><mi>k</mi></munder><mo stretchy="false" form="postfix">∥</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mi>s</mi></msub><mo>+</mo><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>C</mi><mrow><mtext mathvariant="normal">ref</mtext><mo>,</mo><mi>k</mi></mrow></msub><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">\text{corrected\_som\_unit}_s = \arg\min_k \|(x_s + \Delta_i) - C_{\text{ref},k}\|</annotation></semantics></math></p>
 <p><img src="algorithm_files/figure-html/stage4-1.png" class="r-plt" alt="" width="100%"></p>
-<p>Both assignments are reported. <code>old_som_unit</code> (blue) is
-the primary result; <code>corrected_som_unit</code> (red) is auxiliary —
-use it for visualisation and triage.</p>
+<p>Both assignments are reported in the results table.
+<code>old_som_unit</code> (blue) is the primary result;
+<code>corrected_som_unit</code> (red),
+<code>corrected_som_distance</code>, and
+<code>corrected_outside_reference_distance</code> are intended for
+visualisation and triage, not as replacement assignments.</p>
 <hr>
 </div>
 <div class="section level2">
 <h2 id="stage-5-label-transfer-auxiliary">Stage 5 — Label transfer (auxiliary)<a class="anchor" aria-label="anchor" href="#stage-5-label-transfer-auxiliary"></a>
 </h2>
 <p>For each query node
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
-the dominant reference node is identified from row
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mo stretchy="false" form="prefix">[</mo><mi>i</mi><mo>,</mo><mi>⋅</mi><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">P[i, \cdot]</annotation></semantics></math>,
-and its label is transferred if the acceptance thresholds are met.</p>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>,
+the reference node with the highest transported mass in row
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mo stretchy="false" form="prefix">[</mo><mi>i</mi><mo>,</mo><mi>⋅</mi><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">P[i, \cdot]</annotation></semantics></math>
+is identified as the dominant match, and its label is transferred when
+both acceptance thresholds are passed.</p>
 <p><img src="algorithm_files/figure-html/stage5-1.png" class="r-plt" alt="" width="100%"></p>
-<p>Label transfer is rejected when <code>match_fraction &lt; 0.05</code>
-(novel node) or when the dominant reference node’s label purity
-(<code>transferred_label_confidence</code>) is below 0.60 (mixed
-node).</p>
+<p>Transfer is rejected at two gates:
+<code>match_fraction &lt; 0.05</code> (node has no meaningful reference
+overlap) and <code>transferred_label_confidence &lt; 0.60</code> (the
+dominant reference node is too mixed to assign a clean label).</p>
 <hr>
+</div>
+<div class="section level2">
+<h2 id="limitations-of-the-ot-correction">Limitations of the OT correction<a class="anchor" aria-label="anchor" href="#limitations-of-the-ot-correction"></a>
+</h2>
+<p>The OT-derived columns are auxiliary. Three structural limitations
+govern when they should and should not be trusted.</p>
+<div class="section level3">
+<h3 id="barycentric-contraction-f1">Barycentric contraction (F1)<a class="anchor" aria-label="anchor" href="#barycentric-contraction-f1"></a>
+</h3>
+<p>The correction target for node
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
+is the transport-weighted mean of matched reference codebook
+vectors:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>C</mi><mo accent="true">̂</mo></mover><mi>i</mi></msub><mo>=</mo><mfrac><mrow><munder><mo>∑</mo><mi>j</mi></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mspace width="0.167em"></mspace><msub><mi>C</mi><mrow><mtext mathvariant="normal">ref</mtext><mo>,</mo><mi>j</mi></mrow></msub></mrow><mrow><munder><mo>∑</mo><mi>j</mi></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub></mrow></mfrac></mrow><annotation encoding="application/x-tex">\hat{C}_i = \frac{\sum_j P_{ij}\,C_{\text{ref},j}}{\sum_j P_{ij}}</annotation></semantics></math></p>
+<p>This is a <strong>conditional mean</strong>, so the corrected
+positions always lie inside the convex hull of the reference codebook.
+Two consequences follow. First, variance shrinks: query nodes that
+genuinely sit near the periphery of a reference cluster will be pulled
+inward. Second, dense reference regions attract mass — if the reference
+has one very large T-cell cluster and one small NK cluster, even a
+predominantly NK query node will have its correction vector biased
+toward the T-cell centroid. Contraction grows as <code>epsilon</code>
+increases, because a larger entropic penalty spreads each transport row
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mo stretchy="false" form="prefix">[</mo><mi>i</mi><mo>,</mo><mi>⋅</mi><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">P[i,
+\cdot]</annotation></semantics></math> across more reference nodes.
+Interpret <code>corrected_som_unit</code> with
+<code>correction_norm</code>: a large shift
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">\|\Delta_i\|</annotation></semantics></math>)
+in a high-epsilon fit is the most suspect combination.</p>
+</div>
+<div class="section level3">
+<h3 id="unpaired-ot-f2">Unpaired OT (F2)<a class="anchor" aria-label="anchor" href="#unpaired-ot-f2"></a>
+</h3>
+<p>OT operates on <strong>node mass distributions</strong>, not on
+individual samples. If the query batch consists of literally remeasured
+biological units (the same cells or patients measured again), that
+ground-truth sample-level correspondence is available but unused here.
+Anchor-based methods such as CytoNorm exploit exactly this pairing,
+using anchor controls measured in both old and new batches to identify
+the batch map with minimal ambiguity. <code>somalign</code> is designed
+for the common case where no such anchors exist: only the phenotypic
+structure of the populations (encoded in the codebooks) is shared. If
+you do have remeasured anchor controls, incorporate them at the
+reference-building stage rather than relying on the OT correction.</p>
+</div>
+<div class="section level3">
+<h3 id="uncalibrated-novelty-score-f3">Uncalibrated novelty score (F3)<a class="anchor" aria-label="anchor" href="#uncalibrated-novelty-score-f3"></a>
+</h3>
+<p><code>match_fraction</code> (and the derived label-transfer gate)
+reflects the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ε</mi><annotation encoding="application/x-tex">\varepsilon</annotation></semantics></math>/<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ρ</mi><annotation encoding="application/x-tex">\rho</annotation></semantics></math>
+regime as much as any biological novelty. A low
+<code>match_fraction</code> means little query mass reached reference
+nodes, but that can happen because (a) the query contains a genuinely
+novel population, or (b) <code>rho_query</code> is small, (c)
+<code>epsilon</code> is large, or (d) the query SOM topology differs
+from the reference. There is no null model calibrating how much
+destroyed mass constitutes evidence of novelty. Use
+<code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code> to assess whether low-match
+nodes are stable across
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ε</mi><annotation encoding="application/x-tex">\varepsilon</annotation></semantics></math>/<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ρ</mi><annotation encoding="application/x-tex">\rho</annotation></semantics></math>
+values before interpreting them as novel populations.</p>
+<hr>
+</div>
 </div>
 <div class="section level2">
 <h2 id="output-columns">Output columns<a class="anchor" aria-label="anchor" href="#output-columns"></a>
 </h2>
+<p>Direct projection columns are the primary result. OT-derived columns
+are auxiliary — they should always be read alongside the direct
+assignment and the <code><a href="../reference/somalign_diagnostics.html">somalign_diagnostics()</a></code> output.</p>
 <table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
 <thead><tr class="header">
 <th>Column</th>
 <th>Stage</th>
 <th>Purpose</th>
 </tr></thead>
 <tbody>
+<tr class="odd">
+<td><code>sample_id</code></td>
+<td>0</td>
+<td>Query sample identifier</td>
+</tr>
+<tr class="even">
+<td><code>query_som_unit</code></td>
+<td>0</td>
+<td>Query SOM node containing the sample</td>
+</tr>
 <tr class="odd">
 <td><code>old_som_unit</code></td>
 <td>1</td>
@@ -224,29 +322,49 @@ node).</p>
 <td>Distance to that node</td>
 </tr>
 <tr class="odd">
+<td><code>old_som_distance_threshold</code></td>
+<td>1</td>
+<td>Direct distance threshold</td>
+</tr>
+<tr class="even">
 <td><code>outside_reference_distance</code></td>
 <td>1</td>
 <td>Novelty flag</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>final_status</code></td>
 <td>1</td>
 <td>inside / outside / unknown</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>old_som_label</code></td>
 <td>1</td>
 <td>Primary label</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>old_som_label_confidence</code></td>
 <td>1</td>
 <td>Label purity at node</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>corrected_som_unit</code></td>
 <td>4</td>
 <td>OT-corrected assignment</td>
+</tr>
+<tr class="odd">
+<td><code>corrected_som_distance</code></td>
+<td>4</td>
+<td>Distance after applying the node correction</td>
+</tr>
+<tr class="even">
+<td><code>corrected_som_distance_threshold</code></td>
+<td>4</td>
+<td>Corrected distance threshold</td>
+</tr>
+<tr class="odd">
+<td><code>corrected_outside_reference_distance</code></td>
+<td>4</td>
+<td>Novelty flag after correction</td>
 </tr>
 <tr class="even">
 <td><code>correction_norm</code></td>
@@ -272,11 +390,50 @@ node).</p>
 </tr>
 </tbody>
 </table>
-<p>OT runs on the
+<p>OT runs once on the
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><mo>×</mo><mi>K</mi></mrow><annotation encoding="application/x-tex">M \times K</annotation></semantics></math>
-codebook, not on individual samples. Per-sample cost is
+codebook matrix. The per-sample cost is an
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false" form="prefix">(</mo><mi>n</mi><mo>⋅</mo><mi>K</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">O(n \cdot K)</annotation></semantics></math>
-nearest-node search, chunked in <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>.</p>
+nearest-node search, performed in configurable chunks by
+<code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> to keep memory use predictable.</p>
+</div>
+<div class="section level2">
+<h2 id="session-info">Session info<a class="anchor" aria-label="anchor" href="#session-info"></a>
+</h2>
+<pre><code><span><span class="co">#&gt; R version 4.6.1 (2026-06-24)</span></span>
+<span><span class="co">#&gt; Platform: x86_64-pc-linux-gnu</span></span>
+<span><span class="co">#&gt; Running under: Ubuntu 24.04.4 LTS</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Matrix products: default</span></span>
+<span><span class="co">#&gt; BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 </span></span>
+<span><span class="co">#&gt; LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; locale:</span></span>
+<span><span class="co">#&gt;  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       </span></span>
+<span><span class="co">#&gt;  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   </span></span>
+<span><span class="co">#&gt;  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          </span></span>
+<span><span class="co">#&gt; [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   </span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; time zone: UTC</span></span>
+<span><span class="co">#&gt; tzcode source: system (glibc)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; attached base packages:</span></span>
+<span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; other attached packages:</span></span>
+<span><span class="co">#&gt; [1] BiocStyle_2.40.0</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
+<span><span class="co">#&gt;  [1] digest_0.6.39       desc_1.4.3          R6_2.6.1           </span></span>
+<span><span class="co">#&gt;  [4] bookdown_0.47       fastmap_1.2.0       xfun_0.60          </span></span>
+<span><span class="co">#&gt;  [7] cachem_1.1.0        knitr_1.51          htmltools_0.5.9    </span></span>
+<span><span class="co">#&gt; [10] rmarkdown_2.31      lifecycle_1.0.5     cli_3.6.6          </span></span>
+<span><span class="co">#&gt; [13] sass_0.4.10         pkgdown_2.2.1       textshaping_1.0.5  </span></span>
+<span><span class="co">#&gt; [16] jquerylib_0.1.4     systemfonts_1.3.2   compiler_4.6.1     </span></span>
+<span><span class="co">#&gt; [19] tools_4.6.1         ragg_1.5.2          bslib_0.11.0       </span></span>
+<span><span class="co">#&gt; [22] evaluate_1.0.5      yaml_2.3.12         BiocManager_1.30.27</span></span>
+<span><span class="co">#&gt; [25] otel_0.2.0          jsonlite_2.0.0      rlang_1.3.0        </span></span>
+<span><span class="co">#&gt; [28] fs_2.1.0            htmlwidgets_1.6.4</span></span></code></pre>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
