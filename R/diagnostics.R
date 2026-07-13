@@ -139,3 +139,82 @@ somalign_sensitivity_grid <- function(query,
   }
   x
 }
+
+#' Assess alignment stability across query SOM random seeds
+#'
+#' Trains a new query SOM for each seed and runs the full alignment pipeline,
+#' holding the reference SOM fixed. The returned summary quantifies how much OT
+#' alignment statistics vary with query SOM training randomness — the largest
+#' uncontrolled variance source in the `somalign` workflow.
+#'
+#' @param query_data Numeric query data.
+#' @param reference A `somalign_reference` object.
+#' @param som_seeds Integer vector of random seeds used to train query SOMs.
+#' @param epsilon Entropic regularisation passed to [somalign_fit()].
+#' @param rho_query,rho_ref Mass-relaxation parameters passed to [somalign_fit()].
+#' @param grid Optional `kohonen::somgrid()` for query SOM training.
+#' @param rlen Number of SOM training iterations.
+#' @param alpha Learning-rate schedule.
+#' @param parallel Logical. Use [BiocParallel::bplapply()] when `TRUE`.
+#' @param ... Additional arguments passed to [somalign_query()].
+#'
+#' @return A data frame with one row per seed containing key alignment summary
+#'   statistics: `som_seed`, `transport_mass`, `mean_match_fraction`,
+#'   `max_row_mass_error`, `accepted_label_fraction`,
+#'   `outside_direct_fraction`, `outside_corrected_fraction`,
+#'   `mean_correction_norm`, `converged`.
+#' @examples
+#' set.seed(1)
+#' mat <- matrix(rnorm(40), nrow = 20, ncol = 2,
+#'               dimnames = list(NULL, c("F1", "F2")))
+#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                                 rlen = 5)
+#' somalign_som_stability(mat, ref, som_seeds = 1:3,
+#'                        grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 5)
+#' @export
+somalign_som_stability <- function(query_data,
+                                   reference,
+                                   som_seeds = seq_len(5L),
+                                   epsilon = 0.5,
+                                   rho_query = 1,
+                                   rho_ref = 1,
+                                   grid = NULL,
+                                   rlen = 100,
+                                   alpha = c(0.05, 0.01),
+                                   parallel = FALSE,
+                                   ...) {
+  .somalign_check_reference(reference)
+  if (!is.numeric(som_seeds) || length(som_seeds) == 0L) {
+    stop("`som_seeds` must be a non-empty numeric vector.", call. = FALSE)
+  }
+  som_seeds <- as.integer(som_seeds)
+
+  .run_one <- function(i) {
+    seed <- som_seeds[i]
+    set.seed(seed)
+    qry <- somalign_query(query_data, reference, grid = grid,
+                          rlen = rlen, alpha = alpha, ...)
+    fit <- somalign_fit(qry, reference, epsilon = epsilon,
+                        rho_query = rho_query, rho_ref = rho_ref)
+    .somalign_stability_row_summary(fit, seed)
+  }
+
+  rows <- .somalign_run_grid(length(som_seeds), .run_one, parallel)
+  do.call(rbind, rows)
+}
+
+.somalign_stability_row_summary <- function(fit, seed) {
+  diag <- somalign_diagnostics(fit)
+  allowed <- diag$nodes$correction_allowed
+  data.frame(
+    som_seed              = seed,
+    transport_mass        = diag$ot$transport_mass,
+    mean_match_fraction   = mean(diag$ot$match_fraction[is.finite(diag$ot$match_fraction)]),
+    max_row_mass_error    = diag$ot$max_row_mass_error,
+    accepted_label_fraction   = mean(fit$label_transfer$accepted),
+    outside_direct_fraction   = diag$projection$outside_direct_fraction,
+    outside_corrected_fraction = diag$projection$outside_corrected_fraction,
+    mean_correction_norm  = if (any(allowed)) mean(diag$nodes$correction_norm[allowed]) else NA_real_,
+    converged             = diag$solver$converged
+  )
+}
