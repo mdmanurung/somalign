@@ -222,26 +222,25 @@ OT-derived outputs are not reliable for this dataset. In that case, rely on
 direct projection and do not carry transferred labels or corrected assignments
 into downstream analyses.
 
-## Practical checklist
+## Before relying on results
 
-- Feature names and order must match exactly. `somalign_query()` reorders
-  columns to `reference$features` and will error if any are missing.
-- Both codebooks must be in the reference-scaled feature space. The query SOM
-  must be trained with `reference$center` and `reference$scale`, unless you
-  pass a raw saved query SOM with `codebook_space = "raw"`.
-- `old_som_unit`, `outside_reference_distance`, `final_status`, and
-  `old_som_label` are the primary result. Corrected projection and transferred
-  labels are auxiliary.
-- Use `somalign_results(fit, data = sample_metadata)` to append one metadata
-  row per query sample to the result table.
-- Run `somalign_diagnostics()` before trusting label transfer.
-- Run `somalign_sensitivity_grid()` when conclusions depend on corrected nodes
-  or transferred labels.
-- A matrix of codebook vectors can be passed as `som_query` directly, provided
-  it is already in reference-scaled space with columns named to match
-  `reference$features`.
-- For large query matrices, adjust `somalign_fit(chunk_size = ...)` to control
-  memory use during nearest-node projection.
+Feature names and order must match exactly — `somalign_query()` reorders
+columns to `reference$features` and will error if any are missing. Both
+codebooks must live in the same feature space; the query SOM must be trained
+with `reference$center` and `reference$scale` unless you supply a raw saved SOM
+with `codebook_space = "raw"`.
+
+`old_som_unit`, `outside_reference_distance`, `final_status`, and `old_som_label`
+are the primary result; corrected projection and transferred labels are auxiliary.
+Use `somalign_results(fit, data = sample_metadata)` to attach one metadata row
+per query sample. Examine `somalign_diagnostics()` before trusting label
+transfer, and run `somalign_sensitivity_grid()` whenever conclusions rest on
+corrected nodes or transferred labels.
+
+A raw matrix of codebook vectors can be passed as `som_query` directly if it is
+already in reference-scaled space with columns named to match
+`reference$features`. For large query matrices, `somalign_fit(chunk_size = ...)`
+controls how many samples are projected at once.
 
 ## Session info
 

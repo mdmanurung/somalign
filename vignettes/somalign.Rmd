@@ -97,27 +97,26 @@ head(results[, c(
 
 ## Interpreting the result
 
-**Direct projection** (`old_som_unit`, `old_som_distance`,
+The columns split into three groups. `old_som_unit`, `old_som_distance`,
 `old_som_distance_threshold`, `outside_reference_distance`, `final_status`,
-`old_som_label`, `old_som_label_confidence`) is the primary result. Each query
-sample is assigned to its nearest reference node by Euclidean distance in the
-shared feature space. No transport is involved; the assignment is deterministic
-given the reference codebook.
+`old_som_label`, and `old_som_label_confidence` are the primary result: each
+sample is assigned to its nearest reference node by Euclidean distance, with no
+transport involved.
 
-**Corrected projection** (`corrected_som_unit`, `corrected_som_distance`,
-`corrected_som_distance_threshold`, `corrected_outside_reference_distance`,
-`correction_norm`) is auxiliary. The OT plan shifts each query SOM node toward
-its matched reference nodes, and query samples are then re-projected from the
-shifted position. A large `correction_norm` points to a systematic displacement
-between the query and reference populations — useful for visualisation and
-triage, but not a replacement for the direct assignment.
+The OT plan then contributes two sets of auxiliary columns. `corrected_som_unit`,
+`corrected_som_distance`, `corrected_som_distance_threshold`,
+`corrected_outside_reference_distance`, and `correction_norm` describe where
+samples land after each query SOM node is shifted toward its mass-weighted
+reference target. A large `correction_norm` signals a systematic offset between
+the batches and is worth examining, but the corrected assignment should not
+replace the direct one.
 
-**Transferred labels** (`transferred_label`,
-`transferred_label_confidence`, `transferred_label_accepted`) are also
-auxiliary, derived from the same OT correspondence. A label is accepted only
-when the query node has sufficient transported mass and the dominant matched
-reference label is confident enough. Always check
-`transferred_label_accepted` before using a transferred label downstream.
+`transferred_label`, `transferred_label_confidence`, and
+`transferred_label_accepted` derive from the same OT correspondence: the
+dominant reference node in each query node's transport row contributes its label,
+accepted only when transported mass and label confidence both clear their
+thresholds. Check `transferred_label_accepted` before using any transferred label
+downstream.
 
 ## Next steps
 

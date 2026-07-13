@@ -206,20 +206,16 @@ direction consistent with your biological expectations.
 
 ## When to use `somalign_fit_anchored()`
 
-Use this function when:
+`somalign_fit_anchored()` is appropriate when a set of samples — QC pools,
+reference standards, proficiency panels — was physically run in both the old and
+new batches, providing ground-truth node-pair correspondences. Anchor pairs need
+not cover the full codebook; even sparse coverage meaningfully constrains the OT
+plan for the covered node pairs, while uncovered nodes fall back to the standard
+objective.
 
-- You have samples that were physically run in both the old and new batches
-  (QC pools, reference standards, proficiency panels).
-- You want the OT plan to respect known per-node correspondence, rather
-  than relying entirely on node-mass distributions.
-
-Anchor pairs need not cover the entire dataset -- even sparse coverage
-meaningfully constrains the OT plan for covered node pairs, while uncovered
-nodes fall back to the standard OT objective.
-
-If no remeasured samples are available, `somalign_fit()` is the correct
-choice. There is no benefit to calling the anchored variant with fabricated
-or imputed anchor pairs.
+If no remeasured samples are available, use `somalign_fit()` directly.
+Fabricated or imputed anchor pairs add no information and will misguide the
+transport.
 
 ## Session info
 
