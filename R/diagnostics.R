@@ -194,6 +194,8 @@ somalign_som_stability <- function(query_data,
   on.exit({
     if (!is.null(old_seed))
       assign(".Random.seed", old_seed, envir = .GlobalEnv)
+    else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
+      rm(".Random.seed", envir = .GlobalEnv)
   }, add = TRUE)
 
   .run_one <- function(i) {

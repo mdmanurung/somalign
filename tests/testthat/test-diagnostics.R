@@ -56,3 +56,16 @@ test_that("somalign_som_stability rejects empty som_seeds", {
     "non-empty"
   )
 })
+
+test_that("somalign_som_stability does not leak .Random.seed when none existed before", {
+  skip_if_not_installed("kohonen")
+  withr::local_seed(1L)
+  mat <- matrix(rnorm(20), ncol = 2, dimnames = list(NULL, c("A", "B")))
+  ref <- somalign_train_reference(
+    mat, grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 5
+  )
+  rm(".Random.seed", envir = .GlobalEnv)
+  somalign_som_stability(mat, ref, som_seeds = 1:2,
+                         grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 5)
+  expect_false(exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
+})
