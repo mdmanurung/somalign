@@ -52,7 +52,7 @@ true_unit <- nearest_unshifted$unit
 
 set.seed(123)
 query <- somalign_query(query_data, reference, grid = somgrid(5, 5, "hexagonal"), rlen = 200)
-fit   <- somalign_fit(query, reference, epsilon = 0.5, rho_query = 2, rho_ref = 2)
+fit   <- somalign_fit(query, reference, epsilon = 0.1, rho_query = 2, rho_ref = 2)
 
 diag  <- somalign_diagnostics(fit)
 res   <- somalign_results(fit)
@@ -111,7 +111,7 @@ cat("\n── Query SOM seed stability (10 seeds) ──\n")
 stability <- somalign_som_stability(
   query_data, reference,
   som_seeds = 1:10,
-  epsilon   = 0.5,
+  epsilon   = 0.1,
   rho_query = 2,
   rho_ref   = 2,
   grid      = somgrid(5, 5, "hexagonal"),
@@ -134,7 +134,7 @@ cat(sprintf(
 
 set.seed(123)
 query2   <- somalign_query(query_data, reference, grid = somgrid(5, 5, "hexagonal"), rlen = 200)
-fit_log  <- somalign_fit(query2, reference, epsilon = 0.5, rho_query = 2, rho_ref = 2,
+fit_log  <- somalign_fit(query2, reference, epsilon = 0.1, rho_query = 2, rho_ref = 2,
                           solver = "log_domain")
 res_log  <- somalign_results(fit_log)
 
