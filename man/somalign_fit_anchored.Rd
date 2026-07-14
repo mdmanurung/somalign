@@ -10,7 +10,7 @@ somalign_fit_anchored(
   anchor_old,
   anchor_new,
   rho_anchor = 1,
-  epsilon = 0.5,
+  epsilon = 0.1,
   rho_query = 1,
   rho_ref = 1,
   solver = c("internal", "log_domain", "auto"),
@@ -122,6 +122,13 @@ work unchanged. An additional \verb{$anchors} list element is attached:
 \item{\code{nodes_covered}}{Number of query nodes with ≥ 1 anchor pair.}
 \item{\code{coverage_fraction}}{\code{nodes_covered / nrow(query$codebook)}.}
 }
+}
+\note{
+At small \code{epsilon} with high anchor coverage the anchor bonus zeros out
+many entries of the normalised cost matrix, which sharpens the Sinkhorn
+kernel and can drive the remaining entries toward numerical underflow. If
+the solver warns about kernel underflow, pass \code{solver = "log_domain"}, which
+works in log-potential space and avoids the issue.
 }
 \examples{
 set.seed(1)

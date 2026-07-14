@@ -12,7 +12,7 @@ test_that("somalign_fit_two_pass global_shift points in the correction direction
   skip_if_not_installed("kohonen")
   fx <- make_anchored_fixture()
   fit <- somalign_fit_two_pass(fx$qry, fx$ref,
-                               epsilon_global = 0.5, epsilon_local = 0.1)
+                               epsilon_global = 0.3, epsilon_local = 0.1)
   # The fixture shifts query by +1.0 in raw space, so in reference-scaled
   # space query nodes sit ~+1/scale above reference nodes.  The correction
   # shift (node_shifts = barycentric_ref - query_codebook) therefore points
@@ -46,7 +46,7 @@ test_that("somalign_fit_two_pass total_shifts equal residual plus global", {
   skip_if_not_installed("kohonen")
   fx <- make_anchored_fixture()
   fit <- somalign_fit_two_pass(fx$qry, fx$ref,
-                               epsilon_global = 0.5, epsilon_local = 0.1)
+                               epsilon_global = 0.3, epsilon_local = 0.1)
   g  <- fit$two_pass$global_shift
   ns <- fit$node_shifts
   # For correction_allowed nodes: |total_shift - g| should be < |total_shift|

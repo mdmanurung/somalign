@@ -1,5 +1,22 @@
 # somalign 0.99.2
 
+## Breaking changes
+
+* Default `epsilon` lowered from `0.5` to `0.1` in `somalign_fit()`,
+  `somalign_fit_anchored()`, and `somalign_som_stability()`. Once cost
+  normalisation was added in v0.99.1, `epsilon = 0.5` left the transport plan
+  too diffuse: on the Nuñez 2023 full-spectrum flow and CyTOF benchmarks, label
+  posteriors collapsed onto the reference class prior and CyTOF acceptance
+  dropped to zero. At `epsilon = 0.1` minority classes transfer correctly and
+  the corrected JS divergence is 4× lower. Code that sets `epsilon` explicitly
+  is unaffected; if you relied on the default, re-check your acceptance rates
+  and correction norms.
+
+* Default `epsilon_global` in `somalign_fit_two_pass()` lowered from `0.5` to
+  `0.3`. The global pass aligns coarse structure and tolerates more smoothing
+  than the local pass, so it keeps a larger `epsilon` than the single-pass
+  default.
+
 ## New features
 
 * `somalign_fit()` gains a `solver = "log_domain"` option. The log-domain

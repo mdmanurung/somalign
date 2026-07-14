@@ -85,6 +85,11 @@
 #' }
 #'
 #' @return A `somalign_anchored_fit` object (also inherits `somalign_fit`).
+#' @note At small `epsilon` with high anchor coverage the anchor bonus zeros out
+#'   many entries of the normalised cost matrix, which sharpens the Sinkhorn
+#'   kernel and can drive the remaining entries toward numerical underflow. If
+#'   the solver warns about kernel underflow, pass `solver = "log_domain"`, which
+#'   works in log-potential space and avoids the issue.
 #' @seealso [somalign_fit()] for the unanchored variant.
 #' @examples
 #' set.seed(1)
@@ -112,7 +117,7 @@ somalign_fit_anchored <- function(query,
                                    anchor_old,
                                    anchor_new,
                                    rho_anchor = 1.0,
-                                   epsilon = 0.5,
+                                   epsilon = 0.1,
                                    rho_query = 1,
                                    rho_ref = 1,
                                    solver = c("internal", "log_domain", "auto"),

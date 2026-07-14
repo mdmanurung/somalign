@@ -8,7 +8,7 @@ somalign_som_stability(
   query_data,
   reference,
   som_seeds = seq_len(5L),
-  epsilon = 0.5,
+  epsilon = 0.1,
   rho_query = 1,
   rho_ref = 1,
   grid = NULL,
