@@ -23,11 +23,11 @@ somalign_train_reference(
 
 \item{grid}{Optional \code{kohonen::somgrid()} object.}
 
-\item{rlen}{Number of SOM training iterations passed to \code{\link[kohonen:supersom]{kohonen::som()}}.}
+\item{rlen}{Number of SOM training iterations passed to \code{\link[kohonen:som]{kohonen::som()}}.}
 
-\item{alpha}{Learning-rate schedule passed to \code{\link[kohonen:supersom]{kohonen::som()}}.}
+\item{alpha}{Learning-rate schedule passed to \code{\link[kohonen:som]{kohonen::som()}}.}
 
-\item{...}{Additional arguments passed to \code{\link[kohonen:supersom]{kohonen::som()}}.}
+\item{...}{Additional arguments passed to \code{\link[kohonen:som]{kohonen::som()}}.}
 }
 \value{
 A \code{somalign_reference} object.

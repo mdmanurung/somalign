@@ -5,10 +5,14 @@
 #' @param epsilon Entropic regularisation strength. The cost matrix is
 #'   normalised by its median positive entry before computing the Sinkhorn
 #'   kernel, so `epsilon` is approximately scale- and dimension-invariant.
-#'   Values around `0.5` give meaningful regularisation for typical z-scored
-#'   SOM codebooks; very small values (< 0.1) make the transport increasingly
-#'   discrete. The normalisation scale is stored in
-#'   `diagnostics$solver$cost_scale`.
+#'   The default `0.1` gives a sharp transport plan that preserves cell-type
+#'   specificity for typical z-scored SOM codebooks. Larger values (0.3–0.5)
+#'   produce smoother, more diffuse plans that can help convergence on noisy
+#'   or high-dimensional data but dilute label posteriors and increase
+#'   barycentric shrinkage in the corrected projection. Very small values
+#'   (< 0.05) make the transport increasingly discrete and may require
+#'   `solver = "log_domain"` for numerical stability. The normalisation scale
+#'   is stored in `diagnostics$solver$cost_scale`.
 #' @param rho_query Query-side unbalanced mass relaxation.
 #' @param rho_ref Reference-side unbalanced mass relaxation.
 #' @param solver Sinkhorn solver variant. `"internal"` (default) and `"auto"`
@@ -65,7 +69,7 @@
 #' @export
 somalign_fit <- function(query,
                          reference,
-                         epsilon = 0.5,
+                         epsilon = 0.1,
                          rho_query = 1,
                          rho_ref = 1,
                          solver = c("internal", "log_domain", "auto"),
@@ -396,4 +400,151 @@ somalign_fit <- function(query,
     threshold = threshold,
     outside = projected$distance > threshold
   )
+}
+
+#' Two-pass alignment decomposing correction into global and local components
+#'
+#' A two-stage variant of [somalign_fit()] that separates the batch correction
+#' into a global shift (estimated at high regularisation) and a local residual
+#' (refined at lower regularisation). This decomposition is most useful when
+#' the batch effect has both a large uniform component and smaller
+#' population-specific residuals.
+#'
+#' @param query A `somalign_query` object.
+#' @param reference A `somalign_reference` object.
+#' @param epsilon_global Entropic regularisation for pass 1 (global). Higher
+#'   values give a smoother, more diffuse transport plan that captures the
+#'   mean batch shift while averaging out population-specific noise.
+#'   Default `0.3`; should be larger than `epsilon_local`.
+#' @param epsilon_local Entropic regularisation for pass 2 (local). Should
+#'   be smaller than `epsilon_global` to refine residual node-level
+#'   corrections. Default `0.1`.
+#' @param rho_query Query-side unbalanced mass relaxation (both passes).
+#' @param rho_ref Reference-side unbalanced mass relaxation (both passes).
+#' @param solver Sinkhorn solver variant. See [somalign_fit()].
+#' @param min_match_fraction Minimum transported fraction for corrections
+#'   and label transfer. See [somalign_fit()].
+#' @param confidence_threshold Minimum label confidence for transfer
+#'   acceptance. See [somalign_fit()].
+#' @param correction_min_mass Minimum transported mass for correction.
+#'   See [somalign_fit()].
+#' @param max_iter Maximum Sinkhorn iterations per pass.
+#' @param tol Sinkhorn convergence tolerance.
+#' @param chunk_size Integer. Number of samples per projection chunk.
+#'   See [somalign_fit()].
+#'
+#' @return A `somalign_fit` object with an additional `$two_pass` list
+#'   containing `global_shift` (per-feature vector), `global_shift_norm`
+#'   (Euclidean magnitude), `epsilon_global`, and `epsilon_local`.
+#'
+#' @details
+#' Pass 1 runs OT at `epsilon_global` between the original query codebook and
+#' the reference codebook. The mass-weighted mean node shift across
+#' correction-allowed nodes becomes the global shift `g`. Pass 2 runs OT at
+#' `epsilon_local` between the globally shifted query codebook and the
+#' reference, capturing residual population-specific displacements. The final
+#' per-node correction is the residual plus `g`, so the total correction for
+#' each cell equals its pass-2 barycentric target minus its original codebook
+#' centroid.
+#'
+#' Direct projection (`old_som_unit`, `old_som_label`, `final_status`) is
+#' computed from the original unshifted `query$scaled_data` and is unaffected
+#' by the transport, preserving the transport-free primary result that
+#' [somalign_fit()] guarantees.
+#'
+#' When the batch shift is predominantly global, `fit$two_pass$global_shift`
+#' approximates the per-feature batch offset. When the shift is negligible,
+#' the two-pass result converges toward a plain `somalign_fit()` at
+#' `epsilon_local`.
+#'
+#' @seealso [somalign_fit()], [somalign_normalize()]
+#' @examples
+#' set.seed(1)
+#' mat <- matrix(rnorm(40), nrow = 20, ncol = 2,
+#'               dimnames = list(NULL, c("F1", "F2")))
+#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                                 rlen = 5)
+#' qry <- somalign_query(mat + 0.5, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                       rlen = 5)
+#' fit2 <- somalign_fit_two_pass(qry, ref)
+#' @export
+somalign_fit_two_pass <- function(query,
+                                  reference,
+                                  epsilon_global = 0.3,
+                                  epsilon_local = 0.1,
+                                  rho_query = 1,
+                                  rho_ref = 1,
+                                  solver = c("internal", "log_domain", "auto"),
+                                  min_match_fraction = 0.05,
+                                  confidence_threshold = 0.6,
+                                  correction_min_mass = 1e-8,
+                                  max_iter = 1000,
+                                  tol = 1e-7,
+                                  chunk_size = 10000L) {
+  .somalign_check_query(query)
+  .somalign_check_reference(reference)
+  solver <- match.arg(solver, c("internal", "log_domain", "auto"))
+
+  t1 <- .somalign_align_transport(query, reference, epsilon_global, rho_query,
+                                   rho_ref, solver, max_iter, tol)
+  ns1 <- .somalign_node_shifts(
+    query_codebook    = query$codebook,
+    reference_codebook = reference$codebook,
+    correspondence    = t1$correspondence,
+    row_mass          = t1$row_mass,
+    match_fraction    = t1$match_fraction,
+    min_match_fraction  = min_match_fraction,
+    correction_min_mass = correction_min_mass
+  )
+
+  allowed1 <- attr(ns1, "correction_allowed")
+  g <- if (any(allowed1)) {
+    m <- query$node_masses[allowed1]
+    colSums(ns1[allowed1, , drop = FALSE] * m) / sum(m)
+  } else {
+    stats::setNames(rep(0, ncol(query$codebook)), colnames(query$codebook))
+  }
+
+  g_mat <- matrix(g, nrow = nrow(query$codebook), ncol = length(g), byrow = TRUE)
+  query2 <- query
+  query2$codebook <- query$codebook + g_mat
+
+  t2 <- .somalign_align_transport(query2, reference, epsilon_local, rho_query,
+                                   rho_ref, solver, max_iter, tol)
+  ns2 <- .somalign_node_shifts(
+    query_codebook    = query2$codebook,
+    reference_codebook = reference$codebook,
+    correspondence    = t2$correspondence,
+    row_mass          = t2$row_mass,
+    match_fraction    = t2$match_fraction,
+    min_match_fraction  = min_match_fraction,
+    correction_min_mass = correction_min_mass
+  )
+
+  total_shifts <- ns2 + g_mat
+  attr(total_shifts, "correction_allowed") <- attr(ns2, "correction_allowed")
+
+  label_transfer <- .somalign_transfer_labels(
+    correspondence     = t2$correspondence,
+    label_prob         = reference$label_prob,
+    match_fraction     = t2$match_fraction,
+    min_match_fraction = min_match_fraction,
+    confidence_threshold = confidence_threshold
+  )
+
+  projection <- .somalign_project_pair(query, reference, total_shifts, chunk_size)
+  diagnostics <- .somalign_build_diagnostics(
+    t2, query2, reference, total_shifts, projection, epsilon_local, rho_query, rho_ref
+  )
+  .somalign_fit_warnings(diagnostics)
+
+  fit <- .somalign_new_fit(query, reference, t2, label_transfer, total_shifts,
+                           projection, diagnostics)
+  fit$two_pass <- list(
+    global_shift      = g,
+    global_shift_norm = sqrt(sum(g^2)),
+    epsilon_global    = epsilon_global,
+    epsilon_local     = epsilon_local
+  )
+  fit
 }
