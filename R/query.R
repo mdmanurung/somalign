@@ -120,3 +120,69 @@ somalign_query <- function(data,
     class = "somalign_query"
   )
 }
+
+#' Global pre-correction of query data to match the reference distribution
+#'
+#' An optional pre-processing step that shifts (or shifts and scales) query
+#' data in reference-scaled coordinate space so that the per-marker query
+#' means align with the reference coordinate origin. Passing the returned
+#' matrix to [somalign_query()] trains the query SOM on pre-centred data,
+#' reducing the global component of the batch shift that [somalign_fit()] then
+#' needs to resolve via optimal transport.
+#'
+#' @param data Numeric matrix of query data, same format as the `data` argument
+#'   to [somalign_query()].
+#' @param reference A `somalign_reference` object.
+#' @param method Normalisation method. `"mean"` (default) subtracts the
+#'   per-marker query mean in reference-scaled space, removing a uniform
+#'   location shift. `"scale"` additionally divides by the per-marker query
+#'   standard deviation, removing a uniform scale shift as well.
+#' @param features Optional character vector of feature names. Defaults to
+#'   `reference$features`.
+#'
+#' @return A numeric matrix with the same number of rows as `data` and columns
+#'   in `reference$features` order, expressed in the original (unscaled) units
+#'   of `data`. Pass this matrix directly to [somalign_query()].
+#'
+#' @details
+#' `somalign_normalize()` applies the same per-marker shift (and optionally
+#' rescaling) to every cell, so population-specific batch effects remain for
+#' [somalign_fit()] to resolve.
+#'
+#' **When not to use this function.** Mean-normalisation assumes the apparent
+#' per-marker shift reflects instrument drift or reagent-lot differences
+#' affecting all populations uniformly. If the shift reflects genuine
+#' compositional differences between batches (e.g.\ different cell-type
+#' frequencies), subtracting the global mean distorts the biology.
+#'
+#' @seealso [somalign_query()], [somalign_fit()]
+#' @examples
+#' set.seed(1)
+#' mat <- matrix(rnorm(40), nrow = 20, ncol = 2,
+#'               dimnames = list(NULL, c("F1", "F2")))
+#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                                 rlen = 5)
+#' shifted <- mat + 0.5
+#' corrected <- somalign_normalize(shifted, ref)
+#' @export
+somalign_normalize <- function(data, reference,
+                               method = c("mean", "scale"),
+                               features = NULL) {
+  .somalign_check_reference(reference)
+  method <- match.arg(method)
+  if (is.null(features)) features <- reference$features
+  data <- .somalign_prepare_feature_matrix(data, features, what = "query data")
+
+  scaled <- .somalign_scale_matrix(data, reference$center, reference$scale)
+
+  query_means <- colMeans(scaled)
+  scaled <- sweep(scaled, 2, query_means, "-")
+
+  if (identical(method, "scale")) {
+    sds <- apply(scaled, 2, stats::sd)
+    sds[sds < .Machine$double.eps] <- 1
+    scaled <- sweep(scaled, 2, sds, "/")
+  }
+
+  sweep(sweep(scaled, 2, reference$scale, "*"), 2, reference$center, "+")
+}
