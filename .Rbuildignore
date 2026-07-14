@@ -7,6 +7,7 @@
 ^REFACTOR-PLAN\.md$
 ^REFACTOR-TASKS\.md$
 ^benchmarks$
+^data$
 ^doc$
 ^Meta$
 ^_pkgdown\.yml$

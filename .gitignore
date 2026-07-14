@@ -1,3 +1,7 @@
 /doc/
 /docs/
 /Meta/
+
+# Benchmark data and regenerable outputs
+/data/
+benchmarks/*.log
