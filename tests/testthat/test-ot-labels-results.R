@@ -116,6 +116,28 @@ test_that("results keep direct projection as primary and corrected projection au
   expect_true(all(is.finite(results$correction_norm)))
 })
 
+test_that("somalign_results errors when data has wrong row count", {
+  ref <- tiny_reference()
+  query <- matrix(c(-1.1, 0, 1.5, 0), ncol = 2, byrow = TRUE)
+  colnames(query) <- ref$features
+  query_obj <- somalign_query(
+    query,
+    ref,
+    som_query = make_som(rbind(c(-1, 0), c(1, 0)))
+  )
+  fit <- somalign_fit(query_obj, ref, solver = "internal", epsilon = 0.1)
+
+  wrong <- data.frame(extra = seq_len(nrow(query) + 1L))
+  expect_error(
+    somalign_results(fit, data = wrong),
+    "one row per query sample"
+  )
+
+  ok <- data.frame(extra = seq_len(nrow(query)))
+  res <- somalign_results(fit, data = ok)
+  expect_true("extra" %in% names(res))
+})
+
 test_that("weakly matched nodes receive zero correction", {
   ref <- tiny_reference()
   query <- matrix(c(-1, 0, 1, 0), ncol = 2, byrow = TRUE)
