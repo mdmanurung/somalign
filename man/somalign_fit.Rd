@@ -7,7 +7,7 @@
 somalign_fit(
   query,
   reference,
-  epsilon = 0.5,
+  epsilon = 0.1,
   rho_query = 1,
   rho_ref = 1,
   solver = c("internal", "log_domain", "auto"),
@@ -16,7 +16,8 @@ somalign_fit(
   correction_min_mass = 1e-08,
   max_iter = 1000,
   tol = 1e-07,
-  chunk_size = 10000L
+  chunk_size = 10000L,
+  diagonal_boost = 0
 )
 }
 \arguments{
@@ -27,10 +28,14 @@ somalign_fit(
 \item{epsilon}{Entropic regularisation strength. The cost matrix is
 normalised by its median positive entry before computing the Sinkhorn
 kernel, so \code{epsilon} is approximately scale- and dimension-invariant.
-Values around \code{0.5} give meaningful regularisation for typical z-scored
-SOM codebooks; very small values (< 0.1) make the transport increasingly
-discrete. The normalisation scale is stored in
-\code{diagnostics$solver$cost_scale}.}
+The default \code{0.1} gives a sharp transport plan that preserves cell-type
+specificity for typical z-scored SOM codebooks. Larger values (0.3–0.5)
+produce smoother, more diffuse plans that can help convergence on noisy
+or high-dimensional data but dilute label posteriors and increase
+barycentric shrinkage in the corrected projection. Very small values
+(< 0.05) make the transport increasingly discrete and may require
+\code{solver = "log_domain"} for numerical stability. The normalisation scale
+is stored in \code{diagnostics$solver$cost_scale}.}
 
 \item{rho_query}{Query-side unbalanced mass relaxation.}
 
@@ -59,6 +64,14 @@ fraction to pass \code{min_match_fraction}.}
 \item{chunk_size}{Integer. Number of samples to project per chunk when
 computing nearest reference node. Use \code{Inf} or \code{NULL} for no chunking
 (allocates a full n_samples x n_nodes matrix). Default \code{10000L}.}
+
+\item{diagonal_boost}{Non-negative scalar. Amount by which to reduce the
+normalised OT cost for each query node's nearest reference node. A
+positive value makes the transport plan prefer identity-like mappings,
+shrinking over-correction when the two codebooks are already close. Zero
+(default) leaves the cost unchanged. Values around 0.1--0.5 are a
+reasonable starting point; very large values concentrate all mass on the
+diagonal and the plan degrades toward simple nearest-neighbour assignment.}
 }
 \value{
 A \code{somalign_fit} object.

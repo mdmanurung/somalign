@@ -28,6 +28,13 @@
 #' @param chunk_size Integer. Number of samples to project per chunk when
 #'   computing nearest reference node. Use `Inf` or `NULL` for no chunking
 #'   (allocates a full n_samples x n_nodes matrix). Default `10000L`.
+#' @param diagonal_boost Non-negative scalar. Amount by which to reduce the
+#'   normalised OT cost for each query node's nearest reference node. A
+#'   positive value makes the transport plan prefer identity-like mappings,
+#'   shrinking over-correction when the two codebooks are already close. Zero
+#'   (default) leaves the cost unchanged. Values around 0.1--0.5 are a
+#'   reasonable starting point; very large values concentrate all mass on the
+#'   diagonal and the plan degrades toward simple nearest-neighbour assignment.
 #'
 #' @details
 #' The transport plan row sums will not equal `query$node_masses` exactly -- this
@@ -67,13 +74,15 @@ somalign_fit <- function(query,
                          correction_min_mass = 1e-8,
                          max_iter = 1000,
                          tol = 1e-7,
-                         chunk_size = 10000L) {
+                         chunk_size = 10000L,
+                         diagonal_boost = 0) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   solver <- match.arg(solver, c("internal", "log_domain", "auto"))
 
   transport <- .somalign_align_transport(
-    query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol
+    query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol,
+    diagonal_boost = diagonal_boost
   )
   .somalign_finish_fit(
     query, reference, transport,
@@ -116,13 +125,19 @@ somalign_fit <- function(query,
 
 .somalign_align_transport <- function(query, reference, epsilon, rho_query,
                                       rho_ref, solver, max_iter, tol,
-                                      cost_bonus = NULL) {
+                                      cost_bonus = NULL,
+                                      diagonal_boost = 0) {
   cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
   cost_scale <- stats::median(cost[cost > 0])
   if (!is.finite(cost_scale) || cost_scale == 0) {
     cost_scale <- 1
   }
   cost_normalized <- cost / cost_scale
+  if (diagonal_boost > 0) {
+    nn_col <- max.col(-cost_normalized, ties.method = "first")
+    idx <- cbind(seq_len(nrow(cost_normalized)), nn_col)
+    cost_normalized[idx] <- pmax(cost_normalized[idx] - diagonal_boost, 0)
+  }
   if (!is.null(cost_bonus)) {
     cost_normalized <- pmax(cost_normalized - cost_bonus, 0)
   }
