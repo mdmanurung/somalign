@@ -157,9 +157,8 @@ stopifnot("corrected_som_unit" %in% names(res))
 stopifnot("final_status" %in% names(res))
 cat("Rows:", nrow(res), "  Columns:", ncol(res), "\n")
 
-# somalign_results with explicit data argument
-res_sub <- somalign_results(fit, data = new_data[1:5, ])
-stopifnot(nrow(res_sub) == 5L)
+res_aug <- somalign_results(fit, data = new_data)
+stopifnot(ncol(res_aug) > ncol(res))
 ```
 
 ## `somalign_diagnostics`
@@ -185,12 +184,12 @@ Sweeps `epsilon` × `rho_query` × `rho_ref` and returns a summary data frame.
 ```{r sensitivity-grid, eval = requireNamespace("kohonen", quietly = TRUE)}
 sg <- somalign_sensitivity_grid(
   qry, ref,
-  epsilon   = c(0.3, 0.7),
+  epsilon   = c(0.1, 0.3, 0.7),
   rho_query = c(0.5, 1.0),
   rho_ref   = 1.0
 )
 stopifnot(is.data.frame(sg))
-stopifnot(nrow(sg) == 4L)
+stopifnot(nrow(sg) == 6L)
 stopifnot("transport_mass" %in% names(sg))
 sg[, c("epsilon", "rho_query", "transport_mass")]
 ```
