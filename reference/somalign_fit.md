@@ -8,7 +8,7 @@ Align a query SOM to a reference SOM
 somalign_fit(
   query,
   reference,
-  epsilon = 0.5,
+  epsilon = 0.1,
   rho_query = 1,
   rho_ref = 1,
   solver = c("internal", "log_domain", "auto"),
@@ -17,7 +17,9 @@ somalign_fit(
   correction_min_mass = 1e-08,
   max_iter = 1000,
   tol = 1e-07,
-  chunk_size = 10000L
+  chunk_size = 10000L,
+  diagonal_boost = 0,
+  label_guided = FALSE
 )
 ```
 
@@ -35,10 +37,15 @@ somalign_fit(
 
   Entropic regularisation strength. The cost matrix is normalised by its
   median positive entry before computing the Sinkhorn kernel, so
-  `epsilon` is approximately scale- and dimension-invariant. Values
-  around `0.5` give meaningful regularisation for typical z-scored SOM
-  codebooks; very small values (\< 0.1) make the transport increasingly
-  discrete. The normalisation scale is stored in
+  `epsilon` is approximately scale- and dimension-invariant. The default
+  `0.1` gives a sharp transport plan that preserves cell-type
+  specificity for typical z-scored SOM codebooks. Larger values
+  (0.3–0.5) produce smoother, more diffuse plans that can help
+  convergence on noisy or high-dimensional data but dilute label
+  posteriors and increase barycentric shrinkage in the corrected
+  projection. Very small values (\< 0.05) make the transport
+  increasingly discrete and may require `solver = "log_domain"` for
+  numerical stability. The normalisation scale is stored in
   `diagnostics$solver$cost_scale`.
 
 - rho_query:
@@ -87,6 +94,27 @@ somalign_fit(
   reference node. Use `Inf` or `NULL` for no chunking (allocates a full
   n_samples x n_nodes matrix). Default `10000L`.
 
+- diagonal_boost:
+
+  Non-negative scalar. Amount by which to reduce the normalised OT cost
+  for each query node's nearest reference node. A positive value makes
+  the transport plan prefer identity-like mappings, shrinking
+  over-correction when the two codebooks are already close. Zero
+  (default) leaves the cost unchanged. Values around 0.1–0.5 are a
+  reasonable starting point; very large values concentrate all mass on
+  the diagonal and the plan degrades toward simple nearest-neighbour
+  assignment.
+
+- label_guided:
+
+  Logical. When `TRUE`, uses `query$label_prob` and
+  `reference$label_prob` to add a large cost penalty for node pairs
+  whose dominant labels disagree, constraining OT to transport mass
+  predominantly between concordant cell-type nodes. Nodes where the
+  maximum label probability is below 0.5 are treated as unlabeled and
+  are never penalized. Errors if `label_guided = TRUE` but either
+  `label_prob` is `NULL`.
+
 ## Value
 
 A `somalign_fit` object.
@@ -119,6 +147,7 @@ ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
                                 rlen = 5)
 qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
                       rlen = 5)
+#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 fit <- somalign_fit(qry, ref)
-#> somalign_fit: 4 query node(s) have match_mass_ratio > 1 (max 1.91); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 ```

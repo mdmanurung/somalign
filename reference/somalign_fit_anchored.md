@@ -20,7 +20,7 @@ somalign_fit_anchored(
   anchor_old,
   anchor_new,
   rho_anchor = 1,
-  epsilon = 0.5,
+  epsilon = 0.1,
   rho_query = 1,
   rho_ref = 1,
   solver = c("internal", "log_domain", "auto"),
@@ -29,7 +29,9 @@ somalign_fit_anchored(
   correction_min_mass = 1e-08,
   max_iter = 1000,
   tol = 1e-07,
-  chunk_size = 10000L
+  chunk_size = 10000L,
+  correction = c("cost_bonus", "subspace", "both"),
+  variance_threshold = 0.9
 )
 ```
 
@@ -69,7 +71,7 @@ somalign_fit_anchored(
   [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
   Larger values reduce the effective cost for anchor-supported node
   pairs, concentrating the transport plan on those routes. Typical
-  range: 0.5–3.
+  range: 0.5–3. Has no effect when `correction = "subspace"`.
 
 - epsilon:
 
@@ -113,11 +115,51 @@ somalign_fit_anchored(
 
   Integer. Samples projected per chunk. Default `10000L`.
 
+- correction:
+
+  Character. Correction strategy — one of `"cost_bonus"` (default),
+  `"subspace"`, or `"both"`. See Details.
+
+- variance_threshold:
+
+  Numeric in (0, 1\]. Cumulative singular-value-squared fraction for
+  selecting the rank of the batch subspace. Default `0.9` (CellANOVA
+  convention). Only used when `correction` is `"subspace"` or `"both"`.
+
 ## Value
 
 A `somalign_anchored_fit` object (also inherits `somalign_fit`).
 
 ## Details
+
+**Correction modes.** Three strategies are available via the
+`correction` argument.
+
+- `"cost_bonus"` (default, current behaviour): the anchor count matrix
+  biases the OT cost so anchor-supported node pairs are cheaper; the
+  resulting node shifts are applied to the full feature space.
+
+- `"subspace"`: a batch subspace \\V\_{\text{batch}}\\ is estimated by
+  SVD of the anchor displacement matrix \\D = X\_{\text{old}} -
+  X\_{\text{new}}\\ (n_anchors × p). Because each row of \\D\\ is a
+  *same-biological-unit* before–after measurement, the dominant singular
+  vectors isolate the true batch direction. Node shifts from a *plain*
+  OT solve (no cost bonus) are then projected onto
+  \\V\_{\text{batch}}\\: only the batch-direction component is applied.
+  Biological variation orthogonal to \\V\_{\text{batch}}\\ is preserved.
+  A synthetic validation shows the orthogonal component survives at
+  ~99.7% (1.496 vs ideal 1.500) while `"cost_bonus"` erases it. The rank
+  \\r\\ is the smallest index where the cumulative squared singular
+  values reach `variance_threshold` (default 0.9). \\D\\ is **not
+  centred** — the mean batch direction is the dominant structure we want
+  to capture.
+
+- `"both"`: applies the cost bonus to the OT solve *and* restricts the
+  resulting shifts to \\V\_{\text{batch}}\\.
+
+`"subspace"` and `"both"` expose `fit$anchors$batch_subspace` (a list
+with `V`, `rank`, `variance_explained`). `"cost_bonus"` sets this to
+`NULL`.
 
 **Cost modification.** Let \\C\\ be the M×K codebook distance matrix
 normalised by its median positive entry (as in
@@ -168,6 +210,10 @@ work unchanged. An additional `$anchors` list element is attached:
 
   The value of `rho_anchor` used.
 
+- `correction`:
+
+  The correction mode: `"cost_bonus"`, `"subspace"`, or `"both"`.
+
 - `nodes_covered`:
 
   Number of query nodes with ≥ 1 anchor pair.
@@ -175,6 +221,21 @@ work unchanged. An additional `$anchors` list element is attached:
 - `coverage_fraction`:
 
   `nodes_covered / nrow(query$codebook)`.
+
+- `batch_subspace`:
+
+  For `"subspace"` and `"both"` modes: a list with `V` (p × rank
+  matrix), `rank` (integer), and `variance_explained` (cumulative
+  variance at the selected rank). `NULL` for `"cost_bonus"`.
+
+## Note
+
+At small `epsilon` with high anchor coverage the anchor bonus zeros out
+many entries of the normalised cost matrix, which sharpens the Sinkhorn
+kernel and can drive the remaining entries toward numerical underflow.
+If the solver warns about kernel underflow, pass
+`solver = "log_domain"`, which works in log-potential space and avoids
+the issue.
 
 ## See also
 
@@ -196,13 +257,14 @@ ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
 shifted <- mat + 0.5
 qry <- somalign_query(shifted, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
                       rlen = 5)
+#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 # Use 10 samples as anchors measured in both batches
 anc_idx <- 1:10
 fit <- somalign_fit_anchored(qry, ref,
                               anchor_old = mat[anc_idx, , drop = FALSE],
                               anchor_new = shifted[anc_idx, , drop = FALSE],
                               rho_anchor = 1)
-#> somalign_fit: 4 query node(s) have match_mass_ratio > 1 (max 1.63); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 1 query node(s) have match_mass_ratio > 1 (max 1.19); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 fit$anchors
 #> $n_anchors
 #> [1] 10
@@ -210,10 +272,16 @@ fit$anchors
 #> $rho_anchor
 #> [1] 1
 #> 
+#> $correction
+#> [1] "cost_bonus"
+#> 
 #> $nodes_covered
 #> [1] 2
 #> 
 #> $coverage_fraction
 #> [1] 0.5
+#> 
+#> $batch_subspace
+#> NULL
 #> 
 ```

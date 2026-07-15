@@ -135,9 +135,10 @@ query <- somalign_query(
   som_query = new_som,
   codebook_space = "reference_scaled"
 )
+#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 
 fit <- somalign_fit(query, reference)
-#> somalign_fit: 5 query node(s) have match_mass_ratio > 1 (max 2.96); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 sample_metadata <- data.frame(batch = rep("new_batch", nrow(new_data)))
 results <- somalign_results(fit, data = sample_metadata)
 
@@ -174,24 +175,24 @@ head(results[, c(
 #>   corrected_som_unit corrected_som_distance_threshold
 #> 1                  1                         2.483497
 #> 2                  5                         1.255846
-#> 3                  1                         2.483497
+#> 3                  5                         1.255846
 #> 4                  1                         2.483497
 #> 5                  4                         2.023005
 #> 6                  1                         2.483497
 #>   corrected_outside_reference_distance correction_norm transferred_label
-#> 1                                FALSE       0.3919543           old_low
-#> 2                                FALSE       0.2845118              <NA>
-#> 3                                FALSE       0.9455698              <NA>
-#> 4                                FALSE       0.3919543           old_low
-#> 5                                FALSE       0.3919543           old_low
-#> 6                                FALSE       0.3919543           old_low
+#> 1                                FALSE       0.3303817           old_low
+#> 2                                 TRUE       0.5424595              <NA>
+#> 3                                 TRUE       1.1510211              <NA>
+#> 4                                FALSE       0.3303817           old_low
+#> 5                                FALSE       0.3303817           old_low
+#> 6                                FALSE       0.3303817           old_low
 #>   transferred_label_confidence transferred_label_accepted
-#> 1                    0.9156568                       TRUE
+#> 1                    0.9987403                       TRUE
 #> 2                           NA                      FALSE
 #> 3                           NA                      FALSE
-#> 4                    0.9156568                       TRUE
-#> 5                    0.9156568                       TRUE
-#> 6                    0.9156568                       TRUE
+#> 4                    0.9987403                       TRUE
+#> 5                    0.9987403                       TRUE
+#> 6                    0.9987403                       TRUE
 ```
 
 ## Quality control and tuning
@@ -213,27 +214,27 @@ diagnostics$solver[c(
 #> [1] TRUE
 #> 
 #> $iterations
-#> [1] 21
+#> [1] 80
 #> 
 #> $final_delta
-#> [1] 4.506898e-08
+#> [1] 9.047741e-08
 #> 
 #> $cost_scale
 #> [1] 2.161104
 diagnostics$ot$match_fraction       # clipped to at most 1
-#> [1] 1.0000000 1.0000000 1.0000000 0.5618213 1.0000000 1.0000000
+#> [1] 0.8271323 0.8592818 1.0000000 0.2727043 0.9308854 1.0000000
 diagnostics$ot$match_mass_ratio     # raw transported/query mass ratio
-#> [1] 1.5061041 2.1678198 1.4372052 0.5618213 1.3130925 2.9624749
+#> [1] 0.8271323 0.8592818 1.0886089 0.2727043 0.9308854 1.1254354
 diagnostics$ot$transport_mass       # total transported mass
-#> [1] 1.302831
+#> [1] 0.8325581
 diagnostics$ot$max_row_mass_error   # query-side marginal deviation
-#> [1] 0.1380648
+#> [1] 0.1531149
 diagnostics$projection              # direct/corrected outside fractions
 #> $outside_direct_fraction
 #> [1] 0.2631579
 #> 
 #> $outside_corrected_fraction
-#> [1] 0.05263158
+#> [1] 0.1315789
 ```
 
 `diagnostics$ot$match_fraction` is the most actionable single number: a
@@ -305,32 +306,30 @@ OT-derived outputs are not reliable for this dataset. In that case, rely
 on direct projection and do not carry transferred labels or corrected
 assignments into downstream analyses.
 
-## Practical checklist
+## Before relying on results
 
-- Feature names and order must match exactly.
-  [`somalign_query()`](https://mdmanurung.github.io/somalign/reference/somalign_query.md)
-  reorders columns to `reference$features` and will error if any are
-  missing.
-- Both codebooks must be in the reference-scaled feature space. The
-  query SOM must be trained with `reference$center` and
-  `reference$scale`, unless you pass a raw saved query SOM with
-  `codebook_space = "raw"`.
-- `old_som_unit`, `outside_reference_distance`, `final_status`, and
-  `old_som_label` are the primary result. Corrected projection and
-  transferred labels are auxiliary.
-- Use `somalign_results(fit, data = sample_metadata)` to append one
-  metadata row per query sample to the result table.
-- Run
-  [`somalign_diagnostics()`](https://mdmanurung.github.io/somalign/reference/somalign_diagnostics.md)
-  before trusting label transfer.
-- Run
-  [`somalign_sensitivity_grid()`](https://mdmanurung.github.io/somalign/reference/somalign_sensitivity_grid.md)
-  when conclusions depend on corrected nodes or transferred labels.
-- A matrix of codebook vectors can be passed as `som_query` directly,
-  provided it is already in reference-scaled space with columns named to
-  match `reference$features`.
-- For large query matrices, adjust `somalign_fit(chunk_size = ...)` to
-  control memory use during nearest-node projection.
+Feature names and order must match exactly —
+[`somalign_query()`](https://mdmanurung.github.io/somalign/reference/somalign_query.md)
+reorders columns to `reference$features` and will error if any are
+missing. Both codebooks must live in the same feature space; the query
+SOM must be trained with `reference$center` and `reference$scale` unless
+you supply a raw saved SOM with `codebook_space = "raw"`.
+
+`old_som_unit`, `outside_reference_distance`, `final_status`, and
+`old_som_label` are the primary result; corrected projection and
+transferred labels are auxiliary. Use
+`somalign_results(fit, data = sample_metadata)` to attach one metadata
+row per query sample. Examine
+[`somalign_diagnostics()`](https://mdmanurung.github.io/somalign/reference/somalign_diagnostics.md)
+before trusting label transfer, and run
+[`somalign_sensitivity_grid()`](https://mdmanurung.github.io/somalign/reference/somalign_sensitivity_grid.md)
+whenever conclusions rest on corrected nodes or transferred labels.
+
+A raw matrix of codebook vectors can be passed as `som_query` directly
+if it is already in reference-scaled space with columns named to match
+`reference$features`. For large query matrices,
+`somalign_fit(chunk_size = ...)` controls how many samples are projected
+at once.
 
 ## Session info
 
@@ -358,13 +357,12 @@ assignments into downstream analyses.
     #> [1] somalign_0.99.1  kohonen_3.0.13   BiocStyle_2.40.0
     #> 
     #> loaded via a namespace (and not attached):
-    #>  [1] cli_3.6.6           knitr_1.51          rlang_1.3.0        
-    #>  [4] xfun_0.60           otel_0.2.0          textshaping_1.0.5  
-    #>  [7] jsonlite_2.0.0      htmltools_0.5.9     ragg_1.5.2         
-    #> [10] sass_0.4.10         rmarkdown_2.31      evaluate_1.0.5     
-    #> [13] jquerylib_0.1.4     fastmap_1.2.0       yaml_2.3.12        
-    #> [16] lifecycle_1.0.5     bookdown_0.47       BiocManager_1.30.27
-    #> [19] compiler_4.6.1      fs_2.1.0            htmlwidgets_1.6.4  
-    #> [22] Rcpp_1.1.2          systemfonts_1.3.2   digest_0.6.39      
-    #> [25] R6_2.6.1            bslib_0.11.0        tools_4.6.1        
-    #> [28] pkgdown_2.2.1       cachem_1.1.0        desc_1.4.3
+    #>  [1] digest_0.6.39       desc_1.4.3          R6_2.6.1           
+    #>  [4] bookdown_0.47       fastmap_1.2.0       xfun_0.60          
+    #>  [7] cachem_1.1.0        knitr_1.51          htmltools_0.5.9    
+    #> [10] rmarkdown_2.31      lifecycle_1.0.5     cli_3.6.6          
+    #> [13] sass_0.4.10         pkgdown_2.2.1       jquerylib_0.1.4    
+    #> [16] compiler_4.6.1      tools_4.6.1         bslib_0.11.0       
+    #> [19] evaluate_1.0.5      Rcpp_1.1.2          yaml_2.3.12        
+    #> [22] BiocManager_1.30.27 otel_0.2.0          jsonlite_2.0.0     
+    #> [25] rlang_1.3.0         fs_2.1.0            htmlwidgets_1.6.4

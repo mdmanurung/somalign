@@ -68,6 +68,7 @@ query <- somalign_query(
   grid = kohonen::somgrid(4, 4, "hexagonal"),
   rlen = 50
 )
+#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 query
 #> <somalign_query>
 #>   samples: 120
@@ -99,12 +100,12 @@ cat("Features:    ", ncol(anchor_old), "\n")
 ``` r
 
 fit_plain <- somalign_fit(query, reference)
-#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.49); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 fit_anc   <- somalign_fit_anchored(query, reference,
                                     anchor_old = anchor_old,
                                     anchor_new = anchor_new,
                                     rho_anchor = 1.5)
-#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.52); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 ```
 
 Printing either object gives a concise summary:
@@ -116,13 +117,13 @@ fit_plain
 #>   solver: internal
 #>   query nodes: 16
 #>   reference nodes: 16
-#>   transport mass: 2.094
+#>   transport mass: 1.074
 fit_anc
 #> <somalign_anchored_fit>
 #>   solver: internal
 #>   query nodes: 16
 #>   reference nodes: 16
-#>   transport mass: 2.114
+#>   transport mass: 1.098
 #>   anchors: 25 (75% node coverage)
 ```
 
@@ -138,11 +139,17 @@ fit_anc$anchors
 #> $rho_anchor
 #> [1] 1.5
 #> 
+#> $correction
+#> [1] "cost_bonus"
+#> 
 #> $nodes_covered
 #> [1] 12
 #> 
 #> $coverage_fraction
 #> [1] 0.75
+#> 
+#> $batch_subspace
+#> NULL
 ```
 
 `nodes_covered` counts distinct query SOM nodes onto which at least one
@@ -167,13 +174,13 @@ plain_norms <- sqrt(rowSums(fit_plain$node_shifts^2))
 anc_norms   <- sqrt(rowSums(fit_anc$node_shifts^2))
 
 cat("Mean correction norm -- plain:    ", round(mean(plain_norms), 4), "\n")
-#> Mean correction norm -- plain:     0.3801
+#> Mean correction norm -- plain:     0.3052
 cat("Mean correction norm -- anchored: ", round(mean(anc_norms),   4), "\n")
-#> Mean correction norm -- anchored:  0.3734
+#> Mean correction norm -- anchored:  0.2936
 cat("Max  correction norm -- plain:    ", round(max(plain_norms),  4), "\n")
-#> Max  correction norm -- plain:     0.6273
+#> Max  correction norm -- plain:     0.735
 cat("Max  correction norm -- anchored: ", round(max(anc_norms),    4), "\n")
-#> Max  correction norm -- anchored:  0.623
+#> Max  correction norm -- anchored:  0.7065
 ```
 
 When anchors consistently confirm the same direction of displacement,
@@ -210,7 +217,7 @@ diag <- somalign_diagnostics(fit_anc)
 cat("Solver converged:", diag$solver$converged, "\n")
 #> Solver converged: TRUE
 cat("Transport mass:  ", round(diag$ot$transport_mass, 4), "\n")
-#> Transport mass:   2.1137
+#> Transport mass:   1.0976
 ```
 
 ## Tuning `rho_anchor`
@@ -246,18 +253,18 @@ sweep_results <- lapply(rhos, function(rho) {
     mean_corr_norm = round(mean(sqrt(rowSums(f$node_shifts^2))), 5)
   )
 })
-#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.49); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.50); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.52); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.53); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 4.60); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.30); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.30); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.34); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 do.call(rbind, sweep_results)
 #>   rho_anchor transport_mass mean_corr_norm
-#> 1        0.5        2.10163        0.37732
-#> 2        1.0        2.10824        0.37503
-#> 3        1.5        2.11371        0.37341
-#> 4        2.0        2.11936        0.37181
-#> 5        4.0        2.13675        0.36734
+#> 1        0.5        1.08310        0.29885
+#> 2        1.0        1.09137        0.29530
+#> 3        1.5        1.09759        0.29356
+#> 4        2.0        1.10413        0.29233
+#> 5        4.0        1.12458        0.29385
 ```
 
 For a more targeted diagnostic, compare the
@@ -267,23 +274,116 @@ node-level `match_fraction` and `correction_norm` across values, and use
 to check whether corrected node assignments shift in a direction
 consistent with your biological expectations.
 
+## Signal-preserving correction
+
+The default `correction = "cost_bonus"` applies the OT-derived shift
+across all features. For most reagent- or calibration-driven batch
+effects this is correct — the displacement is genuinely technical and
+should be removed. The assumption breaks when the new batch contains
+populations or activation states absent from the reference: a full-space
+shift pushes those cells toward reference coordinates and erases their
+distinguishing biology.
+
+Because each anchor pair links *the same biological unit* measured in
+both batches, the row vector `anchor_old - anchor_new` is a direct
+observation of the batch displacement with no biological contribution.
+SVD of the n_anchors × p displacement matrix isolates the true batch
+directions — call this `V_batch`. Restricting node shifts to `V_batch`
+corrects only the batch component; biology orthogonal to `V_batch` is
+preserved.
+
+``` r
+
+fit_sub <- somalign_fit_anchored(
+  query, reference,
+  anchor_old = anchor_old,
+  anchor_new = anchor_new,
+  correction = "subspace"
+)
+#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+cat("Correction mode:  ", fit_sub$anchors$correction, "\n")
+#> Correction mode:   subspace
+cat("Batch subspace V: ", nrow(fit_sub$anchors$batch_subspace$V), "rows x",
+                          ncol(fit_sub$anchors$batch_subspace$V), "cols\n")
+#> Batch subspace V:  5 rows x 1 cols
+cat("Rank:             ", fit_sub$anchors$batch_subspace$rank, "\n")
+#> Rank:              1
+cat("Variance explained:", round(fit_sub$anchors$batch_subspace$variance_explained, 3), "\n")
+#> Variance explained: 1
+```
+
+The `batch_subspace` element carries `V` (p × rank), `rank`, and
+`variance_explained`. The default `variance_threshold = 0.9` selects the
+smallest rank r such that the top r squared singular values account for
+at least 90% of the total. A pure uniform offset collapses to rank 1; a
+heterogeneous multi-directional batch effect occupies more dimensions.
+Changing `variance_threshold` adjusts rank without altering the anchor
+displacement data.
+
+``` r
+
+fit_sub_full <- somalign_fit_anchored(
+  query, reference,
+  anchor_old        = anchor_old,
+  anchor_new        = anchor_new,
+  correction        = "subspace",
+  variance_threshold = 1.0
+)
+#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+cat("Rank at threshold = 1.0:", fit_sub_full$anchors$batch_subspace$rank, "\n")
+#> Rank at threshold = 1.0: 1
+```
+
+`correction = "both"` applies the anchor cost bonus to the OT solve
+*and* restricts the resulting shifts to `V_batch`:
+
+``` r
+
+fit_both <- somalign_fit_anchored(
+  query, reference,
+  anchor_old = anchor_old,
+  anchor_new = anchor_new,
+  rho_anchor = 1.5,
+  correction = "both"
+)
+#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+cat("Correction mode:", fit_both$anchors$correction, "\n")
+#> Correction mode: both
+cat("Coverage:       ", round(fit_both$anchors$coverage_fraction, 3), "\n")
+#> Coverage:        0.75
+cat("Rank:           ", fit_both$anchors$batch_subspace$rank, "\n")
+#> Rank:            1
+```
+
+`rho_anchor` has no effect under `correction = "subspace"` (there is no
+cost bonus to apply). The same tuning guidelines as `"cost_bonus"` apply
+under `"both"`. For a simple, uniform batch offset all three modes
+produce similar corrected positions; the difference becomes meaningful
+when anchor coverage is uneven or when the query carries populations not
+represented in the reference.
+
 ## When to use `somalign_fit_anchored()`
 
-Use this function when:
+[`somalign_fit_anchored()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_anchored.md)
+is appropriate when a set of samples — QC pools, reference standards,
+proficiency panels — was physically run in both the old and new batches,
+providing ground-truth node-pair correspondences. Anchor pairs need not
+cover the full codebook; even sparse coverage meaningfully constrains
+the OT plan for the covered node pairs, while uncovered nodes fall back
+to the standard objective.
 
-- You have samples that were physically run in both the old and new
-  batches (QC pools, reference standards, proficiency panels).
-- You want the OT plan to respect known per-node correspondence, rather
-  than relying entirely on node-mass distributions.
-
-Anchor pairs need not cover the entire dataset – even sparse coverage
-meaningfully constrains the OT plan for covered node pairs, while
-uncovered nodes fall back to the standard OT objective.
-
-If no remeasured samples are available,
+If no remeasured samples are available, use
 [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)
-is the correct choice. There is no benefit to calling the anchored
-variant with fabricated or imputed anchor pairs.
+directly. Fabricated or imputed anchor pairs add no information and will
+misguide the transport.
+
+When query-only biology must be preserved, use `correction = "subspace"`
+or `"both"`. When the full-space shift is appropriate — the batch
+dominates and no signal-preservation is needed — the default
+`"cost_bonus"` is sufficient. See
+[`vignette("two-pass", package = "somalign")`](https://mdmanurung.github.io/somalign/articles/two-pass.md)
+for the two-pass decomposition approach, which handles large global
+offsets without requiring remeasured anchors.
 
 ## Session info
 
@@ -311,13 +411,12 @@ variant with fabricated or imputed anchor pairs.
     #> [1] somalign_0.99.1  kohonen_3.0.13   BiocStyle_2.40.0
     #> 
     #> loaded via a namespace (and not attached):
-    #>  [1] cli_3.6.6           knitr_1.51          rlang_1.3.0        
-    #>  [4] xfun_0.60           otel_0.2.0          textshaping_1.0.5  
-    #>  [7] jsonlite_2.0.0      htmltools_0.5.9     ragg_1.5.2         
-    #> [10] sass_0.4.10         rmarkdown_2.31      evaluate_1.0.5     
-    #> [13] jquerylib_0.1.4     fastmap_1.2.0       yaml_2.3.12        
-    #> [16] lifecycle_1.0.5     bookdown_0.47       BiocManager_1.30.27
-    #> [19] compiler_4.6.1      fs_2.1.0            htmlwidgets_1.6.4  
-    #> [22] Rcpp_1.1.2          systemfonts_1.3.2   digest_0.6.39      
-    #> [25] R6_2.6.1            bslib_0.11.0        tools_4.6.1        
-    #> [28] pkgdown_2.2.1       cachem_1.1.0        desc_1.4.3
+    #>  [1] digest_0.6.39       desc_1.4.3          R6_2.6.1           
+    #>  [4] bookdown_0.47       fastmap_1.2.0       xfun_0.60          
+    #>  [7] cachem_1.1.0        knitr_1.51          htmltools_0.5.9    
+    #> [10] rmarkdown_2.31      lifecycle_1.0.5     cli_3.6.6          
+    #> [13] sass_0.4.10         pkgdown_2.2.1       jquerylib_0.1.4    
+    #> [16] compiler_4.6.1      tools_4.6.1         bslib_0.11.0       
+    #> [19] evaluate_1.0.5      Rcpp_1.1.2          yaml_2.3.12        
+    #> [22] BiocManager_1.30.27 otel_0.2.0          jsonlite_2.0.0     
+    #> [25] rlang_1.3.0         fs_2.1.0            htmlwidgets_1.6.4

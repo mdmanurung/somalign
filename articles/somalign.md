@@ -34,9 +34,10 @@ query_obj <- somalign_query(
   grid = kohonen::somgrid(2, 2, "hexagonal"),
   rlen = 5
 )
+#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 
 fit <- somalign_fit(query_obj, reference)
-#> somalign_fit: 4 query node(s) have match_mass_ratio > 1 (max 1.94); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 1 query node(s) have match_mass_ratio > 1 (max 1.09); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 results <- somalign_results(fit)
 results_with_meta <- somalign_results(
   fit,
@@ -111,60 +112,180 @@ head(results[, c(
 #> 5                   1.919417           low                      FALSE
 #> 6                   1.919417           low                      FALSE
 #>       final_status corrected_som_unit corrected_som_distance
-#> 1 inside_reference                  3              1.1371940
-#> 2 inside_reference                  4              1.1086155
-#> 3 inside_reference                  4              1.5346506
-#> 4 inside_reference                  4              1.5547127
-#> 5 inside_reference                  4              0.9885232
-#> 6 inside_reference                  4              0.5988922
+#> 1 inside_reference                  1              0.3009187
+#> 2 inside_reference                  4              0.6854874
+#> 3 inside_reference                  4              1.2156940
+#> 4 inside_reference                  4              1.5775379
+#> 5 inside_reference                  4              0.8350289
+#> 6 inside_reference                  4              0.5477057
 #>   corrected_som_distance_threshold corrected_outside_reference_distance
-#> 1                         1.532219                                FALSE
+#> 1                         1.775302                                FALSE
 #> 2                         1.919417                                FALSE
 #> 3                         1.919417                                FALSE
 #> 4                         1.919417                                FALSE
 #> 5                         1.919417                                FALSE
 #> 6                         1.919417                                FALSE
 #>   correction_norm transferred_label transferred_label_confidence
-#> 1       1.3752534              <NA>                           NA
-#> 2       0.6492682               low                    0.8433909
-#> 3       0.6492682               low                    0.8433909
-#> 4       0.8008908              <NA>                           NA
-#> 5       0.6492682               low                    0.8433909
-#> 6       0.6492682               low                    0.8433909
+#> 1       1.3341087              <NA>                           NA
+#> 2       0.4712810               low                    0.9999102
+#> 3       0.4712810               low                    0.9999102
+#> 4       0.8596197              high                    0.7346461
+#> 5       0.4712810               low                    0.9999102
+#> 6       0.4712810               low                    0.9999102
 #>   transferred_label_accepted
 #> 1                      FALSE
 #> 2                       TRUE
 #> 3                       TRUE
-#> 4                      FALSE
+#> 4                       TRUE
 #> 5                       TRUE
 #> 6                       TRUE
 ```
 
 ## Interpreting the result
 
-**Direct projection** (`old_som_unit`, `old_som_distance`,
+The columns split into three groups. `old_som_unit`, `old_som_distance`,
 `old_som_distance_threshold`, `outside_reference_distance`,
-`final_status`, `old_som_label`, `old_som_label_confidence`) is the
-primary result. Each query sample is assigned to its nearest reference
-node by Euclidean distance in the shared feature space. No transport is
-involved; the assignment is deterministic given the reference codebook.
+`final_status`, `old_som_label`, and `old_som_label_confidence` are the
+primary result: each sample is assigned to its nearest reference node by
+Euclidean distance, with no transport involved.
 
-**Corrected projection** (`corrected_som_unit`,
-`corrected_som_distance`, `corrected_som_distance_threshold`,
-`corrected_outside_reference_distance`, `correction_norm`) is auxiliary.
-The OT plan shifts each query SOM node toward its matched reference
-nodes, and query samples are then re-projected from the shifted
-position. A large `correction_norm` points to a systematic displacement
-between the query and reference populations — useful for visualisation
-and triage, but not a replacement for the direct assignment.
+The OT plan then contributes two sets of auxiliary columns.
+`corrected_som_unit`, `corrected_som_distance`,
+`corrected_som_distance_threshold`,
+`corrected_outside_reference_distance`, and `correction_norm` describe
+where samples land after each query SOM node is shifted toward its
+mass-weighted reference target. A large `correction_norm` signals a
+systematic offset between the batches and is worth examining, but the
+corrected assignment should not replace the direct one.
 
-**Transferred labels** (`transferred_label`,
-`transferred_label_confidence`, `transferred_label_accepted`) are also
-auxiliary, derived from the same OT correspondence. A label is accepted
-only when the query node has sufficient transported mass and the
-dominant matched reference label is confident enough. Always check
-`transferred_label_accepted` before using a transferred label
-downstream.
+`transferred_label`, `transferred_label_confidence`, and
+`transferred_label_accepted` derive from the same OT correspondence: the
+dominant reference node in each query node’s transport row contributes
+its label, accepted only when transported mass and label confidence both
+clear their thresholds. Check `transferred_label_accepted` before using
+any transferred label downstream.
+
+## Diagnostic plots
+
+The package ships a set of `somalign_plot_*()` functions covering both
+before-projection compatibility checks and after-projection quality
+assessment. Each returns a single `ggplot` object you can print directly
+or compose further with `patchwork` or `cowplot`.
+
+### Before projection: are the datasets compatible?
+
+Before aligning, use
+[`somalign_check_codebook_alignment()`](https://mdmanurung.github.io/somalign/reference/somalign_check_codebook_alignment.md)
+to test whether the query and reference SOM code ranges overlap
+sufficiently. Then visualise the result with
+[`somalign_plot_codebook_range()`](https://mdmanurung.github.io/somalign/reference/somalign_plot_codebook_range.md).
+
+``` r
+
+chk <- somalign_check_codebook_alignment(query_obj$codebook, reference,
+                                         stop_if_critical = FALSE)
+print(chk)
+#> somalign codebook alignment check  [verdict: pass]
+#>   Features checked       : 4
+#>   Critical (0% overlap)  : 0
+#>   Warning  (partial)     : 0
+#> 
+#> Cost matrix (4-feature space):
+#>   Median pairwise dist²  : 4.8528
+#>   95th-pctile dist²      : 11.5479
+#>   Cost normalisation ×   : 4.8528
+#>   Pairs within 3ε        : 25.0%
+somalign_plot_codebook_range(chk)
+```
+
+![](somalign_files/figure-html/plot-before-1.png)
+
+[`somalign_plot_marker_distributions()`](https://mdmanurung.github.io/somalign/reference/somalign_plot_marker_distributions.md)
+shows per-marker cell-level densities of the query data in
+reference-scaled space, with reference SOM node prototypes overlaid as a
+rug. Passing `reference_data` (reference cells in reference-scaled
+coordinates) draws a true second density curve instead.
+
+``` r
+
+somalign_plot_marker_distributions(query_obj, reference = reference)
+```
+
+![](somalign_files/figure-html/plot-dists-1.png)
+
+### After projection: OT solver quality
+
+`match_fraction` near 1 means a query node’s mass arrived at the
+reference; values well below 1 indicate nodes the solver could not
+route.
+
+``` r
+
+somalign_plot_mass_balance(fit)
+```
+
+![](somalign_files/figure-html/plot-ot-quality-1.png)
+
+``` r
+
+somalign_plot_match_fraction(fit)
+```
+
+![](somalign_files/figure-html/plot-ot-quality-2.png)
+
+### After projection: correction quality
+
+Each query node is shifted by a correction vector derived from its OT
+transport row. Large `correction_norm` values relative to the typical
+inter-node spacing signal a systematic batch offset.
+
+``` r
+
+somalign_plot_correction(fit)
+```
+
+![](somalign_files/figure-html/plot-correction-1.png)
+
+``` r
+
+somalign_plot_outside_fraction(fit)
+```
+
+![](somalign_files/figure-html/plot-correction-2.png)
+
+### After projection: label transfer quality
+
+The confusion heatmap is row-normalised: each row sums to 100%. High
+diagonal values indicate coherent transfer; strong off-diagonal entries
+warrant re-examination of the corresponding query node.
+
+``` r
+
+somalign_plot_label_confusion(fit)
+```
+
+![](somalign_files/figure-html/plot-labels-1.png)
+
+### Worst-projecting nodes
+
+[`somalign_worst_nodes()`](https://mdmanurung.github.io/somalign/reference/somalign_worst_nodes.md)
+returns the nodes with the lowest match fraction as a data frame, making
+it easy to inspect or pass downstream.
+
+``` r
+
+somalign_worst_nodes(fit, n = 10)
+#>    query_node query_mass transported_mass match_fraction correction_allowed
+#> V2          2      0.475       0.38248843      0.8052388               TRUE
+#> V3          3      0.175       0.14460251      0.8263001               TRUE
+#> V4          4      0.050       0.04624335      0.9248671               TRUE
+#> V1          1      0.300       0.32567026      1.0000000               TRUE
+#>    correction_norm top_ref_label
+#> V2       0.4835307          high
+#> V3       0.8596197          high
+#> V4       1.3341087          high
+#> V1       0.4712810           low
+```
 
 ## Next steps
 
@@ -177,12 +298,31 @@ hyperparameter tuning.
 covers
 [`somalign_fit_anchored()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_anchored.md):
 supplying remeasured QC samples as anchor pairs, tuning `rho_anchor`,
-and inspecting anchor node coverage.
+inspecting anchor node coverage, and the signal-preserving
+`correction = "subspace"` mode that restricts node shifts to the batch
+subspace estimated from anchor displacements.
+
+[`vignette("two-pass", package = "somalign")`](https://mdmanurung.github.io/somalign/articles/two-pass.md)
+covers
+[`somalign_fit_two_pass()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_two_pass.md):
+decomposing the batch correction into a global shift (first OT pass at a
+coarser epsilon) and a residual per-node correction (second pass).
+Useful when the batch offset is large relative to the local OT problem
+scale.
 
 [`vignette("algorithm", package = "somalign")`](https://mdmanurung.github.io/somalign/articles/algorithm.md)
 walks through each pipeline stage — direct projection, OT
 correspondence, correction vectors, label transfer — and explains how
 they produce the output columns.
+
+For preprocessing,
+[`somalign_normalize()`](https://mdmanurung.github.io/somalign/reference/somalign_normalize.md)
+subtracts the per-marker mean deviation between query and reference in
+z-scored space, and
+[`somalign_quantile_normalize()`](https://mdmanurung.github.io/somalign/reference/somalign_quantile_normalize.md)
+scales raw values by their upper quantile. Both return a raw-unit matrix
+to pass as `data` to
+[`somalign_query()`](https://mdmanurung.github.io/somalign/reference/somalign_query.md).
 
 For fitted objects,
 [`somalign_diagnostics()`](https://mdmanurung.github.io/somalign/reference/somalign_diagnostics.md)
@@ -220,13 +360,19 @@ at once during nearest-reference-node searches.
     #> [1] somalign_0.99.1  kohonen_3.0.13   BiocStyle_2.40.0
     #> 
     #> loaded via a namespace (and not attached):
-    #>  [1] cli_3.6.6           knitr_1.51          rlang_1.3.0        
-    #>  [4] xfun_0.60           otel_0.2.0          textshaping_1.0.5  
-    #>  [7] jsonlite_2.0.0      htmltools_0.5.9     ragg_1.5.2         
-    #> [10] sass_0.4.10         rmarkdown_2.31      evaluate_1.0.5     
-    #> [13] jquerylib_0.1.4     fastmap_1.2.0       yaml_2.3.12        
-    #> [16] lifecycle_1.0.5     bookdown_0.47       BiocManager_1.30.27
-    #> [19] compiler_4.6.1      fs_2.1.0            htmlwidgets_1.6.4  
-    #> [22] Rcpp_1.1.2          systemfonts_1.3.2   digest_0.6.39      
-    #> [25] R6_2.6.1            bslib_0.11.0        tools_4.6.1        
-    #> [28] pkgdown_2.2.1       cachem_1.1.0        desc_1.4.3
+    #>  [1] gtable_0.3.6        jsonlite_2.0.0      dplyr_1.2.1        
+    #>  [4] compiler_4.6.1      BiocManager_1.30.27 tidyselect_1.2.1   
+    #>  [7] Rcpp_1.1.2          jquerylib_0.1.4     scales_1.4.0       
+    #> [10] yaml_2.3.12         fastmap_1.2.0       ggplot2_4.0.3      
+    #> [13] R6_2.6.1            labeling_0.4.3      generics_0.1.4     
+    #> [16] knitr_1.51          htmlwidgets_1.6.4   tibble_3.3.1       
+    #> [19] bookdown_0.47       desc_1.4.3          bslib_0.11.0       
+    #> [22] pillar_1.11.1       RColorBrewer_1.1-3  rlang_1.3.0        
+    #> [25] cachem_1.1.0        xfun_0.60           fs_2.1.0           
+    #> [28] sass_0.4.10         S7_0.2.2            otel_0.2.0         
+    #> [31] viridisLite_0.4.3   cli_3.6.6           withr_3.0.3        
+    #> [34] pkgdown_2.2.1       magrittr_2.0.5      digest_0.6.39      
+    #> [37] grid_4.6.1          lifecycle_1.0.5     vctrs_0.7.3        
+    #> [40] evaluate_1.0.5      glue_1.8.1          farver_2.1.2       
+    #> [43] rmarkdown_2.31      pkgconfig_2.0.3     tools_4.6.1        
+    #> [46] htmltools_0.5.9

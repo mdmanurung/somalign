@@ -35,8 +35,10 @@ valid optimal transport problem over the full codebook."></head><body>
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/somalign.html">Quick start</a></li>
     <li><a class="dropdown-item" href="../articles/pretrained-old-and-new-soms.html">Advanced workflow: existing SOMs</a></li>
-    <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchoring samples</a></li>
+    <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchor-regularized alignment</a></li>
+    <li><a class="dropdown-item" href="../articles/two-pass.html">Two-pass global and local alignment</a></li>
     <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+    <li><a class="dropdown-item" href="../articles/function-coverage.html">API smoke test</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
@@ -80,7 +82,7 @@ valid optimal transport problem over the full codebook.</p>
 <span>  <span class="va">anchor_old</span>,</span>
 <span>  <span class="va">anchor_new</span>,</span>
 <span>  rho_anchor <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  epsilon <span class="op">=</span> <span class="fl">0.5</span>,</span>
+<span>  epsilon <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>  rho_query <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  rho_ref <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  solver <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"internal"</span>, <span class="st">"log_domain"</span>, <span class="st">"auto"</span><span class="op">)</span>,</span>
@@ -89,7 +91,9 @@ valid optimal transport problem over the full codebook.</p>
 <span>  correction_min_mass <span class="op">=</span> <span class="fl">1e-08</span>,</span>
 <span>  max_iter <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  tol <span class="op">=</span> <span class="fl">1e-07</span>,</span>
-<span>  chunk_size <span class="op">=</span> <span class="fl">10000L</span></span>
+<span>  chunk_size <span class="op">=</span> <span class="fl">10000L</span>,</span>
+<span>  correction <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"cost_bonus"</span>, <span class="st">"subspace"</span>, <span class="st">"both"</span><span class="op">)</span>,</span>
+<span>  variance_threshold <span class="op">=</span> <span class="fl">0.9</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -128,7 +132,8 @@ numeric columns.</p></dd>
 <dd><p>Non-negative scalar. Controls how strongly anchor pairs
 bias the OT cost. At <code>rho_anchor = 0</code> the result equals <code><a href="somalign_fit.html">somalign_fit()</a></code>.
 Larger values reduce the effective cost for anchor-supported node pairs,
-concentrating the transport plan on those routes. Typical range: 0.5–3.</p></dd>
+concentrating the transport plan on those routes. Typical range: 0.5–3.
+Has no effect when <code>correction = "subspace"</code>.</p></dd>
 
 
 <dt id="arg-epsilon">epsilon<a class="anchor" aria-label="anchor" href="#arg-epsilon"></a></dt>
@@ -170,6 +175,18 @@ concentrating the transport plan on those routes. Typical range: 0.5–3.</p></d
 <dt id="arg-chunk-size">chunk_size<a class="anchor" aria-label="anchor" href="#arg-chunk-size"></a></dt>
 <dd><p>Integer. Samples projected per chunk. Default <code>10000L</code>.</p></dd>
 
+
+<dt id="arg-correction">correction<a class="anchor" aria-label="anchor" href="#arg-correction"></a></dt>
+<dd><p>Character. Correction strategy — one of
+<code>"cost_bonus"</code> (default), <code>"subspace"</code>, or <code>"both"</code>. See Details.</p></dd>
+
+
+<dt id="arg-variance-threshold">variance_threshold<a class="anchor" aria-label="anchor" href="#arg-variance-threshold"></a></dt>
+<dd><p>Numeric in (0, 1]. Cumulative singular-value-squared
+fraction for selecting the rank of the batch subspace. Default <code>0.9</code>
+(CellANOVA convention). Only used when <code>correction</code> is <code>"subspace"</code> or
+<code>"both"</code>.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -177,7 +194,29 @@ concentrating the transport plan on those routes. Typical range: 0.5–3.</p></d
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p><strong>Cost modification.</strong> Let \(C\) be the M×K codebook distance matrix
+    <p><strong>Correction modes.</strong> Three strategies are available via the <code>correction</code>
+argument.</p><ul><li><p><code>"cost_bonus"</code> (default, current behaviour): the anchor count matrix
+biases the OT cost so anchor-supported node pairs are cheaper; the
+resulting node shifts are applied to the full feature space.</p></li>
+<li><p><code>"subspace"</code>: a batch subspace \(V_{\text{batch}}\) is estimated by
+SVD of the anchor displacement matrix
+\(D = X_{\text{old}} - X_{\text{new}}\) (n_anchors × p). Because each
+row of \(D\) is a <em>same-biological-unit</em> before–after measurement, the
+dominant singular vectors isolate the true batch direction. Node shifts
+from a <em>plain</em> OT solve (no cost bonus) are then projected onto
+\(V_{\text{batch}}\): only the batch-direction component is applied.
+Biological variation orthogonal to \(V_{\text{batch}}\) is preserved.
+A synthetic validation shows the orthogonal component survives at
+~99.7% (1.496 vs ideal 1.500) while <code>"cost_bonus"</code> erases it.
+The rank \(r\) is the smallest index where the cumulative squared
+singular values reach <code>variance_threshold</code> (default 0.9).
+\(D\) is <strong>not centred</strong> — the mean batch direction is the dominant
+structure we want to capture.</p></li>
+<li><p><code>"both"</code>: applies the cost bonus to the OT solve <em>and</em> restricts the
+resulting shifts to \(V_{\text{batch}}\).</p></li>
+</ul><p><code>"subspace"</code> and <code>"both"</code> expose <code>fit$anchors$batch_subspace</code> (a list with
+<code>V</code>, <code>rank</code>, <code>variance_explained</code>). <code>"cost_bonus"</code> sets this to <code>NULL</code>.</p>
+<p><strong>Cost modification.</strong> Let \(C\) be the M×K codebook distance matrix
 normalised by its median positive entry (as in <code><a href="somalign_fit.html">somalign_fit()</a></code>). The
 anchor pairs are projected onto the query codebook (old batch) and
 reference codebook (new batch), yielding a count matrix \(A\) where
@@ -214,14 +253,30 @@ work unchanged. An additional <code>$anchors</code> list element is attached:</p
 <dt><code>rho_anchor</code></dt>
 <dd><p>The value of <code>rho_anchor</code> used.</p></dd>
 
+<dt><code>correction</code></dt>
+<dd><p>The correction mode: <code>"cost_bonus"</code>, <code>"subspace"</code>, or <code>"both"</code>.</p></dd>
+
 <dt><code>nodes_covered</code></dt>
 <dd><p>Number of query nodes with ≥ 1 anchor pair.</p></dd>
 
 <dt><code>coverage_fraction</code></dt>
 <dd><p><code>nodes_covered / nrow(query$codebook)</code>.</p></dd>
 
+<dt><code>batch_subspace</code></dt>
+<dd><p>For <code>"subspace"</code> and <code>"both"</code> modes: a list with
+<code>V</code> (p × rank matrix), <code>rank</code> (integer), and <code>variance_explained</code>
+(cumulative variance at the selected rank). <code>NULL</code> for <code>"cost_bonus"</code>.</p></dd>
+
 
 </dl></div>
+    <div class="section level2">
+    <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
+    <p>At small <code>epsilon</code> with high anchor coverage the anchor bonus zeros out
+many entries of the normalised cost matrix, which sharpens the Sinkhorn
+kernel and can drive the remaining entries toward numerical underflow. If
+the solver warns about kernel underflow, pass <code>solver = "log_domain"</code>, which
+works in log-potential space and avoids the issue.</p>
+    </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="somalign_fit.html">somalign_fit()</a></code> for the unanchored variant.</p></div>
@@ -241,13 +296,14 @@ work unchanged. An additional <code>$anchors</code> list element is attached:</p
 <span class="r-in"><span><span class="va">shifted</span> <span class="op">&lt;-</span> <span class="va">mat</span> <span class="op">+</span> <span class="fl">0.5</span></span></span>
 <span class="r-in"><span><span class="va">qry</span> <span class="op">&lt;-</span> <span class="fu"><a href="somalign_query.html">somalign_query</a></span><span class="op">(</span><span class="va">shifted</span>, <span class="va">ref</span>, grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span>, <span class="st">"hexagonal"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>                      rlen <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span>
 <span class="r-in"><span><span class="co"># Use 10 samples as anchors measured in both batches</span></span></span>
 <span class="r-in"><span><span class="va">anc_idx</span> <span class="op">&lt;-</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span></span></span>
 <span class="r-in"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu">somalign_fit_anchored</span><span class="op">(</span><span class="va">qry</span>, <span class="va">ref</span>,</span></span>
 <span class="r-in"><span>                              anchor_old <span class="op">=</span> <span class="va">mat</span><span class="op">[</span><span class="va">anc_idx</span>, , drop <span class="op">=</span> <span class="cn">FALSE</span><span class="op">]</span>,</span></span>
 <span class="r-in"><span>                              anchor_new <span class="op">=</span> <span class="va">shifted</span><span class="op">[</span><span class="va">anc_idx</span>, , drop <span class="op">=</span> <span class="cn">FALSE</span><span class="op">]</span>,</span></span>
 <span class="r-in"><span>                              rho_anchor <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 4 query node(s) have match_mass_ratio &gt; 1 (max 1.63); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 1 query node(s) have match_mass_ratio &gt; 1 (max 1.19); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
 <span class="r-in"><span><span class="va">fit</span><span class="op">$</span><span class="va">anchors</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $n_anchors</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 10</span>
@@ -255,11 +311,17 @@ work unchanged. An additional <code>$anchors</code> list element is attached:</p
 <span class="r-out co"><span class="r-pr">#&gt;</span> $rho_anchor</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $correction</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "cost_bonus"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $nodes_covered</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $coverage_fraction</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.5</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $batch_subspace</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> NULL</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 </code></pre></div>
     </div>

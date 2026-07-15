@@ -28,8 +28,9 @@ ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
                                 rlen = 5)
 qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
                       rlen = 5)
+#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 fit <- somalign_fit(qry, ref)
-#> somalign_fit: 4 query node(s) have match_mass_ratio > 1 (max 1.91); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 somalign_diagnostics(fit)
 #> $solver
 #> $solver$requested
@@ -42,16 +43,16 @@ somalign_diagnostics(fit)
 #> character(0)
 #> 
 #> $solver$iterations
-#> [1] 20
+#> [1] 75
 #> 
 #> $solver$converged
 #> [1] TRUE
 #> 
 #> $solver$final_delta
-#> [1] 7.490753e-08
+#> [1] 9.564986e-08
 #> 
 #> $solver$epsilon
-#> [1] 0.5
+#> [1] 0.1
 #> 
 #> $solver$rho_query
 #> [1] 1
@@ -63,23 +64,23 @@ somalign_diagnostics(fit)
 #> [1] 1.660105
 #> 
 #> $solver$rel_marginal_row_error
-#> [1] 0.09492421
+#> [1] 0.0539312
 #> 
 #> $solver$rel_marginal_col_error
-#> [1] 0.08788304
+#> [1] 0.05850111
 #> 
 #> 
 #> $ot
 #> $ot$transport_mass
-#> [1] 1.288971
+#> [1] 0.9372579
 #> 
 #> $ot$row_mass
 #>        V1        V2        V3        V4 
-#> 0.1914436 0.3949242 0.5463233 0.1562799 
+#> 0.1179511 0.2662839 0.4460688 0.1069541 
 #> 
 #> $ot$col_mass
 #>        V1        V2        V3        V4 
-#> 0.3756875 0.2878830 0.4683774 0.1570230 
+#> 0.2561538 0.2326513 0.3414989 0.1069540 
 #> 
 #> $ot$query_mass
 #> [1] 0.1 0.3 0.5 0.1
@@ -88,36 +89,36 @@ somalign_diagnostics(fit)
 #> [1] 0.3 0.2 0.4 0.1
 #> 
 #> $ot$match_fraction
-#> [1] 1 1 1 1
+#> [1] 1.0000000 0.8876129 0.8921376 1.0000000
 #> 
 #> $ot$match_mass_ratio
-#> [1] 1.914436 1.316414 1.092647 1.562799
+#> [1] 1.1795113 0.8876129 0.8921376 1.0695413
 #> 
 #> $ot$max_row_mass_error
-#> [1] 0.09492421
+#> [1] 0.0539312
 #> 
 #> $ot$max_col_mass_error
-#> [1] 0.08788304
+#> [1] 0.05850111
 #> 
 #> 
 #> $nodes
 #>    query_node query_mass transported_mass match_fraction correction_allowed
-#> V1          1        0.1        0.1914436              1               TRUE
-#> V2          2        0.3        0.3949242              1               TRUE
-#> V3          3        0.5        0.5463233              1               TRUE
-#> V4          4        0.1        0.1562799              1               TRUE
+#> V1          1        0.1        0.1179511      1.0000000               TRUE
+#> V2          2        0.3        0.2662839      0.8876129               TRUE
+#> V3          3        0.5        0.4460688      0.8921376               TRUE
+#> V4          4        0.1        0.1069541      1.0000000               TRUE
 #>    correction_norm
-#> V1       0.4361949
-#> V2       0.4044215
-#> V3       0.5557118
-#> V4       0.4532371
+#> V1       0.3455129
+#> V2       0.1056234
+#> V3       0.4390426
+#> V4       0.1478819
 #> 
 #> $projection
 #> $projection$outside_direct_fraction
 #> [1] 0.3
 #> 
 #> $projection$outside_corrected_fraction
-#> [1] 0.3
+#> [1] 0.1
 #> 
 #> 
 ```

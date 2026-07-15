@@ -19,3 +19,8 @@ Useful links:
 
 **Maintainer**: Mikhael Manurung <mikhael.manurung@gmail.com>
 ([ORCID](https://orcid.org/0000-0000-0000-0000))
+
+Authors:
+
+- Mikhael Manurung <mikhael.manurung@gmail.com>
+  ([ORCID](https://orcid.org/0000-0000-0000-0000))

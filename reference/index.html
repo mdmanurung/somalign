@@ -21,8 +21,10 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/somalign.html">Quick start</a></li>
     <li><a class="dropdown-item" href="../articles/pretrained-old-and-new-soms.html">Advanced workflow: existing SOMs</a></li>
-    <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchoring samples</a></li>
+    <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchor-regularized alignment</a></li>
+    <li><a class="dropdown-item" href="../articles/two-pass.html">Two-pass global and local alignment</a></li>
     <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+    <li><a class="dropdown-item" href="../articles/function-coverage.html">API smoke test</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
@@ -46,7 +48,7 @@
     </div>
 
     <div class="section level2">
-      <h2 id="training-and-building-inputs">Training and building inputs<a class="anchor" aria-label="anchor" href="#training-and-building-inputs"></a></h2>
+      <h2 id="building-reference-and-query-objects">Building reference and query objects<a class="anchor" aria-label="anchor" href="#building-reference-and-query-objects"></a></h2>
 
 
 
@@ -78,12 +80,49 @@
 
         <dt>
 
+          <code><a href="somalign_reference_from_som.html">somalign_reference_from_som()</a></code>
+
+        </dt>
+        <dd>Build a reference object directly from a trained kohonen SOM</dd>
+
+        <dt>
+
           <code><a href="somalign_query.html">somalign_query()</a></code>
 
         </dt>
         <dd>Prepare query data and attach or train a query SOM</dd>
+
+        <dt>
+
+          <code><a href="somalign_query_from_som.html">somalign_query_from_som()</a></code>
+
+        </dt>
+        <dd>Build a query object from a pre-trained kohonen SOM</dd>
       </dl></div><div class="section level2">
-      <h2 id="fitting-and-results">Fitting and results<a class="anchor" aria-label="anchor" href="#fitting-and-results"></a></h2>
+      <h2 id="preprocessing">Preprocessing<a class="anchor" aria-label="anchor" href="#preprocessing"></a></h2>
+
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="somalign_normalize.html">somalign_normalize()</a></code>
+
+        </dt>
+        <dd>Global pre-correction of query data to match the reference distribution</dd>
+
+        <dt>
+
+          <code><a href="somalign_quantile_normalize.html">somalign_quantile_normalize()</a></code>
+
+        </dt>
+        <dd>Divide each feature column by its upper quantile</dd>
+      </dl></div><div class="section level2">
+      <h2 id="fitting">Fitting<a class="anchor" aria-label="anchor" href="#fitting"></a></h2>
 
 
 
@@ -107,6 +146,22 @@
         <dd>Align a query SOM to a reference SOM using anchor sample pairs</dd>
 
         <dt>
+
+          <code><a href="somalign_fit_two_pass.html">somalign_fit_two_pass()</a></code>
+
+        </dt>
+        <dd>Two-pass alignment decomposing correction into global and local components</dd>
+      </dl></div><div class="section level2">
+      <h2 id="results">Results<a class="anchor" aria-label="anchor" href="#results"></a></h2>
+
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
 
           <code><a href="somalign_results.html">somalign_results()</a></code>
 
@@ -142,6 +197,78 @@
 
         </dt>
         <dd>Assess alignment stability across query SOM random seeds</dd>
+
+        <dt>
+
+          <code><a href="somalign_worst_nodes.html">somalign_worst_nodes()</a></code>
+
+        </dt>
+        <dd>Return worst-projecting query SOM nodes</dd>
+
+        <dt>
+
+          <code><a href="somalign_check_codebook_alignment.html">somalign_check_codebook_alignment()</a></code>
+
+        </dt>
+        <dd>Check query-reference codebook alignment before cell-level computation</dd>
+      </dl></div><div class="section level2">
+      <h2 id="plots">Plots<a class="anchor" aria-label="anchor" href="#plots"></a></h2>
+
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="somalign_plot_codebook_range.html">somalign_plot_codebook_range()</a></code>
+
+        </dt>
+        <dd>Plot query vs reference SOM code ranges per marker</dd>
+
+        <dt>
+
+          <code><a href="somalign_plot_correction.html">somalign_plot_correction()</a></code>
+
+        </dt>
+        <dd>Plot per-node correction norms</dd>
+
+        <dt>
+
+          <code><a href="somalign_plot_label_confusion.html">somalign_plot_label_confusion()</a></code>
+
+        </dt>
+        <dd>Plot label transfer confusion heatmap</dd>
+
+        <dt>
+
+          <code><a href="somalign_plot_marker_distributions.html">somalign_plot_marker_distributions()</a></code>
+
+        </dt>
+        <dd>Plot per-marker cell distributions before projection</dd>
+
+        <dt>
+
+          <code><a href="somalign_plot_mass_balance.html">somalign_plot_mass_balance()</a></code>
+
+        </dt>
+        <dd>Plot node mass balance</dd>
+
+        <dt>
+
+          <code><a href="somalign_plot_match_fraction.html">somalign_plot_match_fraction()</a></code>
+
+        </dt>
+        <dd>Plot per-node match fraction</dd>
+
+        <dt>
+
+          <code><a href="somalign_plot_outside_fraction.html">somalign_plot_outside_fraction()</a></code>
+
+        </dt>
+        <dd>Plot fraction of cells outside reference thresholds</dd>
       </dl></div><div class="section level2">
       <h2 id="print-methods">Print methods<a class="anchor" aria-label="anchor" href="#print-methods"></a></h2>
 

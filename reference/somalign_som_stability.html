@@ -27,8 +27,10 @@ uncontrolled variance source in the somalign workflow."></head><body>
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/somalign.html">Quick start</a></li>
     <li><a class="dropdown-item" href="../articles/pretrained-old-and-new-soms.html">Advanced workflow: existing SOMs</a></li>
-    <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchoring samples</a></li>
+    <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchor-regularized alignment</a></li>
+    <li><a class="dropdown-item" href="../articles/two-pass.html">Two-pass global and local alignment</a></li>
     <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+    <li><a class="dropdown-item" href="../articles/function-coverage.html">API smoke test</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
@@ -66,7 +68,7 @@ uncontrolled variance source in the <code>somalign</code> workflow.</p>
 <span>  <span class="va">query_data</span>,</span>
 <span>  <span class="va">reference</span>,</span>
 <span>  som_seeds <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fl">5L</span><span class="op">)</span>,</span>
-<span>  epsilon <span class="op">=</span> <span class="fl">0.5</span>,</span>
+<span>  epsilon <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>  rho_query <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  rho_ref <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  grid <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -139,21 +141,22 @@ statistics: <code>som_seed</code>, <code>transport_mass</code>, <code>mean_match
 <span class="r-in"><span>                                rlen <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">somalign_som_stability</span><span class="op">(</span><span class="va">mat</span>, <span class="va">ref</span>, som_seeds <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>,</span></span>
 <span class="r-in"><span>                       grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span>, <span class="st">"hexagonal"</span><span class="op">)</span>, rlen <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 4 query node(s) have match_mass_ratio &gt; 1 (max 1.32); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 4 query node(s) have match_mass_ratio &gt; 1 (max 1.72); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 4 query node(s) have match_mass_ratio &gt; 1 (max 1.53); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 1 query node(s) have match_mass_ratio &gt; 1 (max 1.09); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   som_seed transport_mass mean_match_fraction max_row_mass_error</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1        1       1.244481                   1         0.09747682</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2        2       1.279215                   1         0.07246258</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3        3       1.253237                   1         0.10641471</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1        1      0.9053121           0.8994287         0.05873935</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2        2      0.9178083           0.9213999         0.04301188</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3        3      0.8847955           0.8791428         0.07414915</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   accepted_label_fraction outside_direct_fraction outside_corrected_fraction</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1                       0                     0.2                       0.05</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2                       0                     0.2                       0.00</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3                       0                     0.2                       0.15</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                       0                     0.2                       0.05</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                       0                     0.2                       0.05</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   mean_correction_norm converged</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1            0.5875915      TRUE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2            0.6094908      TRUE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3            0.5027875      TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1            0.4702599      TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2            0.2982449      TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3            0.4618583      TRUE</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

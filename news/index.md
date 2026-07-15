@@ -1,6 +1,94 @@
 # Changelog
 
+## somalign 0.99.4
+
+### New features
+
+- [`somalign_query_from_som()`](https://mdmanurung.github.io/somalign/reference/somalign_query_from_som.md)
+  — zero-reprojection query constructor that reuses `som$unit.classif`
+  directly for per-cell node assignments, bypassing the O(N × nodes)
+  nearest-code search that
+  [`somalign_query()`](https://mdmanurung.github.io/somalign/reference/somalign_query.md)
+  performs. Accepts an optional pre-transformed `codebook` (e.g. after
+  winsorisation and rescaling into reference-scaled space) and a
+  `codebook_space` argument identical to
+  [`somalign_query()`](https://mdmanurung.github.io/somalign/reference/somalign_query.md).
+  The returned `somalign_query` object is fully compatible with
+  [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
+
+  `sample_distance` is set to `NA` (the field is not read by
+  [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)).
+  When the codebook has been non-linearly post-processed, the reused
+  assignments are approximate: cells near node boundaries may flip, but
+  this affects only a small fraction of tail cells and does not
+  measurably impact OT alignment quality.
+
+- [`somalign_sensitivity_grid()`](https://mdmanurung.github.io/somalign/reference/somalign_sensitivity_grid.md)
+  — direct projection cached across grid points. The O(N ×
+  reference_nodes) projection of query cells onto the reference codebook
+  is identical for every `(epsilon, rho_query, rho_ref)` combination, so
+  it is now computed once before the grid loop and reused. For a K-point
+  grid this saves (K − 1) projection passes. The function signature is
+  otherwise unchanged (all
+  [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)
+  parameters are accepted explicitly; `...` forwarding has been
+  removed).
+
+## somalign 0.99.3
+
+### New features
+
+- [`somalign_reference_from_som()`](https://mdmanurung.github.io/somalign/reference/somalign_reference_from_som.md)
+  — zero-reprojection reference constructor for trained kohonen SOM
+  objects. Reuses all information already stored in the trained object:
+  node masses from `som$unit.classif` (exact counts over every training
+  cell at no computational cost), label probabilities from the
+  supervised Y-layer codebook `codes[[2]]` (enables label transfer
+  without passing any `labels` vector), and per-node distance thresholds
+  recomputed in reference-scaled X-space from the embedded
+  `som$data[[1]]`. The distance computation is O(N × p) — a single
+  subtraction per cell against its already-known assigned node — with no
+  argmax and no O(N × nodes) memory peak. On a 44.6 M-cell pilot cohort
+  this eliminates the bottleneck that previously required subsampling to
+  100 k cells.
+
+  The existing
+  [`somalign_reference()`](https://mdmanurung.github.io/somalign/reference/somalign_reference.md)
+  and
+  [`somalign_reference_from_nodes()`](https://mdmanurung.github.io/somalign/reference/somalign_reference_from_nodes.md)
+  APIs are unchanged.
+
+  Note: on an `xyf`/`supersom` SOM trained with equal X+Y layer weights,
+  `unit.classif` reflects a joint supervised assignment. Node masses
+  therefore match the SOM’s own partition rather than a pure-X
+  nearest-node assignment. Distance quantiles are computed in X-only
+  space so outside-reference thresholds remain on the same scale as
+  [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)’s
+  query distances.
+
 ## somalign 0.99.2
+
+### Breaking changes
+
+- Default `epsilon` lowered from `0.5` to `0.1` in
+  [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md),
+  [`somalign_fit_anchored()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_anchored.md),
+  and
+  [`somalign_som_stability()`](https://mdmanurung.github.io/somalign/reference/somalign_som_stability.md).
+  Once cost normalisation was added in v0.99.1, `epsilon = 0.5` left the
+  transport plan too diffuse: on the Nuñez 2023 full-spectrum flow and
+  CyTOF benchmarks, label posteriors collapsed onto the reference class
+  prior and CyTOF acceptance dropped to zero. At `epsilon = 0.1`
+  minority classes transfer correctly and the corrected JS divergence is
+  4× lower. Code that sets `epsilon` explicitly is unaffected; if you
+  relied on the default, re-check your acceptance rates and correction
+  norms.
+
+- Default `epsilon_global` in
+  [`somalign_fit_two_pass()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_two_pass.md)
+  lowered from `0.5` to `0.3`. The global pass aligns coarse structure
+  and tolerates more smoothing than the local pass, so it keeps a larger
+  `epsilon` than the single-pass default.
 
 ### New features
 

@@ -21,8 +21,10 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/somalign.html">Quick start</a></li>
     <li><a class="dropdown-item" href="../articles/pretrained-old-and-new-soms.html">Advanced workflow: existing SOMs</a></li>
-    <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchoring samples</a></li>
+    <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchor-regularized alignment</a></li>
+    <li><a class="dropdown-item" href="../articles/two-pass.html">Two-pass global and local alignment</a></li>
     <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+    <li><a class="dropdown-item" href="../articles/function-coverage.html">API smoke test</a></li>
   </ul></li>
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
@@ -47,7 +49,34 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.99.4" id="somalign-0994">somalign 0.99.4<a class="anchor" aria-label="anchor" href="#somalign-0994"></a></h2>
+<div class="section level3">
+<h3 id="new-features-0-99-4">New features<a class="anchor" aria-label="anchor" href="#new-features-0-99-4"></a></h3>
+<ul><li>
+<p><code><a href="../reference/somalign_query_from_som.html">somalign_query_from_som()</a></code> — zero-reprojection query constructor that reuses <code>som$unit.classif</code> directly for per-cell node assignments, bypassing the O(N × nodes) nearest-code search that <code><a href="../reference/somalign_query.html">somalign_query()</a></code> performs. Accepts an optional pre-transformed <code>codebook</code> (e.g. after winsorisation and rescaling into reference-scaled space) and a <code>codebook_space</code> argument identical to <code><a href="../reference/somalign_query.html">somalign_query()</a></code>. The returned <code>somalign_query</code> object is fully compatible with <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>.</p>
+<p><code>sample_distance</code> is set to <code>NA</code> (the field is not read by <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>). When the codebook has been non-linearly post-processed, the reused assignments are approximate: cells near node boundaries may flip, but this affects only a small fraction of tail cells and does not measurably impact OT alignment quality.</p>
+</li>
+<li><p><code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code> — direct projection cached across grid points. The O(N × reference_nodes) projection of query cells onto the reference codebook is identical for every <code>(epsilon, rho_query, rho_ref)</code> combination, so it is now computed once before the grid loop and reused. For a K-point grid this saves (K − 1) projection passes. The function signature is otherwise unchanged (all <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> parameters are accepted explicitly; <code>...</code> forwarding has been removed).</p></li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.99.3" id="somalign-0993">somalign 0.99.3<a class="anchor" aria-label="anchor" href="#somalign-0993"></a></h2>
+<div class="section level3">
+<h3 id="new-features-0-99-3">New features<a class="anchor" aria-label="anchor" href="#new-features-0-99-3"></a></h3>
+<ul><li>
+<p><code><a href="../reference/somalign_reference_from_som.html">somalign_reference_from_som()</a></code> — zero-reprojection reference constructor for trained kohonen SOM objects. Reuses all information already stored in the trained object: node masses from <code>som$unit.classif</code> (exact counts over every training cell at no computational cost), label probabilities from the supervised Y-layer codebook <code>codes[[2]]</code> (enables label transfer without passing any <code>labels</code> vector), and per-node distance thresholds recomputed in reference-scaled X-space from the embedded <code>som$data[[1]]</code>. The distance computation is O(N × p) — a single subtraction per cell against its already-known assigned node — with no argmax and no O(N × nodes) memory peak. On a 44.6 M-cell pilot cohort this eliminates the bottleneck that previously required subsampling to 100 k cells.</p>
+<p>The existing <code><a href="../reference/somalign_reference.html">somalign_reference()</a></code> and <code><a href="../reference/somalign_reference_from_nodes.html">somalign_reference_from_nodes()</a></code> APIs are unchanged.</p>
+<p>Note: on an <code>xyf</code>/<code>supersom</code> SOM trained with equal X+Y layer weights, <code>unit.classif</code> reflects a joint supervised assignment. Node masses therefore match the SOM’s own partition rather than a pure-X nearest-node assignment. Distance quantiles are computed in X-only space so outside-reference thresholds remain on the same scale as <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>’s query distances.</p>
+</li>
+</ul></div>
+</div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.99.2" id="somalign-0992">somalign 0.99.2<a class="anchor" aria-label="anchor" href="#somalign-0992"></a></h2>
+<div class="section level3">
+<h3 id="breaking-changes-0-99-2">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-0-99-2"></a></h3>
+<ul><li><p>Default <code>epsilon</code> lowered from <code>0.5</code> to <code>0.1</code> in <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>, <code><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored()</a></code>, and <code><a href="../reference/somalign_som_stability.html">somalign_som_stability()</a></code>. Once cost normalisation was added in v0.99.1, <code>epsilon = 0.5</code> left the transport plan too diffuse: on the Nuñez 2023 full-spectrum flow and CyTOF benchmarks, label posteriors collapsed onto the reference class prior and CyTOF acceptance dropped to zero. At <code>epsilon = 0.1</code> minority classes transfer correctly and the corrected JS divergence is 4× lower. Code that sets <code>epsilon</code> explicitly is unaffected; if you relied on the default, re-check your acceptance rates and correction norms.</p></li>
+<li><p>Default <code>epsilon_global</code> in <code><a href="../reference/somalign_fit_two_pass.html">somalign_fit_two_pass()</a></code> lowered from <code>0.5</code> to <code>0.3</code>. The global pass aligns coarse structure and tolerates more smoothing than the local pass, so it keeps a larger <code>epsilon</code> than the single-pass default.</p></li>
+</ul></div>
 <div class="section level3">
 <h3 id="new-features-0-99-2">New features<a class="anchor" aria-label="anchor" href="#new-features-0-99-2"></a></h3>
 <ul><li><p><code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> gains a <code>solver = "log_domain"</code> option. The log-domain Sinkhorn variant works with log-potentials <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>f</mi><annotation encoding="application/x-tex">f</annotation></semantics></math> (query) and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math> (reference) rather than the primal scaling vectors, avoiding <code>exp(-C/epsilon)</code> kernel underflow entirely. It is slower per iteration but tolerates cost/epsilon ratios that cause the default <code>"internal"</code> solver to warn.</p></li>

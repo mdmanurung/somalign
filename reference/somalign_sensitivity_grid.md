@@ -12,8 +12,14 @@ somalign_sensitivity_grid(
   rho_query,
   rho_ref,
   solver = c("internal", "auto"),
-  parallel = FALSE,
-  ...
+  min_match_fraction = 0.05,
+  confidence_threshold = 0.6,
+  correction_min_mass = 1e-08,
+  max_iter = 1000,
+  tol = 1e-07,
+  chunk_size = 10000L,
+  diagonal_boost = 0,
+  parallel = FALSE
 )
 ```
 
@@ -76,6 +82,7 @@ ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
                                 rlen = 5)
 qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
                       rlen = 5)
+#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 somalign_sensitivity_grid(qry, ref,
                           epsilon = c(0.05, 0.1),
                           rho_query = c(0.5, 1),
