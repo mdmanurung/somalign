@@ -170,12 +170,7 @@ somalign_fit <- function(query,
   mask
 }
 
-.somalign_align_transport <- function(query, reference, epsilon, rho_query,
-                                      rho_ref, solver, max_iter, tol,
-                                      cost_bonus = NULL,
-                                      diagonal_boost = 0,
-                                      label_mask = NULL) {
-  cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
+.somalign_prepare_cost <- function(cost, diagonal_boost, cost_bonus, label_mask) {
   cost_scale <- stats::median(cost[cost > 0])
   if (!is.finite(cost_scale) || cost_scale == 0) {
     cost_scale <- 1
@@ -193,6 +188,18 @@ somalign_fit <- function(query,
     penalty <- max(cost_normalized) * 1e4
     cost_normalized[label_mask] <- cost_normalized[label_mask] + penalty
   }
+  list(cost_normalized = cost_normalized, cost_scale = cost_scale)
+}
+
+.somalign_align_transport <- function(query, reference, epsilon, rho_query,
+                                      rho_ref, solver, max_iter, tol,
+                                      cost_bonus = NULL,
+                                      diagonal_boost = 0,
+                                      label_mask = NULL) {
+  cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
+  prepared <- .somalign_prepare_cost(cost, diagonal_boost, cost_bonus, label_mask)
+  cost_normalized <- prepared$cost_normalized
+  cost_scale <- prepared$cost_scale
   ot <- .somalign_solve_ot(
     cost = cost_normalized,
     a = query$node_masses,
@@ -280,18 +287,22 @@ somalign_fit <- function(query,
       max_row_mass_error = max(abs(row_mass - query$node_masses)),
       max_col_mass_error = max(abs(col_mass - reference$node_masses))
     ),
-    nodes = data.frame(
-      query_node = seq_len(nrow(query$codebook)),
-      query_mass = query$node_masses,
-      transported_mass = row_mass,
-      match_fraction = transport$match_fraction,
-      correction_allowed = attr(node_shifts, "correction_allowed"),
-      correction_norm = sqrt(rowSums(node_shifts^2))
-    ),
+    nodes = .somalign_build_nodes_diag(query, transport, node_shifts),
     projection = list(
       outside_direct_fraction = mean(direct$outside),
       outside_corrected_fraction = mean(corrected$outside)
     )
+  )
+}
+
+.somalign_build_nodes_diag <- function(query, transport, node_shifts) {
+  data.frame(
+    query_node = seq_len(nrow(query$codebook)),
+    query_mass = query$node_masses,
+    transported_mass = transport$row_mass,
+    match_fraction = transport$match_fraction,
+    correction_allowed = attr(node_shifts, "correction_allowed"),
+    correction_norm = sqrt(rowSums(node_shifts^2))
   )
 }
 

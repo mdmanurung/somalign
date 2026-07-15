@@ -73,12 +73,8 @@ somalign_sensitivity_grid <- function(query,
   epsilon <- .somalign_validate_grid_vector(epsilon, "epsilon")
   rho_query <- .somalign_validate_grid_vector(rho_query, "rho_query")
   rho_ref <- .somalign_validate_grid_vector(rho_ref, "rho_ref")
-  grid <- expand.grid(
-    epsilon = epsilon,
-    rho_query = rho_query,
-    rho_ref = rho_ref,
-    KEEP.OUT.ATTRS = FALSE
-  )
+  grid <- expand.grid(epsilon = epsilon, rho_query = rho_query,
+                      rho_ref = rho_ref, KEEP.OUT.ATTRS = FALSE)
 
   # Pre-compute the direct projection once: it is identical for every grid point
   # (same scaled_data + reference codebook), saving (K-1) x O(N x nodes) passes.
