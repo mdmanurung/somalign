@@ -120,15 +120,14 @@ resulting shifts to \eqn{V_{\text{batch}}}.
 \code{V}, \code{rank}, \code{variance_explained}). \code{"cost_bonus"} sets this to \code{NULL}.
 
 \strong{Cost modification.} Let \eqn{C} be the M×K codebook distance matrix
-normalised by its median positive entry (as in \code{\link[=somalign_fit]{somalign_fit()}}). The
-anchor pairs are projected onto the query codebook (old batch) and
-reference codebook (new batch), yielding a count matrix \eqn{A} where
-\eqn{A_{kl}} is the number of anchor pairs whose old measurement maps to
-query node \eqn{k} and new measurement maps to reference node \eqn{l}.
-(The query SOM was trained on new-batch data, so projecting the old-batch
-anchor onto it identifies which query node the anchor occupied before the
-batch shift; projecting the new-batch anchor onto the reference SOM
-identifies the corresponding reference node after the shift.)
+normalised by its median positive entry (as in \code{\link[=somalign_fit]{somalign_fit()}}). Each
+anchor pair is projected onto both codebooks to build a count matrix
+\eqn{A} where \eqn{A_{kl}} is the number of anchor pairs mapping to query
+node \eqn{k} and reference node \eqn{l}. The query SOM was trained on
+new-batch data, so the \emph{new-batch} anchor measurement is projected onto the
+query codebook to identify query node \eqn{k}; the reference SOM was trained
+on old-batch data, so the \emph{old-batch} anchor measurement is projected onto
+the reference codebook to identify reference node \eqn{l}.
 The modified cost is
 \deqn{\tilde{C}_{kl} = \max\!\bigl(C_{kl} - \rho_{\mathrm{anchor}} \cdot
   A_{kl} / n_{\mathrm{anchors}},\; 0\bigr).}
@@ -143,7 +142,7 @@ by entropic regularisation alone rather than by relative anchor counts.
 The clamp is required to keep costs non-negative; at very large \code{rho_anchor}
 the plan for anchor-covered pairs becomes more entropic, not more
 concentrated. A practical upper bound is \code{rho_anchor * max(A) / n_anchors <= 1}, i.e., even the most-supported pair reduces cost by at most one
-median-distance unit.
+median squared-distance unit.
 
 \strong{Fallback for uncovered nodes.} Query nodes with no anchor samples retain
 their original pairwise costs, so the transport plan for those nodes is

@@ -160,3 +160,42 @@ test_that("somalign_fit_anchored works with solver = 'log_domain'", {
   expect_s3_class(fit, "somalign_anchored_fit")
   expect_equal(fit$diagnostics$solver$used, "log_domain")
 })
+
+test_that("anchor cost bonus maps new-batch to query and old-batch to reference nodes (ANCHOR-001)", {
+  # Large batch shift (+6) relative to the inter-cluster gap (10): old-batch
+  # data projected onto the query SOM lands nearer the WRONG query node, so a
+  # swapped assignment would place all anchor mass off-diagonal. The correct
+  # assignment (new-batch -> query codebook, old-batch -> reference codebook)
+  # concentrates mass on the diagonal (query node k <-> reference node k).
+  reference_codebook <- rbind(c(0, 0), c(10, 0))   # SOM trained on old batch
+  query_codebook     <- rbind(c(6, 0), c(16, 0))   # SOM trained on new (old + 6)
+  anchor_old <- rbind(c(0, 0), c(10, 0))           # cluster centres, old batch
+  anchor_new <- rbind(c(6, 0), c(16, 0))           # same cells, new batch
+
+  cb <- somalign:::.somalign_anchor_cost_bonus(
+    anchor_old_scaled = anchor_old,
+    anchor_new_scaled = anchor_new,
+    query_codebook = query_codebook,
+    reference_codebook = reference_codebook,
+    rho_anchor = 1, chunk_size = 10000L
+  )
+  A <- cb$bonus  # rho_anchor * counts / n_anchors; same sparsity as the counts
+
+  expect_gt(A[1, 1], 0)
+  expect_gt(A[2, 2], 0)
+  expect_equal(A[1, 2], 0)
+  expect_equal(A[2, 1], 0)
+  expect_equal(cb$nodes_covered, 2L)
+})
+
+test_that("coverage_fraction reflects real anchor coverage in subspace mode (ANCHOR-003)", {
+  skip_if_not_installed("kohonen")
+  fx <- make_anchored_fixture(seed = 3L)
+  fit <- somalign_fit_anchored(fx$qry, fx$ref,
+                                anchor_old = fx$anchor_old,
+                                anchor_new = fx$anchor_new,
+                                rho_anchor = 1.0,
+                                correction = "subspace")
+  expect_gt(fit$anchors$coverage_fraction, 0)
+  expect_gt(fit$anchors$nodes_covered, 0L)
+})

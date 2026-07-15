@@ -76,15 +76,14 @@
 #' `V`, `rank`, `variance_explained`). `"cost_bonus"` sets this to `NULL`.
 #'
 #' **Cost modification.** Let \eqn{C} be the M×K codebook distance matrix
-#' normalised by its median positive entry (as in [somalign_fit()]). The
-#' anchor pairs are projected onto the query codebook (old batch) and
-#' reference codebook (new batch), yielding a count matrix \eqn{A} where
-#' \eqn{A_{kl}} is the number of anchor pairs whose old measurement maps to
-#' query node \eqn{k} and new measurement maps to reference node \eqn{l}.
-#' (The query SOM was trained on new-batch data, so projecting the old-batch
-#' anchor onto it identifies which query node the anchor occupied before the
-#' batch shift; projecting the new-batch anchor onto the reference SOM
-#' identifies the corresponding reference node after the shift.)
+#' normalised by its median positive entry (as in [somalign_fit()]). Each
+#' anchor pair is projected onto both codebooks to build a count matrix
+#' \eqn{A} where \eqn{A_{kl}} is the number of anchor pairs mapping to query
+#' node \eqn{k} and reference node \eqn{l}. The query SOM was trained on
+#' new-batch data, so the *new-batch* anchor measurement is projected onto the
+#' query codebook to identify query node \eqn{k}; the reference SOM was trained
+#' on old-batch data, so the *old-batch* anchor measurement is projected onto
+#' the reference codebook to identify reference node \eqn{l}.
 #' The modified cost is
 #' \deqn{\tilde{C}_{kl} = \max\!\bigl(C_{kl} - \rho_{\mathrm{anchor}} \cdot
 #'   A_{kl} / n_{\mathrm{anchors}},\; 0\bigr).}
@@ -100,7 +99,7 @@
 #' the plan for anchor-covered pairs becomes more entropic, not more
 #' concentrated. A practical upper bound is `rho_anchor * max(A) / n_anchors
 #' <= 1`, i.e., even the most-supported pair reduces cost by at most one
-#' median-distance unit.
+#' median squared-distance unit.
 #'
 #' **Fallback for uncovered nodes.** Query nodes with no anchor samples retain
 #' their original pairwise costs, so the transport plan for those nodes is
@@ -197,15 +196,24 @@ somalign_fit_anchored <- function(query,
                                          correction, variance_threshold) {
   use_bonus    <- correction %in% c("cost_bonus", "both") && rho_anchor > 0
   use_subspace <- correction %in% c("subspace", "both")
-  if (rho_anchor == 0 && correction == "cost_bonus") {
-    message("`rho_anchor = 0`: anchor pairs have no effect. Use `somalign_fit()` for equivalent results.")
+  if (rho_anchor == 0 && correction %in% c("cost_bonus", "both")) {
+    message("`rho_anchor = 0`: the anchor cost bonus is inactive. ",
+            if (correction == "cost_bonus")
+              "Use `somalign_fit()` for equivalent results."
+            else
+              "Only the subspace correction is applied.")
   }
   cb <- if (use_bonus) {
     .somalign_anchor_cost_bonus(anchors_scaled$anchor_old_scaled,
                                 anchors_scaled$anchor_new_scaled,
                                 query$codebook, reference$codebook,
                                 rho_anchor, chunk_size)
-  } else { list(bonus = NULL, nodes_covered = 0L, coverage_fraction = 0) }
+  } else {
+    cov <- .somalign_anchor_coverage(anchors_scaled$anchor_new_scaled,
+                                     query$codebook, chunk_size)
+    list(bonus = NULL, nodes_covered = cov$nodes_covered,
+         coverage_fraction = cov$coverage_fraction)
+  }
   batch_sub <- if (use_subspace) {
     .somalign_batch_subspace(anchors_scaled$anchor_old_scaled,
                              anchors_scaled$anchor_new_scaled,
@@ -286,15 +294,18 @@ somalign_fit_anchored <- function(query,
   K <- nrow(reference_codebook)
   n_anchors <- nrow(anchor_old_scaled)
 
-  old_units <- .somalign_nearest_code_chunked(
-    anchor_old_scaled, query_codebook, chunk_size = chunk_size
+  # The query SOM was trained on new-batch data and the reference SOM on
+  # old-batch data, so the new-batch anchor identifies the query node (row) and
+  # the old-batch anchor identifies the reference node (column).
+  query_units <- .somalign_nearest_code_chunked(
+    anchor_new_scaled, query_codebook, chunk_size = chunk_size
   )$unit
-  new_units <- .somalign_nearest_code_chunked(
-    anchor_new_scaled, reference_codebook, chunk_size = chunk_size
+  ref_units <- .somalign_nearest_code_chunked(
+    anchor_old_scaled, reference_codebook, chunk_size = chunk_size
   )$unit
 
   # Build M × K count matrix (column-major linear indexing)
-  lin_idx <- (new_units - 1L) * M + old_units
+  lin_idx <- (ref_units - 1L) * M + query_units
   A <- matrix(tabulate(lin_idx, nbins = M * K), nrow = M, ncol = K)
 
   nodes_covered    <- sum(rowSums(A) > 0L)
@@ -307,4 +318,17 @@ somalign_fit_anchored <- function(query,
     nodes_covered     = nodes_covered,
     coverage_fraction = coverage_fraction
   )
+}
+
+# Query-node coverage of the anchor set, independent of the cost bonus. Used by
+# the subspace-only path where no bonus matrix is built. The new-batch anchor
+# identifies the query node (the query SOM was trained on new-batch data).
+.somalign_anchor_coverage <- function(anchor_new_scaled, query_codebook,
+                                       chunk_size) {
+  M <- nrow(query_codebook)
+  query_units <- .somalign_nearest_code_chunked(
+    anchor_new_scaled, query_codebook, chunk_size = chunk_size
+  )$unit
+  nodes_covered <- length(unique(query_units))
+  list(nodes_covered = nodes_covered, coverage_fraction = nodes_covered / M)
 }
