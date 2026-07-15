@@ -122,7 +122,8 @@ somalign_fit <- function(query,
                                  correction_min_mass, chunk_size,
                                  epsilon, rho_query, rho_ref,
                                  anchors = NULL,
-                                 direct_cache = NULL) {
+                                 direct_cache = NULL,
+                                 shift_transform = NULL) {
   label_transfer <- .somalign_transfer_labels(
     correspondence = transport$correspondence,
     label_prob = reference$label_prob,
@@ -139,6 +140,11 @@ somalign_fit <- function(query,
     min_match_fraction = min_match_fraction,
     correction_min_mass = correction_min_mass
   )
+  if (!is.null(shift_transform)) {
+    allowed <- attr(node_shifts, "correction_allowed")
+    node_shifts <- shift_transform(node_shifts)
+    attr(node_shifts, "correction_allowed") <- allowed
+  }
   projection <- .somalign_project_pair(query, reference, node_shifts, chunk_size,
                                        direct_cache = direct_cache)
   diagnostics <- .somalign_build_diagnostics(
@@ -504,10 +510,16 @@ somalign_fit <- function(query,
 #' @param label_guided Logical. When `TRUE`, applies a large cost penalty to
 #'   node pairs with discordant dominant labels in both OT passes. See
 #'   [somalign_fit()] for details.
+#' @param variance_threshold Numeric in (0, 1]. Cumulative singular-value-squared
+#'   fraction used to select the rank of the batch-subspace *diagnostic* stored in
+#'   `$two_pass$batch_subspace`. Default `0.9`. Has no effect on the correction.
 #'
 #' @return A `somalign_fit` object with an additional `$two_pass` list
 #'   containing `global_shift` (per-feature vector), `global_shift_norm`
-#'   (Euclidean magnitude), `epsilon_global`, and `epsilon_local`.
+#'   (Euclidean magnitude), `epsilon_global`, `epsilon_local`, and
+#'   `batch_subspace` (a list with `V`, `rank`, `variance_explained` derived
+#'   from the pass-1 correction field — **descriptive only**, not used for
+#'   correction; may conflate batch effects with biology).
 #'
 #' @details
 #' Pass 1 runs OT at `epsilon_global` between the original query codebook and
@@ -553,7 +565,8 @@ somalign_fit_two_pass <- function(query,
                                   max_iter = 1000,
                                   tol = 1e-7,
                                   chunk_size = 10000L,
-                                  label_guided = FALSE) {
+                                  label_guided = FALSE,
+                                  variance_threshold = 0.9) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   .somalign_check_pos_scalar(epsilon_global, "epsilon_global")
@@ -561,6 +574,7 @@ somalign_fit_two_pass <- function(query,
   .somalign_check_fit_params(rho_query, rho_ref, min_match_fraction,
                              confidence_threshold, correction_min_mass,
                              max_iter, tol, chunk_size, label_guided)
+  .somalign_check_unit_scalar(variance_threshold, "variance_threshold")
   solver <- match.arg(solver, c("internal", "log_domain", "auto"))
 
   label_mask <- if (isTRUE(label_guided)) {
@@ -630,11 +644,18 @@ somalign_fit_two_pass <- function(query,
 
   fit <- .somalign_new_fit(query, reference, t2, label_transfer, total_shifts,
                            projection, diagnostics)
+  batch_sub <- if (any(allowed1)) {
+    .somalign_subspace_svd(ns1[allowed1, , drop = FALSE], variance_threshold,
+                           weights = query$node_masses[allowed1])
+  } else {
+    NULL
+  }
   fit$two_pass <- list(
     global_shift      = g,
     global_shift_norm = sqrt(sum(g^2)),
     epsilon_global    = epsilon_global,
-    epsilon_local     = epsilon_local
+    epsilon_local     = epsilon_local,
+    batch_subspace    = batch_sub
   )
   fit
 }

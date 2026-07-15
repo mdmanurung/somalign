@@ -5,7 +5,8 @@ test_that("somalign_fit_two_pass returns somalign_fit with two_pass slot", {
   expect_s3_class(fit, "somalign_fit")
   expect_true(!is.null(fit$two_pass))
   expect_named(fit$two_pass,
-               c("global_shift", "global_shift_norm", "epsilon_global", "epsilon_local"))
+               c("global_shift", "global_shift_norm", "epsilon_global", "epsilon_local",
+                 "batch_subspace"))
 })
 
 test_that("somalign_fit_two_pass global_shift points in the correction direction", {
