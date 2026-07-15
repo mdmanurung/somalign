@@ -120,142 +120,71 @@ downstream.
 
 ## Diagnostic plots
 
-`somalign_diagnostics()` returns a structured list covering OT solver convergence,
-per-node mass balance, correction vectors, and projection quality. The plots below
-are the first things to check after any fit — they apply to both small toy examples
-and million-cell real datasets.
+The package ships a set of `somalign_plot_*()` functions covering both
+before-projection compatibility checks and after-projection quality assessment.
+Each returns a single `ggplot` object you can print directly or compose further
+with `patchwork` or `cowplot`.
 
-```{r diagnostics-setup, eval = requireNamespace("kohonen", quietly = TRUE) && requireNamespace("ggplot2", quietly = TRUE)}
-library(ggplot2)
+### Before projection: are the datasets compatible?
 
-diag    <- somalign_diagnostics(fit)
-node_df <- as.data.frame(diag$nodes)
+Before aligning, use `somalign_check_codebook_alignment()` to test whether the
+query and reference SOM code ranges overlap sufficiently. Then visualise the
+result with `somalign_plot_codebook_range()`.
 
-# Annotate each query node with the label of its top reference destination.
-top_ref_node  <- apply(fit$correspondence, 1, which.max)
-ref_lp        <- reference$label_prob
-node_df$top_ref_label <- if (!is.null(ref_lp)) {
-  apply(ref_lp[top_ref_node, , drop = FALSE], 1,
-        function(x) if (max(x) >= 0.5) colnames(ref_lp)[which.max(x)] else "unlabeled")
-} else {
-  as.character(top_ref_node)
-}
+```{r plot-before, fig.width = 7, fig.height = 4, eval = requireNamespace("kohonen", quietly = TRUE)}
+chk <- somalign_check_codebook_alignment(query_obj$codebook, reference,
+                                         stop_if_critical = FALSE)
+print(chk)
+somalign_plot_codebook_range(chk)
 ```
 
-### OT solver quality
+`somalign_plot_marker_distributions()` shows per-marker cell-level densities of
+the query data in reference-scaled space, with reference SOM node prototypes
+overlaid as a rug. Passing `reference_data` (reference cells in reference-scaled
+coordinates) draws a true second density curve instead.
 
-The first check is whether the solver converged and whether mass is balanced
-across nodes. `match_fraction` near 1 means a query node's mass arrived at the
-reference; values well below 1 indicate nodes the solver could not route — they
-are the primary candidates for further inspection.
-
-```{r plot-ot-quality, fig.width = 7, fig.height = 3.5, eval = requireNamespace("kohonen", quietly = TRUE) && requireNamespace("ggplot2", quietly = TRUE)}
-p_balance <- ggplot(node_df, aes(x = query_mass, y = transported_mass,
-                                  color = match_fraction)) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey60") +
-  geom_point(size = 3) +
-  scale_color_viridis_c("Match\nfraction", option = "plasma", limits = c(0, 1)) +
-  labs(title = "Node mass balance",
-       subtitle = sprintf("Converged: %s  |  Epsilon: %.3g",
-                          diag$solver$converged, diag$solver$epsilon),
-       x = "Query node mass", y = "Transported mass") +
-  theme_minimal()
-
-p_matchfrac <- ggplot(node_df, aes(x = reorder(factor(query_node), match_fraction),
-                                    y = match_fraction, fill = match_fraction)) +
-  geom_col(color = "white") +
-  geom_hline(yintercept = 0.05, color = "#d73027", linetype = "dashed") +
-  scale_fill_viridis_c(option = "plasma", limits = c(0, 1), guide = "none") +
-  labs(title = "Match fraction per query node",
-       subtitle = "Red dashed = 0.05 threshold; nodes below this are poorly routed",
-       x = "Query node (sorted)", y = "Match fraction") +
-  theme_minimal()
-
-print(p_balance)
-print(p_matchfrac)
+```{r plot-dists, fig.width = 7, fig.height = 4, eval = requireNamespace("kohonen", quietly = TRUE)}
+somalign_plot_marker_distributions(query_obj, reference = reference)
 ```
 
-### Correction quality
+### After projection: OT solver quality
 
-Each query node is shifted by a correction vector derived from its transport row.
-`correction_norm` is the Euclidean length of that shift. Large norms relative to
-the typical inter-node spacing signal a large systematic batch offset; suppressed
-nodes (low mass or low match fraction) receive no correction.
+`match_fraction` near 1 means a query node's mass arrived at the reference;
+values well below 1 indicate nodes the solver could not route.
 
-```{r plot-correction, fig.width = 7, fig.height = 3.5, eval = requireNamespace("kohonen", quietly = TRUE) && requireNamespace("ggplot2", quietly = TRUE)}
-p_corr <- ggplot(node_df, aes(x = reorder(factor(query_node), -correction_norm),
-                               y = correction_norm, fill = correction_allowed)) +
-  geom_col(color = "white") +
-  scale_fill_manual(values = c("TRUE" = "#1a9641", "FALSE" = "#d73027"),
-                    labels = c("TRUE" = "Applied", "FALSE" = "Suppressed")) +
-  labs(title = "Correction norm per query node",
-       subtitle = "Green = correction applied; red = suppressed (too little mass or match fraction)",
-       x = "Query node (sorted by correction)", y = "Correction norm",
-       fill = "Correction") +
-  theme_minimal()
-
-proj_df <- data.frame(
-  Projection = factor(c("Direct", "Corrected"), levels = c("Direct", "Corrected")),
-  outside_pct = c(100 * diag$projection$outside_direct_fraction,
-                  100 * diag$projection$outside_corrected_fraction)
-)
-p_outside <- ggplot(proj_df, aes(x = Projection, y = outside_pct, fill = Projection)) +
-  geom_col(width = 0.5, color = "white") +
-  geom_text(aes(label = sprintf("%.1f%%", outside_pct)), vjust = -0.4, size = 4) +
-  scale_fill_manual(values = c("Direct" = "#d73027", "Corrected" = "#1a9641"),
-                    guide = "none") +
-  labs(title = "% cells outside reference thresholds",
-       subtitle = "Correction should reduce (or hold steady) the outside fraction",
-       y = "% outside threshold", x = NULL) +
-  ylim(0, max(proj_df$outside_pct) * 1.2 + 5) +
-  theme_minimal()
-
-print(p_corr)
-print(p_outside)
+```{r plot-ot-quality, fig.width = 7, fig.height = 3.5, eval = requireNamespace("kohonen", quietly = TRUE)}
+somalign_plot_mass_balance(fit)
+somalign_plot_match_fraction(fit)
 ```
 
-### Label transfer quality
+### After projection: correction quality
 
-The confusion heatmap shows which reference labels were transferred to cells from
-each old query label — row-normalised so each row sums to 100%. High diagonal
-values indicate coherent transfer; strong off-diagonal entries suggest either a
-real biological mixture or a poorly aligned node worth re-examining.
+Each query node is shifted by a correction vector derived from its OT transport
+row. Large `correction_norm` values relative to the typical inter-node spacing
+signal a systematic batch offset.
 
-```{r plot-labels, fig.width = 5, fig.height = 4, eval = requireNamespace("kohonen", quietly = TRUE) && requireNamespace("ggplot2", quietly = TRUE)}
-confusion <- as.data.frame(results) |>
-  subset(transferred_label_accepted & !is.na(old_som_label) &
-           !is.na(transferred_label)) |>
-  (\(d) {
-    tab <- as.data.frame(table(old = d$old_som_label,
-                               transferred = d$transferred_label))
-    tab |>
-      merge(aggregate(Freq ~ old, tab, sum), by = "old", suffixes = c("", "_total")) |>
-      transform(pct = Freq / Freq_total)
-  })()
+```{r plot-correction, fig.width = 7, fig.height = 3.5, eval = requireNamespace("kohonen", quietly = TRUE)}
+somalign_plot_correction(fit)
+somalign_plot_outside_fraction(fit)
+```
 
-p_confusion <- ggplot(confusion, aes(x = transferred, y = old, fill = pct)) +
-  geom_tile(color = "white", linewidth = 0.6) +
-  geom_text(aes(label = sprintf("%.0f%%", 100 * pct)), size = 4, fontface = "bold") +
-  scale_fill_viridis_c("Fraction", option = "plasma", limits = c(0, 1)) +
-  labs(title = "Label transfer confusion (accepted cells)",
-       subtitle = "Row-normalised; diagonal = self-consistent transfer",
-       x = "Transferred label", y = "Old SOM label") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+### After projection: label transfer quality
 
-print(p_confusion)
+The confusion heatmap is row-normalised: each row sums to 100%. High diagonal
+values indicate coherent transfer; strong off-diagonal entries warrant
+re-examination of the corresponding query node.
+
+```{r plot-labels, fig.width = 5, fig.height = 4, eval = requireNamespace("kohonen", quietly = TRUE)}
+somalign_plot_label_confusion(fit)
 ```
 
 ### Worst-projecting nodes
 
-Print the nodes with the lowest match fraction — these are the nodes whose query
-mass the solver could not route to the reference and warrant closest attention.
+`somalign_worst_nodes()` returns the nodes with the lowest match fraction as a
+data frame, making it easy to inspect or pass downstream.
 
 ```{r worst-nodes, eval = requireNamespace("kohonen", quietly = TRUE)}
-worst <- node_df[order(node_df$match_fraction), ]
-worst <- worst[seq_len(min(10, nrow(worst))), ]
-print(worst[, c("query_node", "query_mass", "match_fraction",
-                "correction_allowed", "correction_norm", "top_ref_label")])
+somalign_worst_nodes(fit, n = 10)
 ```
 
 ## Next steps

@@ -18,13 +18,13 @@ biocViews: Software, FlowCytometry, SingleCell, Clustering, Normalization
 Depends:
     R (>= 4.4)
 Imports:
+    ggplot2,
     kohonen,
     stats
 Suggests:
     BiocParallel,
     BiocStyle,
     DiagrammeR,
-    ggplot2,
     knitr,
     pkgdown,
     rmarkdown,
