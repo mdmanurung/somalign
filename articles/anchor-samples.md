@@ -100,12 +100,12 @@ cat("Features:    ", ncol(anchor_old), "\n")
 ``` r
 
 fit_plain <- somalign_fit(query, reference)
-#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 fit_anc   <- somalign_fit_anchored(query, reference,
                                     anchor_old = anchor_old,
                                     anchor_new = anchor_new,
                                     rho_anchor = 1.5)
-#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 ```
 
 Printing either object gives a concise summary:
@@ -117,14 +117,14 @@ fit_plain
 #>   solver: internal
 #>   query nodes: 16
 #>   reference nodes: 16
-#>   transport mass: 1.074
+#>   transport mass: 1.166
 fit_anc
 #> <somalign_anchored_fit>
 #>   solver: internal
 #>   query nodes: 16
 #>   reference nodes: 16
-#>   transport mass: 1.098
-#>   anchors: 25 (75% node coverage)
+#>   transport mass: 1.175
+#>   anchors: 25 (68.8% node coverage)
 ```
 
 The anchored fit reports how many query nodes had at least one anchor
@@ -143,10 +143,10 @@ fit_anc$anchors
 #> [1] "cost_bonus"
 #> 
 #> $nodes_covered
-#> [1] 12
+#> [1] 11
 #> 
 #> $coverage_fraction
-#> [1] 0.75
+#> [1] 0.6875
 #> 
 #> $batch_subspace
 #> NULL
@@ -174,13 +174,13 @@ plain_norms <- sqrt(rowSums(fit_plain$node_shifts^2))
 anc_norms   <- sqrt(rowSums(fit_anc$node_shifts^2))
 
 cat("Mean correction norm -- plain:    ", round(mean(plain_norms), 4), "\n")
-#> Mean correction norm -- plain:     0.3052
+#> Mean correction norm -- plain:     0.3566
 cat("Mean correction norm -- anchored: ", round(mean(anc_norms),   4), "\n")
-#> Mean correction norm -- anchored:  0.2936
+#> Mean correction norm -- anchored:  0.3477
 cat("Max  correction norm -- plain:    ", round(max(plain_norms),  4), "\n")
-#> Max  correction norm -- plain:     0.735
+#> Max  correction norm -- plain:     0.8014
 cat("Max  correction norm -- anchored: ", round(max(anc_norms),    4), "\n")
-#> Max  correction norm -- anchored:  0.7065
+#> Max  correction norm -- anchored:  0.7984
 ```
 
 When anchors consistently confirm the same direction of displacement,
@@ -217,7 +217,7 @@ diag <- somalign_diagnostics(fit_anc)
 cat("Solver converged:", diag$solver$converged, "\n")
 #> Solver converged: TRUE
 cat("Transport mass:  ", round(diag$ot$transport_mass, 4), "\n")
-#> Transport mass:   1.0976
+#> Transport mass:   1.1746
 ```
 
 ## Tuning `rho_anchor`
@@ -253,18 +253,18 @@ sweep_results <- lapply(rhos, function(rho) {
     mean_corr_norm = round(mean(sqrt(rowSums(f$node_shifts^2))), 5)
   )
 })
-#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.30); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.30); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.34); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 do.call(rbind, sweep_results)
 #>   rho_anchor transport_mass mean_corr_norm
-#> 1        0.5        1.08310        0.29885
-#> 2        1.0        1.09137        0.29530
-#> 3        1.5        1.09759        0.29356
-#> 4        2.0        1.10413        0.29233
-#> 5        4.0        1.12458        0.29385
+#> 1        0.5        1.17134        0.34895
+#> 2        1.0        1.17333        0.34769
+#> 3        1.5        1.17457        0.34769
+#> 4        2.0        1.17534        0.34814
+#> 5        4.0        1.17635        0.35090
 ```
 
 For a more targeted diagnostic, compare the
@@ -300,7 +300,7 @@ fit_sub <- somalign_fit_anchored(
   anchor_new = anchor_new,
   correction = "subspace"
 )
-#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 cat("Correction mode:  ", fit_sub$anchors$correction, "\n")
 #> Correction mode:   subspace
 cat("Batch subspace V: ", nrow(fit_sub$anchors$batch_subspace$V), "rows x",
@@ -329,7 +329,7 @@ fit_sub_full <- somalign_fit_anchored(
   correction        = "subspace",
   variance_threshold = 1.0
 )
-#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 cat("Rank at threshold = 1.0:", fit_sub_full$anchors$batch_subspace$rank, "\n")
 #> Rank at threshold = 1.0: 1
 ```
@@ -346,11 +346,11 @@ fit_both <- somalign_fit_anchored(
   rho_anchor = 1.5,
   correction = "both"
 )
-#> somalign_fit: 13 query node(s) have match_mass_ratio > 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 14 query node(s) have match_mass_ratio > 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 cat("Correction mode:", fit_both$anchors$correction, "\n")
 #> Correction mode: both
 cat("Coverage:       ", round(fit_both$anchors$coverage_fraction, 3), "\n")
-#> Coverage:        0.75
+#> Coverage:        0.688
 cat("Rank:           ", fit_both$anchors$batch_subspace$rank, "\n")
 #> Rank:            1
 ```

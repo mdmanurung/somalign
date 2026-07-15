@@ -217,15 +217,14 @@ resulting shifts to \(V_{\text{batch}}\).</p></li>
 </ul><p><code>"subspace"</code> and <code>"both"</code> expose <code>fit$anchors$batch_subspace</code> (a list with
 <code>V</code>, <code>rank</code>, <code>variance_explained</code>). <code>"cost_bonus"</code> sets this to <code>NULL</code>.</p>
 <p><strong>Cost modification.</strong> Let \(C\) be the M×K codebook distance matrix
-normalised by its median positive entry (as in <code><a href="somalign_fit.html">somalign_fit()</a></code>). The
-anchor pairs are projected onto the query codebook (old batch) and
-reference codebook (new batch), yielding a count matrix \(A\) where
-\(A_{kl}\) is the number of anchor pairs whose old measurement maps to
-query node \(k\) and new measurement maps to reference node \(l\).
-(The query SOM was trained on new-batch data, so projecting the old-batch
-anchor onto it identifies which query node the anchor occupied before the
-batch shift; projecting the new-batch anchor onto the reference SOM
-identifies the corresponding reference node after the shift.)
+normalised by its median positive entry (as in <code><a href="somalign_fit.html">somalign_fit()</a></code>). Each
+anchor pair is projected onto both codebooks to build a count matrix
+\(A\) where \(A_{kl}\) is the number of anchor pairs mapping to query
+node \(k\) and reference node \(l\). The query SOM was trained on
+new-batch data, so the <em>new-batch</em> anchor measurement is projected onto the
+query codebook to identify query node \(k\); the reference SOM was trained
+on old-batch data, so the <em>old-batch</em> anchor measurement is projected onto
+the reference codebook to identify reference node \(l\).
 The modified cost is
 $$\tilde{C}_{kl} = \max\!\bigl(C_{kl} - \rho_{\mathrm{anchor}} \cdot
   A_{kl} / n_{\mathrm{anchors}},\; 0\bigr).$$
@@ -239,7 +238,7 @@ by entropic regularisation alone rather than by relative anchor counts.
 The clamp is required to keep costs non-negative; at very large <code>rho_anchor</code>
 the plan for anchor-covered pairs becomes more entropic, not more
 concentrated. A practical upper bound is <code>rho_anchor * max(A) / n_anchors &lt;= 1</code>, i.e., even the most-supported pair reduces cost by at most one
-median-distance unit.</p>
+median squared-distance unit.</p>
 <p><strong>Fallback for uncovered nodes.</strong> Query nodes with no anchor samples retain
 their original pairwise costs, so the transport plan for those nodes is
 determined entirely by the OT objective — the same as <code><a href="somalign_fit.html">somalign_fit()</a></code>.
@@ -303,7 +302,7 @@ works in log-potential space and avoids the issue.</p>
 <span class="r-in"><span>                              anchor_old <span class="op">=</span> <span class="va">mat</span><span class="op">[</span><span class="va">anc_idx</span>, , drop <span class="op">=</span> <span class="cn">FALSE</span><span class="op">]</span>,</span></span>
 <span class="r-in"><span>                              anchor_new <span class="op">=</span> <span class="va">shifted</span><span class="op">[</span><span class="va">anc_idx</span>, , drop <span class="op">=</span> <span class="cn">FALSE</span><span class="op">]</span>,</span></span>
 <span class="r-in"><span>                              rho_anchor <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 1 query node(s) have match_mass_ratio &gt; 1 (max 1.19); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 3 query node(s) have match_mass_ratio &gt; 1 (max 1.11); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
 <span class="r-in"><span><span class="va">fit</span><span class="op">$</span><span class="va">anchors</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $n_anchors</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 10</span>

@@ -37,7 +37,7 @@ query_obj <- somalign_query(
 #> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 
 fit <- somalign_fit(query_obj, reference)
-#> somalign_fit: 1 query node(s) have match_mass_ratio > 1 (max 1.09); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.17); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 results <- somalign_results(fit)
 results_with_meta <- somalign_results(
   fit,
@@ -112,12 +112,12 @@ head(results[, c(
 #> 5                   1.919417           low                      FALSE
 #> 6                   1.919417           low                      FALSE
 #>       final_status corrected_som_unit corrected_som_distance
-#> 1 inside_reference                  1              0.3009187
-#> 2 inside_reference                  4              0.6854874
-#> 3 inside_reference                  4              1.2156940
-#> 4 inside_reference                  4              1.5775379
-#> 5 inside_reference                  4              0.8350289
-#> 6 inside_reference                  4              0.5477057
+#> 1 inside_reference                  1              0.2977163
+#> 2 inside_reference                  4              0.6852802
+#> 3 inside_reference                  4              1.2155583
+#> 4 inside_reference                  4              1.5699952
+#> 5 inside_reference                  4              0.8350049
+#> 6 inside_reference                  4              0.5477905
 #>   corrected_som_distance_threshold corrected_outside_reference_distance
 #> 1                         1.775302                                FALSE
 #> 2                         1.919417                                FALSE
@@ -126,12 +126,12 @@ head(results[, c(
 #> 5                         1.919417                                FALSE
 #> 6                         1.919417                                FALSE
 #>   correction_norm transferred_label transferred_label_confidence
-#> 1       1.3341087              <NA>                           NA
-#> 2       0.4712810               low                    0.9999102
-#> 3       0.4712810               low                    0.9999102
-#> 4       0.8596197              high                    0.7346461
-#> 5       0.4712810               low                    0.9999102
-#> 6       0.4712810               low                    0.9999102
+#> 1       1.3540493              <NA>                           NA
+#> 2       0.4712927               low                    0.9999969
+#> 3       0.4712927               low                    0.9999969
+#> 4       0.8539725              high                    0.7376283
+#> 5       0.4712927               low                    0.9999969
+#> 6       0.4712927               low                    0.9999969
 #>   transferred_label_accepted
 #> 1                      FALSE
 #> 2                       TRUE
@@ -276,15 +276,15 @@ it easy to inspect or pass downstream.
 
 somalign_worst_nodes(fit, n = 10)
 #>    query_node query_mass transported_mass match_fraction correction_allowed
-#> V2          2      0.475       0.38248843      0.8052388               TRUE
-#> V3          3      0.175       0.14460251      0.8263001               TRUE
-#> V4          4      0.050       0.04624335      0.9248671               TRUE
-#> V1          1      0.300       0.32567026      1.0000000               TRUE
+#> V2          2      0.475       0.42264344      0.8897757               TRUE
+#> V3          3      0.175       0.16011653      0.9149516               TRUE
+#> V1          1      0.300       0.35245983      1.0000000               TRUE
+#> V4          4      0.050       0.05309817      1.0000000               TRUE
 #>    correction_norm top_ref_label
-#> V2       0.4835307          high
-#> V3       0.8596197          high
-#> V4       1.3341087          high
-#> V1       0.4712810           low
+#> V2       0.4970407          high
+#> V3       0.8539725          high
+#> V1       0.4712927           low
+#> V4       1.3540493          high
 ```
 
 ## Next steps

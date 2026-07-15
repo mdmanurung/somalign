@@ -270,14 +270,14 @@ dynamic ranges across batches.</p>
 <p>Standard (unanchored) unbalanced entropic OT alignment.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit.html">somalign_fit</a></span><span class="op">(</span><span class="va">qry</span>, <span class="va">ref</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 4 query node(s) have match_mass_ratio &gt; 1 (max 1.05); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">fit</span>, <span class="st">"somalign_fit"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">fit</span></span>
 <span><span class="co">#&gt; &lt;somalign_fit&gt;</span></span>
 <span><span class="co">#&gt;   solver: internal</span></span>
 <span><span class="co">#&gt;   query nodes: 9</span></span>
 <span><span class="co">#&gt;   reference nodes: 9</span></span>
-<span><span class="co">#&gt;   transport mass: 1.02</span></span></code></pre></div>
+<span><span class="co">#&gt;   transport mass: 1.104</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="somalign_fit_anchored">
@@ -295,7 +295,7 @@ dynamic ranges across batches.</p>
 <span>  anchor_new <span class="op">=</span> <span class="va">anchor_new</span>,</span>
 <span>  rho_anchor <span class="op">=</span> <span class="fl">1.0</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 5 query node(s) have match_mass_ratio &gt; 1 (max 1.17); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.14); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">fit_anc</span>, <span class="st">"somalign_anchored_fit"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">fit_anc</span>, <span class="st">"somalign_fit"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"n_anchors:        "</span>, <span class="va">fit_anc</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">n_anchors</span>, <span class="st">"\n"</span><span class="op">)</span></span>
@@ -311,8 +311,8 @@ emits a message:</p>
 <span>  anchor_new <span class="op">=</span> <span class="va">anchor_new</span>,</span>
 <span>  rho_anchor <span class="op">=</span> <span class="fl">0</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; `rho_anchor = 0`: anchor pairs have no effect. Use `somalign_fit()` for equivalent results.</span></span>
-<span><span class="co">#&gt; somalign_fit: 4 query node(s) have match_mass_ratio &gt; 1 (max 1.05); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; `rho_anchor = 0`: the anchor cost bonus is inactive. Use `somalign_fit()` for equivalent results.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">fit_anc0</span>, <span class="st">"somalign_anchored_fit"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="va">fit_anc0</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">rho_anchor</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span></code></pre></div>
 <p><code>correction = "subspace"</code> estimates batch directions from
@@ -325,7 +325,7 @@ preserving orthogonal biology:</p>
 <span>  anchor_new <span class="op">=</span> <span class="va">anchor_new</span>,</span>
 <span>  correction <span class="op">=</span> <span class="st">"subspace"</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 4 query node(s) have match_mass_ratio &gt; 1 (max 1.05); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">fit_sub</span>, <span class="st">"somalign_anchored_fit"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">fit_sub</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Correction mode:    "</span>, <span class="va">fit_sub</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">correction</span>, <span class="st">"\n"</span><span class="op">)</span></span>
@@ -347,15 +347,15 @@ residual per-node offsets. Exposes <code>$two_pass</code> in addition to
 the standard <code>somalign_fit</code> interface.</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit_two_pass.html">somalign_fit_two_pass</a></span><span class="op">(</span><span class="va">qry</span>, <span class="va">ref</span>, epsilon_global <span class="op">=</span> <span class="fl">0.3</span>, epsilon_local <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.37); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 5 query node(s) have match_mass_ratio &gt; 1 (max 1.10); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.49); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.14); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">fit2</span>, <span class="st">"somalign_fit"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">fit2</span><span class="op">$</span><span class="va">two_pass</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"global_shift"</span>, <span class="st">"global_shift_norm"</span>,</span>
 <span>                <span class="st">"epsilon_global"</span>, <span class="st">"epsilon_local"</span>,</span>
 <span>                <span class="st">"batch_subspace"</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fit2</span><span class="op">$</span><span class="va">two_pass</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Global shift norm:  "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit2</span><span class="op">$</span><span class="va">two_pass</span><span class="op">$</span><span class="va">global_shift_norm</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Global shift norm:   0.3024</span></span>
+<span><span class="co">#&gt; Global shift norm:   0.2949</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Batch subspace rank:"</span>, <span class="va">fit2</span><span class="op">$</span><span class="va">two_pass</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">$</span><span class="va">rank</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Batch subspace rank: 2</span></span></code></pre></div>
 <p><code><a href="../reference/somalign_results.html">somalign_results()</a></code> and
@@ -402,7 +402,7 @@ diagnostics.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Converged:     "</span>, <span class="va">diag</span><span class="op">$</span><span class="va">solver</span><span class="op">$</span><span class="va">converged</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Converged:      TRUE</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Transport mass:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">diag</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">transport_mass</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Transport mass: 1.02</span></span>
+<span><span class="co">#&gt; Transport mass: 1.1036</span></span>
 <span></span>
 <span><span class="co"># Same interface on anchored fit</span></span>
 <span><span class="va">diag_anc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_diagnostics.html">somalign_diagnostics</a></span><span class="op">(</span><span class="va">fit_anc</span><span class="op">)</span></span>
@@ -421,23 +421,23 @@ diagnostics.</p>
 <span>  rho_query <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1.0</span><span class="op">)</span>,</span>
 <span>  rho_ref   <span class="op">=</span> <span class="fl">1.0</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 4 query node(s) have match_mass_ratio &gt; 1 (max 1.08); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.51); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 2.50); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 4 query node(s) have match_mass_ratio &gt; 1 (max 1.05); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.37); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 2.08); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.17); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.68); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 2.83); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.49); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 2.32); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">is.data.frame</a></span><span class="op">(</span><span class="va">sg</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">sg</span><span class="op">)</span> <span class="op">==</span> <span class="fl">6L</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="st">"transport_mass"</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">sg</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">sg</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"epsilon"</span>, <span class="st">"rho_query"</span>, <span class="st">"transport_mass"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;   epsilon rho_query transport_mass</span></span>
-<span><span class="co">#&gt; 1     0.1       0.5       1.026575</span></span>
-<span><span class="co">#&gt; 2     0.3       0.5       1.367139</span></span>
-<span><span class="co">#&gt; 3     0.7       0.5       2.164231</span></span>
-<span><span class="co">#&gt; 4     0.1       1.0       1.020044</span></span>
-<span><span class="co">#&gt; 5     0.3       1.0       1.276559</span></span>
-<span><span class="co">#&gt; 6     0.7       1.0       1.874688</span></span></code></pre></div>
+<span><span class="co">#&gt; 1     0.1       0.5       1.138275</span></span>
+<span><span class="co">#&gt; 2     0.3       0.5       1.501523</span></span>
+<span><span class="co">#&gt; 3     0.7       0.5       2.268484</span></span>
+<span><span class="co">#&gt; 4     0.1       1.0       1.103620</span></span>
+<span><span class="co">#&gt; 5     0.3       1.0       1.373678</span></span>
+<span><span class="co">#&gt; 6     0.7       1.0       1.945012</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="somalign_som_stability">
@@ -453,19 +453,19 @@ re-training the query SOM from scratch for each seed.</p>
 <span>  rlen <span class="op">=</span> <span class="fl">20</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
-<span><span class="co">#&gt; somalign_fit: 5 query node(s) have match_mass_ratio &gt; 1 (max 1.19); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.27); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
-<span><span class="co">#&gt; somalign_fit: 5 query node(s) have match_mass_ratio &gt; 1 (max 1.16); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.22); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
-<span><span class="co">#&gt; somalign_fit: 5 query node(s) have match_mass_ratio &gt; 1 (max 1.08); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.14); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">is.data.frame</a></span><span class="op">(</span><span class="va">stab</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">stab</span><span class="op">)</span> <span class="op">==</span> <span class="fl">3L</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="st">"som_seed"</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">stab</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">stab</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"som_seed"</span>, <span class="st">"transport_mass"</span>, <span class="st">"converged"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;   som_seed transport_mass converged</span></span>
-<span><span class="co">#&gt; 1        1       1.020921      TRUE</span></span>
-<span><span class="co">#&gt; 2        2       1.035467      TRUE</span></span>
-<span><span class="co">#&gt; 3        3       1.035882      TRUE</span></span></code></pre></div>
+<span><span class="co">#&gt; 1        1       1.101402      TRUE</span></span>
+<span><span class="co">#&gt; 2        2       1.111093      TRUE</span></span>
+<span><span class="co">#&gt; 3        3       1.110050      TRUE</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="print-methods">Print methods<a class="anchor" aria-label="anchor" href="#print-methods"></a>
@@ -488,13 +488,13 @@ object invisibly.</p>
 <span><span class="co">#&gt;   solver: internal</span></span>
 <span><span class="co">#&gt;   query nodes: 9</span></span>
 <span><span class="co">#&gt;   reference nodes: 9</span></span>
-<span><span class="co">#&gt;   transport mass: 1.02</span></span>
+<span><span class="co">#&gt;   transport mass: 1.104</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">fit_anc</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;somalign_anchored_fit&gt;</span></span>
 <span><span class="co">#&gt;   solver: internal</span></span>
 <span><span class="co">#&gt;   query nodes: 9</span></span>
 <span><span class="co">#&gt;   reference nodes: 9</span></span>
-<span><span class="co">#&gt;   transport mass: 1.056</span></span>
+<span><span class="co">#&gt;   transport mass: 1.123</span></span>
 <span><span class="co">#&gt;   anchors: 20 (66.7% node coverage)</span></span></code></pre></div>
 </div>
 <div class="section level2">

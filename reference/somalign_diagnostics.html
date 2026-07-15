@@ -82,7 +82,7 @@
 <span class="r-in"><span>                      rlen <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span>
 <span class="r-in"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="somalign_fit.html">somalign_fit</a></span><span class="op">(</span><span class="va">qry</span>, <span class="va">ref</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 2 query node(s) have match_mass_ratio &gt; 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 3 query node(s) have match_mass_ratio &gt; 1 (max 1.23); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
 <span class="r-in"><span><span class="fu">somalign_diagnostics</span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $solver</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $solver$requested</span>
@@ -95,13 +95,13 @@
 <span class="r-out co"><span class="r-pr">#&gt;</span> character(0)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $solver$iterations</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 75</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 72</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $solver$converged</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $solver$final_delta</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 9.564986e-08</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 9.290696e-08</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $solver$epsilon</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.1</span>
@@ -113,26 +113,26 @@
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $solver$cost_scale</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.660105</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2.762185</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $solver$rel_marginal_row_error</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.0539312</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.02342453</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $solver$rel_marginal_col_error</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.05850111</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.03828297</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $ot</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $ot$transport_mass</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.9372579</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.021772</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $ot$row_mass</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>        V1        V2        V3        V4 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 0.1179511 0.2662839 0.4460688 0.1069541 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 0.1234245 0.2869031 0.5002755 0.1111685 </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $ot$col_mass</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>        V1        V2        V3        V4 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 0.2561538 0.2326513 0.3414989 0.1069540 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 0.2894307 0.2382830 0.3828895 0.1111685 </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $ot$query_mass</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.1 0.3 0.5 0.1</span>
@@ -141,29 +141,29 @@
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.3 0.2 0.4 0.1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $ot$match_fraction</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.0000000 0.8876129 0.8921376 1.0000000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.0000000 0.9563437 1.0000000 1.0000000</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $ot$match_mass_ratio</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.1795113 0.8876129 0.8921376 1.0695413</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.2342453 0.9563437 1.0005511 1.1116850</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $ot$max_row_mass_error</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.0539312</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.02342453</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $ot$max_col_mass_error</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.05850111</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.03828297</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $nodes</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>    query_node query_mass transported_mass match_fraction correction_allowed</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> V1          1        0.1        0.1179511      1.0000000               TRUE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> V2          2        0.3        0.2662839      0.8876129               TRUE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> V3          3        0.5        0.4460688      0.8921376               TRUE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> V4          4        0.1        0.1069541      1.0000000               TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> V1          1        0.1        0.1234245      1.0000000               TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> V2          2        0.3        0.2869031      0.9563437               TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> V3          3        0.5        0.5002755      1.0000000               TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> V4          4        0.1        0.1111685      1.0000000               TRUE</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>    correction_norm</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> V1       0.3455129</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> V2       0.1056234</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> V3       0.4390426</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> V4       0.1478819</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> V1       0.3455139</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> V2       0.1185567</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> V3       0.4395087</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> V4       0.1478769</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $projection</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $projection$outside_direct_fraction</span>

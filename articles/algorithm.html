@@ -144,19 +144,24 @@ dimensionality independent of sample count.</p>
 <p>The transport plan
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>P</mi><annotation encoding="application/x-tex">P</annotation></semantics></math>
 minimises:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><munder><mo>∑</mo><mrow><mi>i</mi><mi>j</mi></mrow></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><msub><mi>D</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>+</mo><mi>ε</mi><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>P</mi><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mi>𝐚</mi><mo>⊗</mo><mi>𝐛</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>ρ</mi><mi>q</mi></msub><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>P</mi><mn>𝟏</mn><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mi>𝐚</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>ρ</mi><mi>r</mi></msub><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><msup><mi>P</mi><mi>⊤</mi></msup><mspace width="-0.167em"></mspace><mn>𝟏</mn><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mi>𝐛</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\sum_{ij} P_{ij} D_{ij}
-  + \varepsilon \cdot \mathrm{KL}(P \,\|\, \mathbf{a}\otimes\mathbf{b})
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><munder><mo>∑</mo><mrow><mi>i</mi><mi>j</mi></mrow></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><msub><mi>D</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>+</mo><mi>ε</mi><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>P</mi><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mn>𝟏</mn><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>ρ</mi><mi>q</mi></msub><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>P</mi><mn>𝟏</mn><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mi>𝐚</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>ρ</mi><mi>r</mi></msub><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><msup><mi>P</mi><mi>⊤</mi></msup><mspace width="-0.167em"></mspace><mn>𝟏</mn><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mi>𝐛</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\sum_{ij} P_{ij} D_{ij}
+  + \varepsilon \cdot \mathrm{KL}(P \,\|\, \mathbf{1})
   + \rho_q \cdot \mathrm{KL}(P\mathbf{1} \,\|\, \mathbf{a})
   + \rho_r \cdot \mathrm{KL}(P^\top\!\mathbf{1} \,\|\, \mathbf{b})</annotation></semantics></math></p>
 <p>where
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝐚</mi><annotation encoding="application/x-tex">\mathbf{a}</annotation></semantics></math>
 and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝐛</mi><annotation encoding="application/x-tex">\mathbf{b}</annotation></semantics></math>
-are the query and reference node masses. The KL marginal penalties relax
-the balance constraint: mass can be destroyed rather than transported,
-so a query node with no good reference counterpart routes only a small
-fraction of its mass rather than forcing an artificial match. The plan
-is found by the internal pure-R Sinkhorn scaling implementation.</p>
+are the query and reference node masses. The entropic term
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>P</mi><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mn>𝟏</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\varepsilon \cdot \mathrm{KL}(P \,\|\, \mathbf{1})</annotation></semantics></math>
+is the negentropy regulariser of Cuturi (2013), which yields the Gibbs
+kernel
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>K</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>−</mi><msub><mi>D</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mi>/</mi><mi>ε</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">K_{ij} = \exp(-D_{ij}/\varepsilon)</annotation></semantics></math>
+used by the solver. The KL marginal penalties relax the balance
+constraint: mass can be destroyed rather than transported, so a query
+node with no good reference counterpart routes only a small fraction of
+its mass rather than forcing an artificial match. The plan is found by
+the internal pure-R Sinkhorn scaling implementation.</p>
 </div>
 <div class="section level3">
 <h3 id="c-transport-plan">2c — Transport plan<a class="anchor" aria-label="anchor" href="#c-transport-plan"></a>

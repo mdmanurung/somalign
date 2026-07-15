@@ -43,6 +43,6 @@ qry <- somalign_query(mat + 0.1, ref,
                       rlen = 5)
 #> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 fit <- somalign_fit(qry, ref)
-#> somalign_fit: 1 query node(s) have match_mass_ratio > 1 (max 1.07); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 1 query node(s) have match_mass_ratio > 1 (max 1.21); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 somalign_plot_label_confusion(fit)
 ```

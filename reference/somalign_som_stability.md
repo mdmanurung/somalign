@@ -92,19 +92,21 @@ ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
 somalign_som_stability(mat, ref, som_seeds = 1:3,
                        grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 5)
 #> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
+#> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.06); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 #> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
+#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.02); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 #> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
-#> somalign_fit: 1 query node(s) have match_mass_ratio > 1 (max 1.09); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.11); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 #>   som_seed transport_mass mean_match_fraction max_row_mass_error
-#> 1        1      0.9053121           0.8994287         0.05873935
-#> 2        2      0.9178083           0.9213999         0.04301188
-#> 3        3      0.8847955           0.8791428         0.07414915
+#> 1        1       0.992981           0.9665548        0.033445192
+#> 2        2       1.003795           0.9901143        0.006636695
+#> 3        3       0.977416           0.9619554        0.044318134
 #>   accepted_label_fraction outside_direct_fraction outside_corrected_fraction
 #> 1                       0                     0.2                       0.05
-#> 2                       0                     0.2                       0.05
-#> 3                       0                     0.2                       0.05
+#> 2                       0                     0.2                       0.00
+#> 3                       0                     0.2                       0.10
 #>   mean_correction_norm converged
-#> 1            0.4702599      TRUE
-#> 2            0.2982449      TRUE
-#> 3            0.4618583      TRUE
+#> 1            0.4730823      TRUE
+#> 2            0.3180551      TRUE
+#> 3            0.4679876      TRUE
 ```

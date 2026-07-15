@@ -203,14 +203,14 @@ Standard (unanchored) unbalanced entropic OT alignment.
 ``` r
 
 fit <- somalign_fit(qry, ref)
-#> somalign_fit: 4 query node(s) have match_mass_ratio > 1 (max 1.05); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 stopifnot(inherits(fit, "somalign_fit"))
 fit
 #> <somalign_fit>
 #>   solver: internal
 #>   query nodes: 9
 #>   reference nodes: 9
-#>   transport mass: 1.02
+#>   transport mass: 1.104
 ```
 
 ## `somalign_fit_anchored`
@@ -229,7 +229,7 @@ fit_anc <- somalign_fit_anchored(
   anchor_new = anchor_new,
   rho_anchor = 1.0
 )
-#> somalign_fit: 5 query node(s) have match_mass_ratio > 1 (max 1.17); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.14); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 stopifnot(inherits(fit_anc, "somalign_anchored_fit"))
 stopifnot(inherits(fit_anc, "somalign_fit"))
 cat("n_anchors:        ", fit_anc$anchors$n_anchors, "\n")
@@ -249,8 +249,8 @@ fit_anc0 <- somalign_fit_anchored(
   anchor_new = anchor_new,
   rho_anchor = 0
 )
-#> `rho_anchor = 0`: anchor pairs have no effect. Use `somalign_fit()` for equivalent results.
-#> somalign_fit: 4 query node(s) have match_mass_ratio > 1 (max 1.05); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> `rho_anchor = 0`: the anchor cost bonus is inactive. Use `somalign_fit()` for equivalent results.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 stopifnot(inherits(fit_anc0, "somalign_anchored_fit"))
 stopifnot(fit_anc0$anchors$rho_anchor == 0)
 ```
@@ -267,7 +267,7 @@ fit_sub <- somalign_fit_anchored(
   anchor_new = anchor_new,
   correction = "subspace"
 )
-#> somalign_fit: 4 query node(s) have match_mass_ratio > 1 (max 1.05); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 stopifnot(inherits(fit_sub, "somalign_anchored_fit"))
 stopifnot(!is.null(fit_sub$anchors$batch_subspace))
 cat("Correction mode:    ", fit_sub$anchors$correction, "\n")
@@ -290,15 +290,15 @@ interface.
 ``` r
 
 fit2 <- somalign_fit_two_pass(qry, ref, epsilon_global = 0.3, epsilon_local = 0.1)
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.37); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 5 query node(s) have match_mass_ratio > 1 (max 1.10); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.49); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.14); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 stopifnot(inherits(fit2, "somalign_fit"))
 stopifnot(!is.null(fit2$two_pass))
 stopifnot(all(c("global_shift", "global_shift_norm",
                 "epsilon_global", "epsilon_local",
                 "batch_subspace") %in% names(fit2$two_pass)))
 cat("Global shift norm:  ", round(fit2$two_pass$global_shift_norm, 4), "\n")
-#> Global shift norm:   0.3024
+#> Global shift norm:   0.2949
 cat("Batch subspace rank:", fit2$two_pass$batch_subspace$rank, "\n")
 #> Batch subspace rank: 2
 ```
@@ -351,7 +351,7 @@ stopifnot(all(c("solver", "ot", "nodes", "projection") %in% names(diag)))
 cat("Converged:     ", diag$solver$converged, "\n")
 #> Converged:      TRUE
 cat("Transport mass:", round(diag$ot$transport_mass, 4), "\n")
-#> Transport mass: 1.02
+#> Transport mass: 1.1036
 
 # Same interface on anchored fit
 diag_anc <- somalign_diagnostics(fit_anc)
@@ -371,23 +371,23 @@ sg <- somalign_sensitivity_grid(
   rho_query = c(0.5, 1.0),
   rho_ref   = 1.0
 )
-#> somalign_fit: 4 query node(s) have match_mass_ratio > 1 (max 1.08); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.51); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 2.50); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 4 query node(s) have match_mass_ratio > 1 (max 1.05); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.37); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 2.08); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.17); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.68); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 2.83); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.49); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 2.32); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 stopifnot(is.data.frame(sg))
 stopifnot(nrow(sg) == 6L)
 stopifnot("transport_mass" %in% names(sg))
 sg[, c("epsilon", "rho_query", "transport_mass")]
 #>   epsilon rho_query transport_mass
-#> 1     0.1       0.5       1.026575
-#> 2     0.3       0.5       1.367139
-#> 3     0.7       0.5       2.164231
-#> 4     0.1       1.0       1.020044
-#> 5     0.3       1.0       1.276559
-#> 6     0.7       1.0       1.874688
+#> 1     0.1       0.5       1.138275
+#> 2     0.3       0.5       1.501523
+#> 3     0.7       0.5       2.268484
+#> 4     0.1       1.0       1.103620
+#> 5     0.3       1.0       1.373678
+#> 6     0.7       1.0       1.945012
 ```
 
 ## `somalign_som_stability`
@@ -404,19 +404,19 @@ stab <- somalign_som_stability(
   rlen = 20
 )
 #> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
-#> somalign_fit: 5 query node(s) have match_mass_ratio > 1 (max 1.19); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.27); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 #> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
-#> somalign_fit: 5 query node(s) have match_mass_ratio > 1 (max 1.16); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.22); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 #> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
-#> somalign_fit: 5 query node(s) have match_mass_ratio > 1 (max 1.08); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.14); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 stopifnot(is.data.frame(stab))
 stopifnot(nrow(stab) == 3L)
 stopifnot("som_seed" %in% names(stab))
 stab[, c("som_seed", "transport_mass", "converged")]
 #>   som_seed transport_mass converged
-#> 1        1       1.020921      TRUE
-#> 2        2       1.035467      TRUE
-#> 3        3       1.035882      TRUE
+#> 1        1       1.101402      TRUE
+#> 2        2       1.111093      TRUE
+#> 3        3       1.110050      TRUE
 ```
 
 ## Print methods
@@ -441,13 +441,13 @@ invisible(print(fit))
 #>   solver: internal
 #>   query nodes: 9
 #>   reference nodes: 9
-#>   transport mass: 1.02
+#>   transport mass: 1.104
 invisible(print(fit_anc))
 #> <somalign_anchored_fit>
 #>   solver: internal
 #>   query nodes: 9
 #>   reference nodes: 9
-#>   transport mass: 1.056
+#>   transport mass: 1.123
 #>   anchors: 20 (66.7% node coverage)
 ```
 

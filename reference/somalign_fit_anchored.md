@@ -164,15 +164,14 @@ with `V`, `rank`, `variance_explained`). `"cost_bonus"` sets this to
 **Cost modification.** Let \\C\\ be the M×K codebook distance matrix
 normalised by its median positive entry (as in
 [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)).
-The anchor pairs are projected onto the query codebook (old batch) and
-reference codebook (new batch), yielding a count matrix \\A\\ where
-\\A\_{kl}\\ is the number of anchor pairs whose old measurement maps to
-query node \\k\\ and new measurement maps to reference node \\l\\. (The
-query SOM was trained on new-batch data, so projecting the old-batch
-anchor onto it identifies which query node the anchor occupied before
-the batch shift; projecting the new-batch anchor onto the reference SOM
-identifies the corresponding reference node after the shift.) The
-modified cost is \$\$\tilde{C}\_{kl} = \max\\\bigl(C\_{kl} -
+Each anchor pair is projected onto both codebooks to build a count
+matrix \\A\\ where \\A\_{kl}\\ is the number of anchor pairs mapping to
+query node \\k\\ and reference node \\l\\. The query SOM was trained on
+new-batch data, so the *new-batch* anchor measurement is projected onto
+the query codebook to identify query node \\k\\; the reference SOM was
+trained on old-batch data, so the *old-batch* anchor measurement is
+projected onto the reference codebook to identify reference node \\l\\.
+The modified cost is \$\$\tilde{C}\_{kl} = \max\\\bigl(C\_{kl} -
 \rho\_{\mathrm{anchor}} \cdot A\_{kl} / n\_{\mathrm{anchors}},\\
 0\bigr).\$\$ Pairs with many anchor observations get cost reduced toward
 zero (free transport), while uncovered pairs retain their original cost.
@@ -186,7 +185,7 @@ anchor counts. The clamp is required to keep costs non-negative; at very
 large `rho_anchor` the plan for anchor-covered pairs becomes more
 entropic, not more concentrated. A practical upper bound is
 `rho_anchor * max(A) / n_anchors <= 1`, i.e., even the most-supported
-pair reduces cost by at most one median-distance unit.
+pair reduces cost by at most one median squared-distance unit.
 
 **Fallback for uncovered nodes.** Query nodes with no anchor samples
 retain their original pairwise costs, so the transport plan for those
@@ -264,7 +263,7 @@ fit <- somalign_fit_anchored(qry, ref,
                               anchor_old = mat[anc_idx, , drop = FALSE],
                               anchor_new = shifted[anc_idx, , drop = FALSE],
                               rho_anchor = 1)
-#> somalign_fit: 1 query node(s) have match_mass_ratio > 1 (max 1.19); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.11); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 fit$anchors
 #> $n_anchors
 #> [1] 10

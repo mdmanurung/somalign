@@ -138,7 +138,7 @@ query <- somalign_query(
 #> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 
 fit <- somalign_fit(query, reference)
-#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.26); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 sample_metadata <- data.frame(batch = rep("new_batch", nrow(new_data)))
 results <- somalign_results(fit, data = sample_metadata)
 
@@ -180,19 +180,19 @@ head(results[, c(
 #> 5                  4                         2.023005
 #> 6                  1                         2.483497
 #>   corrected_outside_reference_distance correction_norm transferred_label
-#> 1                                FALSE       0.3303817           old_low
-#> 2                                 TRUE       0.5424595              <NA>
-#> 3                                 TRUE       1.1510211              <NA>
-#> 4                                FALSE       0.3303817           old_low
-#> 5                                FALSE       0.3303817           old_low
-#> 6                                FALSE       0.3303817           old_low
+#> 1                                FALSE       0.3356280           old_low
+#> 2                                 TRUE       0.5326595          old_high
+#> 3                                FALSE       1.2331432              <NA>
+#> 4                                FALSE       0.3356280           old_low
+#> 5                                FALSE       0.3356280           old_low
+#> 6                                FALSE       0.3356280           old_low
 #>   transferred_label_confidence transferred_label_accepted
-#> 1                    0.9987403                       TRUE
-#> 2                           NA                      FALSE
+#> 1                    0.9993081                       TRUE
+#> 2                    0.6031686                       TRUE
 #> 3                           NA                      FALSE
-#> 4                    0.9987403                       TRUE
-#> 5                    0.9987403                       TRUE
-#> 6                    0.9987403                       TRUE
+#> 4                    0.9993081                       TRUE
+#> 5                    0.9993081                       TRUE
+#> 6                    0.9993081                       TRUE
 ```
 
 ## Quality control and tuning
@@ -214,27 +214,27 @@ diagnostics$solver[c(
 #> [1] TRUE
 #> 
 #> $iterations
-#> [1] 80
+#> [1] 78
 #> 
 #> $final_delta
-#> [1] 9.047741e-08
+#> [1] 8.382839e-08
 #> 
 #> $cost_scale
-#> [1] 2.161104
+#> [1] 4.673796
 diagnostics$ot$match_fraction       # clipped to at most 1
-#> [1] 0.8271323 0.8592818 1.0000000 0.2727043 0.9308854 1.0000000
+#> [1] 0.97556440 0.91125218 1.00000000 0.09812228 1.00000000 1.00000000
 diagnostics$ot$match_mass_ratio     # raw transported/query mass ratio
-#> [1] 0.8271323 0.8592818 1.0886089 0.2727043 0.9308854 1.1254354
+#> [1] 0.97556440 0.91125218 1.22731907 0.09812228 1.08463126 1.25848744
 diagnostics$ot$transport_mass       # total transported mass
-#> [1] 0.8325581
+#> [1] 0.9059737
 diagnostics$ot$max_row_mass_error   # query-side marginal deviation
-#> [1] 0.1531149
+#> [1] 0.189869
 diagnostics$projection              # direct/corrected outside fractions
 #> $outside_direct_fraction
 #> [1] 0.2631579
 #> 
 #> $outside_corrected_fraction
-#> [1] 0.1315789
+#> [1] 0.07894737
 ```
 
 `diagnostics$ot$match_fraction` is the most actionable single number: a
@@ -268,10 +268,10 @@ sensitivity <- somalign_sensitivity_grid(
   rho_query = c(0.5, 1),
   rho_ref   = 1
 )
-#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.07); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 1 query node(s) have match_mass_ratio > 1 (max 1.05); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.25); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.49); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.26); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 sensitivity[, c(
   "epsilon",
   "rho_query",
@@ -285,20 +285,20 @@ sensitivity[, c(
   "outside_corrected_fraction"
 )]
 #>   epsilon rho_query rho_ref   solver transport_mass mean_match_fraction
-#> 1    0.05       0.5       1 internal      0.7567440           0.7269262
-#> 2    0.10       0.5       1 internal      0.8146693           0.7742114
-#> 3    0.05       1.0       1 internal      0.7866239           0.7705905
-#> 4    0.10       1.0       1 internal      0.8325581           0.8150006
+#> 1    0.05       0.5       1 internal      0.8735271           0.7669160
+#> 2    0.10       0.5       1 internal      0.9336284           0.8003814
+#> 3    0.05       1.0       1 internal      0.8597172           0.8042866
+#> 4    0.10       1.0       1 internal      0.9059737           0.8308231
 #>   max_row_mass_error accepted_label_fraction outside_direct_fraction
-#> 1          0.1925167               0.8333333               0.2631579
-#> 2          0.1885548               0.6666667               0.2631579
-#> 3          0.1576913               0.6666667               0.2631579
-#> 4          0.1531149               0.6666667               0.2631579
+#> 1          0.2084264               0.5000000               0.2631579
+#> 2          0.2074962               0.6666667               0.2631579
+#> 3          0.1920553               0.6666667               0.2631579
+#> 4          0.1898690               0.8333333               0.2631579
 #>   outside_corrected_fraction
-#> 1                 0.10526316
-#> 2                 0.10526316
+#> 1                 0.26315789
+#> 2                 0.26315789
 #> 3                 0.07894737
-#> 4                 0.13157895
+#> 4                 0.07894737
 ```
 
 Strong sensitivity to `epsilon` or `rho_query` is a signal that the

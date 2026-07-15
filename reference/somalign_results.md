@@ -36,7 +36,7 @@ qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
                       rlen = 5)
 #> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 fit <- somalign_fit(qry, ref)
-#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.23); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 somalign_results(fit)
 #>    sample_id query_som_unit old_som_unit old_som_distance
 #> 1          1              3            1       0.83244247
@@ -72,27 +72,27 @@ somalign_results(fit)
 #> 9           <NA>                       NA                  3
 #> 10          <NA>                       NA                  1
 #>    corrected_som_distance corrected_som_distance_threshold
-#> 1            7.792775e-01                        0.8250290
-#> 2            7.047406e-01                        0.6703518
-#> 3            4.054800e-01                        0.4411642
-#> 4            5.641698e-06                        0.1478769
-#> 5            5.009436e-01                        0.8250290
-#> 6            1.656497e-01                        0.4411642
-#> 7            1.097853e-01                        0.6703518
-#> 8            2.627448e-01                        0.6703518
-#> 9            2.081463e-01                        0.6703518
-#> 10           2.406763e-01                        0.8250290
+#> 1               0.7582309                        0.8250290
+#> 2               0.6913405                        0.6703518
+#> 3               0.3598947                        0.4411642
+#> 4               0.0000000                        0.1478769
+#> 5               0.5213334                        0.8250290
+#> 6               0.1918948                        0.4411642
+#> 7               0.1097766                        0.6703518
+#> 8               0.2575890                        0.6703518
+#> 9               0.1875863                        0.6703518
+#> 10              0.1931799                        0.8250290
 #>    corrected_outside_reference_distance correction_norm transferred_label
-#> 1                                 FALSE       0.4390426              <NA>
-#> 2                                  TRUE       0.4390426              <NA>
-#> 3                                 FALSE       0.1056234              <NA>
-#> 4                                 FALSE       0.1478819              <NA>
-#> 5                                 FALSE       0.4390426              <NA>
-#> 6                                 FALSE       0.1056234              <NA>
-#> 7                                 FALSE       0.3455129              <NA>
-#> 8                                 FALSE       0.4390426              <NA>
-#> 9                                 FALSE       0.4390426              <NA>
-#> 10                                FALSE       0.1056234              <NA>
+#> 1                                 FALSE       0.4395087              <NA>
+#> 2                                  TRUE       0.4395087              <NA>
+#> 3                                 FALSE       0.1185567              <NA>
+#> 4                                 FALSE       0.1478769              <NA>
+#> 5                                 FALSE       0.4395087              <NA>
+#> 6                                 FALSE       0.1185567              <NA>
+#> 7                                 FALSE       0.3455139              <NA>
+#> 8                                 FALSE       0.4395087              <NA>
+#> 9                                 FALSE       0.4395087              <NA>
+#> 10                                FALSE       0.1185567              <NA>
 #>    transferred_label_confidence transferred_label_accepted
 #> 1                            NA                      FALSE
 #> 2                            NA                      FALSE

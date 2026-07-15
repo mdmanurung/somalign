@@ -83,14 +83,14 @@ fit2 <- somalign_fit_two_pass(
   epsilon_global = 0.3,
   epsilon_local  = 0.1
 )
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.08); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.53); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.15); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 fit2
 #> <somalign_fit>
 #>   solver: internal
 #>   query nodes: 9
 #>   reference nodes: 9
-#>   transport mass: 1.053
+#>   transport mass: 1.12
 ```
 
 The `$two_pass` slot records the estimated global shift and both epsilon
@@ -102,7 +102,7 @@ cat("Estimated global shift (correction direction, query -> reference):\n")
 #> Estimated global shift (correction direction, query -> reference):
 print(round(fit2$two_pass$global_shift, 3))
 #>    CD1    CD2    CD3    CD4 
-#> -0.165 -0.132 -0.153 -0.094
+#> -0.168 -0.133 -0.154 -0.094
 cat("\nTrue batch offset (positive = new batch above old):\n")
 #> 
 #> True batch offset (positive = new batch above old):
@@ -110,7 +110,7 @@ print(round(global_shift, 3))
 #> [1] 0.40 0.30 0.35 0.25
 cat("\nGlobal shift magnitude:", round(fit2$two_pass$global_shift_norm, 3), "\n")
 #> 
-#> Global shift magnitude: 0.277
+#> Global shift magnitude: 0.28
 ```
 
 `global_shift` points in the *correction* direction — from query
@@ -135,7 +135,7 @@ bs <- fit2$two_pass$batch_subspace
 cat("Batch subspace rank (pass 1):        ", bs$rank, "\n")
 #> Batch subspace rank (pass 1):         2
 cat("Variance explained by leading directions:", round(bs$variance_explained, 3), "\n")
-#> Variance explained by leading directions: 0.931
+#> Variance explained by leading directions: 0.926
 ```
 
 This is a read-only diagnostic. Rank 1 indicates that pass-1 node shifts
@@ -158,8 +158,8 @@ diagnostic:
 ``` r
 
 fit2b <- somalign_fit_two_pass(query, reference, variance_threshold = 1.0)
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.08); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.53); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.15); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 cat("Rank at variance_threshold = 1.0:", fit2b$two_pass$batch_subspace$rank, "\n")
 #> Rank at variance_threshold = 1.0: 4
 
@@ -177,14 +177,14 @@ at `epsilon_local` sees the full uncorrected offset in one pass:
 ``` r
 
 fit1 <- somalign_fit(query, reference, epsilon = 0.1)
-#> somalign_fit: 4 query node(s) have match_mass_ratio > 1 (max 1.10); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.16); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 
 cat("Mean node shift -- two-pass: ",
     round(mean(sqrt(rowSums(fit2$node_shifts^2))), 4), "\n")
-#> Mean node shift -- two-pass:  0.2982
+#> Mean node shift -- two-pass:  0.317
 cat("Mean node shift -- one-pass: ",
     round(mean(sqrt(rowSums(fit1$node_shifts^2))), 4), "\n")
-#> Mean node shift -- one-pass:  0.209
+#> Mean node shift -- one-pass:  0.2246
 ```
 
 Both return `somalign_fit` objects with an identical downstream
@@ -203,7 +203,7 @@ diag2 <- somalign_diagnostics(fit2)
 cat("Solver converged:", diag2$solver$converged, "\n")
 #> Solver converged: TRUE
 cat("Transport mass:  ", round(diag2$ot$transport_mass, 4), "\n")
-#> Transport mass:   1.0527
+#> Transport mass:   1.1198
 ```
 
 ## Label-guided alignment

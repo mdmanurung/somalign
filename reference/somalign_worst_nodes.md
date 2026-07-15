@@ -38,16 +38,16 @@ qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
                       rlen = 5)
 #> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 fit <- somalign_fit(qry, ref)
-#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.23); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 somalign_worst_nodes(fit, n = 4)
 #>    query_node query_mass transported_mass match_fraction correction_allowed
-#> V2          2        0.3        0.2662839      0.8876129               TRUE
-#> V3          3        0.5        0.4460688      0.8921376               TRUE
-#> V1          1        0.1        0.1179511      1.0000000               TRUE
-#> V4          4        0.1        0.1069541      1.0000000               TRUE
+#> V2          2        0.3        0.2869031      0.9563437               TRUE
+#> V1          1        0.1        0.1234245      1.0000000               TRUE
+#> V3          3        0.5        0.5002755      1.0000000               TRUE
+#> V4          4        0.1        0.1111685      1.0000000               TRUE
 #>    correction_norm top_ref_label
-#> V2       0.1056234          <NA>
-#> V3       0.4390426          <NA>
-#> V1       0.3455129          <NA>
-#> V4       0.1478819          <NA>
+#> V2       0.1185567          <NA>
+#> V1       0.3455139          <NA>
+#> V3       0.4395087          <NA>
+#> V4       0.1478769          <NA>
 ```

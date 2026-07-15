@@ -169,12 +169,12 @@ phenotypic populations.</p>
 </h2>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_plain</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit.html">somalign_fit</a></span><span class="op">(</span><span class="va">query</span>, <span class="va">reference</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="va">fit_anc</span>   <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored</a></span><span class="op">(</span><span class="va">query</span>, <span class="va">reference</span>,</span>
 <span>                                    anchor_old <span class="op">=</span> <span class="va">anchor_old</span>,</span>
 <span>                                    anchor_new <span class="op">=</span> <span class="va">anchor_new</span>,</span>
 <span>                                    rho_anchor <span class="op">=</span> <span class="fl">1.5</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span></code></pre></div>
+<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span></code></pre></div>
 <p>Printing either object gives a concise summary:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_plain</span></span>
@@ -182,14 +182,14 @@ phenotypic populations.</p>
 <span><span class="co">#&gt;   solver: internal</span></span>
 <span><span class="co">#&gt;   query nodes: 16</span></span>
 <span><span class="co">#&gt;   reference nodes: 16</span></span>
-<span><span class="co">#&gt;   transport mass: 1.074</span></span>
+<span><span class="co">#&gt;   transport mass: 1.166</span></span>
 <span><span class="va">fit_anc</span></span>
 <span><span class="co">#&gt; &lt;somalign_anchored_fit&gt;</span></span>
 <span><span class="co">#&gt;   solver: internal</span></span>
 <span><span class="co">#&gt;   query nodes: 16</span></span>
 <span><span class="co">#&gt;   reference nodes: 16</span></span>
-<span><span class="co">#&gt;   transport mass: 1.098</span></span>
-<span><span class="co">#&gt;   anchors: 25 (75% node coverage)</span></span></code></pre></div>
+<span><span class="co">#&gt;   transport mass: 1.175</span></span>
+<span><span class="co">#&gt;   anchors: 25 (68.8% node coverage)</span></span></code></pre></div>
 <p>The anchored fit reports how many query nodes had at least one anchor
 pair and the fraction of the codebook they cover:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
@@ -204,10 +204,10 @@ pair and the fraction of the codebook they cover:</p>
 <span><span class="co">#&gt; [1] "cost_bonus"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $nodes_covered</span></span>
-<span><span class="co">#&gt; [1] 12</span></span>
+<span><span class="co">#&gt; [1] 11</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $coverage_fraction</span></span>
-<span><span class="co">#&gt; [1] 0.75</span></span>
+<span><span class="co">#&gt; [1] 0.6875</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $batch_subspace</span></span>
 <span><span class="co">#&gt; NULL</span></span></code></pre></div>
@@ -232,13 +232,13 @@ norms:</p>
 <span><span class="va">anc_norms</span>   <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">fit_anc</span><span class="op">$</span><span class="va">node_shifts</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean correction norm -- plain:    "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">plain_norms</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Mean correction norm -- plain:     0.3052</span></span>
+<span><span class="co">#&gt; Mean correction norm -- plain:     0.3566</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean correction norm -- anchored: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">anc_norms</span><span class="op">)</span>,   <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Mean correction norm -- anchored:  0.2936</span></span>
+<span><span class="co">#&gt; Mean correction norm -- anchored:  0.3477</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Max  correction norm -- plain:    "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">plain_norms</span><span class="op">)</span>,  <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Max  correction norm -- plain:     0.735</span></span>
+<span><span class="co">#&gt; Max  correction norm -- plain:     0.8014</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Max  correction norm -- anchored: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">anc_norms</span><span class="op">)</span>,    <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Max  correction norm -- anchored:  0.7065</span></span></code></pre></div>
+<span><span class="co">#&gt; Max  correction norm -- anchored:  0.7984</span></span></code></pre></div>
 <p>When anchors consistently confirm the same direction of displacement,
 anchor-regularized fits produce more coherent correction vectors: the OT
 plan concentrates mass on anchor-supported routes, reducing the
@@ -268,7 +268,7 @@ fits:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Solver converged:"</span>, <span class="va">diag</span><span class="op">$</span><span class="va">solver</span><span class="op">$</span><span class="va">converged</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Solver converged: TRUE</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Transport mass:  "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">diag</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">transport_mass</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Transport mass:   1.0976</span></span></code></pre></div>
+<span><span class="co">#&gt; Transport mass:   1.1746</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="tuning-rho_anchor">Tuning <code>rho_anchor</code><a class="anchor" aria-label="anchor" href="#tuning-rho_anchor"></a>
@@ -301,18 +301,18 @@ a smaller value avoids over-weighting a few node pairs.</p>
 <span>    mean_corr_norm <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">f</span><span class="op">$</span><span class="va">node_shifts</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>, <span class="fl">5</span><span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.30); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.30); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.34); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="va">sweep_results</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   rho_anchor transport_mass mean_corr_norm</span></span>
-<span><span class="co">#&gt; 1        0.5        1.08310        0.29885</span></span>
-<span><span class="co">#&gt; 2        1.0        1.09137        0.29530</span></span>
-<span><span class="co">#&gt; 3        1.5        1.09759        0.29356</span></span>
-<span><span class="co">#&gt; 4        2.0        1.10413        0.29233</span></span>
-<span><span class="co">#&gt; 5        4.0        1.12458        0.29385</span></span></code></pre></div>
+<span><span class="co">#&gt; 1        0.5        1.17134        0.34895</span></span>
+<span><span class="co">#&gt; 2        1.0        1.17333        0.34769</span></span>
+<span><span class="co">#&gt; 3        1.5        1.17457        0.34769</span></span>
+<span><span class="co">#&gt; 4        2.0        1.17534        0.34814</span></span>
+<span><span class="co">#&gt; 5        4.0        1.17635        0.35090</span></span></code></pre></div>
 <p>For a more targeted diagnostic, compare the
 <code><a href="../reference/somalign_diagnostics.html">somalign_diagnostics()</a></code> node-level
 <code>match_fraction</code> and <code>correction_norm</code> across
@@ -345,7 +345,7 @@ corrects only the batch component; biology orthogonal to
 <span>  anchor_new <span class="op">=</span> <span class="va">anchor_new</span>,</span>
 <span>  correction <span class="op">=</span> <span class="st">"subspace"</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Correction mode:  "</span>, <span class="va">fit_sub</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">correction</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Correction mode:   subspace</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Batch subspace V: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">fit_sub</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">$</span><span class="va">V</span><span class="op">)</span>, <span class="st">"rows x"</span>,</span>
@@ -371,7 +371,7 @@ displacement data.</p>
 <span>  correction        <span class="op">=</span> <span class="st">"subspace"</span>,</span>
 <span>  variance_threshold <span class="op">=</span> <span class="fl">1.0</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Rank at threshold = 1.0:"</span>, <span class="va">fit_sub_full</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">$</span><span class="va">rank</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Rank at threshold = 1.0: 1</span></span></code></pre></div>
 <p><code>correction = "both"</code> applies the anchor cost bonus to the
@@ -385,11 +385,11 @@ OT solve <em>and</em> restricts the resulting shifts to
 <span>  rho_anchor <span class="op">=</span> <span class="fl">1.5</span>,</span>
 <span>  correction <span class="op">=</span> <span class="st">"both"</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Correction mode:"</span>, <span class="va">fit_both</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">correction</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Correction mode: both</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Coverage:       "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit_both</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">coverage_fraction</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Coverage:        0.75</span></span>
+<span><span class="co">#&gt; Coverage:        0.688</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Rank:           "</span>, <span class="va">fit_both</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">$</span><span class="va">rank</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Rank:            1</span></span></code></pre></div>
 <p><code>rho_anchor</code> has no effect under

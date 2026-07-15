@@ -206,7 +206,7 @@ be disabled. Direct node assignment continues to work in both cases.</p>
 <span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
 <span></span>
 <span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit.html">somalign_fit</a></span><span class="op">(</span><span class="va">query</span>, <span class="va">reference</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 2 query node(s) have match_mass_ratio &gt; 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 3 query node(s) have match_mass_ratio &gt; 1 (max 1.26); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="va">sample_metadata</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>batch <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"new_batch"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">new_data</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_results.html">somalign_results</a></span><span class="op">(</span><span class="va">fit</span>, data <span class="op">=</span> <span class="va">sample_metadata</span><span class="op">)</span></span>
 <span></span>
@@ -248,19 +248,19 @@ be disabled. Direct node assignment continues to work in both cases.</p>
 <span><span class="co">#&gt; 5                  4                         2.023005</span></span>
 <span><span class="co">#&gt; 6                  1                         2.483497</span></span>
 <span><span class="co">#&gt;   corrected_outside_reference_distance correction_norm transferred_label</span></span>
-<span><span class="co">#&gt; 1                                FALSE       0.3303817           old_low</span></span>
-<span><span class="co">#&gt; 2                                 TRUE       0.5424595              &lt;NA&gt;</span></span>
-<span><span class="co">#&gt; 3                                 TRUE       1.1510211              &lt;NA&gt;</span></span>
-<span><span class="co">#&gt; 4                                FALSE       0.3303817           old_low</span></span>
-<span><span class="co">#&gt; 5                                FALSE       0.3303817           old_low</span></span>
-<span><span class="co">#&gt; 6                                FALSE       0.3303817           old_low</span></span>
+<span><span class="co">#&gt; 1                                FALSE       0.3356280           old_low</span></span>
+<span><span class="co">#&gt; 2                                 TRUE       0.5326595          old_high</span></span>
+<span><span class="co">#&gt; 3                                FALSE       1.2331432              &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 4                                FALSE       0.3356280           old_low</span></span>
+<span><span class="co">#&gt; 5                                FALSE       0.3356280           old_low</span></span>
+<span><span class="co">#&gt; 6                                FALSE       0.3356280           old_low</span></span>
 <span><span class="co">#&gt;   transferred_label_confidence transferred_label_accepted</span></span>
-<span><span class="co">#&gt; 1                    0.9987403                       TRUE</span></span>
-<span><span class="co">#&gt; 2                           NA                      FALSE</span></span>
+<span><span class="co">#&gt; 1                    0.9993081                       TRUE</span></span>
+<span><span class="co">#&gt; 2                    0.6031686                       TRUE</span></span>
 <span><span class="co">#&gt; 3                           NA                      FALSE</span></span>
-<span><span class="co">#&gt; 4                    0.9987403                       TRUE</span></span>
-<span><span class="co">#&gt; 5                    0.9987403                       TRUE</span></span>
-<span><span class="co">#&gt; 6                    0.9987403                       TRUE</span></span></code></pre></div>
+<span><span class="co">#&gt; 4                    0.9993081                       TRUE</span></span>
+<span><span class="co">#&gt; 5                    0.9993081                       TRUE</span></span>
+<span><span class="co">#&gt; 6                    0.9993081                       TRUE</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="quality-control-and-tuning">Quality control and tuning<a class="anchor" aria-label="anchor" href="#quality-control-and-tuning"></a>
@@ -280,27 +280,27 @@ inspect the solver and OT diagnostics:</p>
 <span><span class="co">#&gt; [1] TRUE</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $iterations</span></span>
-<span><span class="co">#&gt; [1] 80</span></span>
+<span><span class="co">#&gt; [1] 78</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $final_delta</span></span>
-<span><span class="co">#&gt; [1] 9.047741e-08</span></span>
+<span><span class="co">#&gt; [1] 8.382839e-08</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $cost_scale</span></span>
-<span><span class="co">#&gt; [1] 2.161104</span></span>
+<span><span class="co">#&gt; [1] 4.673796</span></span>
 <span><span class="va">diagnostics</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">match_fraction</span>       <span class="co"># clipped to at most 1</span></span>
-<span><span class="co">#&gt; [1] 0.8271323 0.8592818 1.0000000 0.2727043 0.9308854 1.0000000</span></span>
+<span><span class="co">#&gt; [1] 0.97556440 0.91125218 1.00000000 0.09812228 1.00000000 1.00000000</span></span>
 <span><span class="va">diagnostics</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">match_mass_ratio</span>     <span class="co"># raw transported/query mass ratio</span></span>
-<span><span class="co">#&gt; [1] 0.8271323 0.8592818 1.0886089 0.2727043 0.9308854 1.1254354</span></span>
+<span><span class="co">#&gt; [1] 0.97556440 0.91125218 1.22731907 0.09812228 1.08463126 1.25848744</span></span>
 <span><span class="va">diagnostics</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">transport_mass</span>       <span class="co"># total transported mass</span></span>
-<span><span class="co">#&gt; [1] 0.8325581</span></span>
+<span><span class="co">#&gt; [1] 0.9059737</span></span>
 <span><span class="va">diagnostics</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">max_row_mass_error</span>   <span class="co"># query-side marginal deviation</span></span>
-<span><span class="co">#&gt; [1] 0.1531149</span></span>
+<span><span class="co">#&gt; [1] 0.189869</span></span>
 <span><span class="va">diagnostics</span><span class="op">$</span><span class="va">projection</span>              <span class="co"># direct/corrected outside fractions</span></span>
 <span><span class="co">#&gt; $outside_direct_fraction</span></span>
 <span><span class="co">#&gt; [1] 0.2631579</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $outside_corrected_fraction</span></span>
-<span><span class="co">#&gt; [1] 0.1315789</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 0.07894737</span></span></code></pre></div>
 <p><code>diagnostics$ot$match_fraction</code> is the most actionable
 single number: a query node with low match fraction transported little
 mass to any reference node, which typically means a novel population, a
@@ -329,10 +329,10 @@ conclusions:</p>
 <span>  rho_query <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span>  rho_ref   <span class="op">=</span> <span class="fl">1</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 2 query node(s) have match_mass_ratio &gt; 1 (max 1.07); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 2 query node(s) have match_mass_ratio &gt; 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 1 query node(s) have match_mass_ratio &gt; 1 (max 1.05); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 2 query node(s) have match_mass_ratio &gt; 1 (max 1.13); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 3 query node(s) have match_mass_ratio &gt; 1 (max 1.25); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 3 query node(s) have match_mass_ratio &gt; 1 (max 1.49); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 3 query node(s) have match_mass_ratio &gt; 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 3 query node(s) have match_mass_ratio &gt; 1 (max 1.26); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="va">sensitivity</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>  <span class="st">"epsilon"</span>,</span>
 <span>  <span class="st">"rho_query"</span>,</span>
@@ -346,20 +346,20 @@ conclusions:</p>
 <span>  <span class="st">"outside_corrected_fraction"</span></span>
 <span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="co">#&gt;   epsilon rho_query rho_ref   solver transport_mass mean_match_fraction</span></span>
-<span><span class="co">#&gt; 1    0.05       0.5       1 internal      0.7567440           0.7269262</span></span>
-<span><span class="co">#&gt; 2    0.10       0.5       1 internal      0.8146693           0.7742114</span></span>
-<span><span class="co">#&gt; 3    0.05       1.0       1 internal      0.7866239           0.7705905</span></span>
-<span><span class="co">#&gt; 4    0.10       1.0       1 internal      0.8325581           0.8150006</span></span>
+<span><span class="co">#&gt; 1    0.05       0.5       1 internal      0.8735271           0.7669160</span></span>
+<span><span class="co">#&gt; 2    0.10       0.5       1 internal      0.9336284           0.8003814</span></span>
+<span><span class="co">#&gt; 3    0.05       1.0       1 internal      0.8597172           0.8042866</span></span>
+<span><span class="co">#&gt; 4    0.10       1.0       1 internal      0.9059737           0.8308231</span></span>
 <span><span class="co">#&gt;   max_row_mass_error accepted_label_fraction outside_direct_fraction</span></span>
-<span><span class="co">#&gt; 1          0.1925167               0.8333333               0.2631579</span></span>
-<span><span class="co">#&gt; 2          0.1885548               0.6666667               0.2631579</span></span>
-<span><span class="co">#&gt; 3          0.1576913               0.6666667               0.2631579</span></span>
-<span><span class="co">#&gt; 4          0.1531149               0.6666667               0.2631579</span></span>
+<span><span class="co">#&gt; 1          0.2084264               0.5000000               0.2631579</span></span>
+<span><span class="co">#&gt; 2          0.2074962               0.6666667               0.2631579</span></span>
+<span><span class="co">#&gt; 3          0.1920553               0.6666667               0.2631579</span></span>
+<span><span class="co">#&gt; 4          0.1898690               0.8333333               0.2631579</span></span>
 <span><span class="co">#&gt;   outside_corrected_fraction</span></span>
-<span><span class="co">#&gt; 1                 0.10526316</span></span>
-<span><span class="co">#&gt; 2                 0.10526316</span></span>
+<span><span class="co">#&gt; 1                 0.26315789</span></span>
+<span><span class="co">#&gt; 2                 0.26315789</span></span>
 <span><span class="co">#&gt; 3                 0.07894737</span></span>
-<span><span class="co">#&gt; 4                 0.13157895</span></span></code></pre></div>
+<span><span class="co">#&gt; 4                 0.07894737</span></span></code></pre></div>
 <p>Strong sensitivity to <code>epsilon</code> or <code>rho_query</code>
 is a signal that the OT-derived outputs are not reliable for this
 dataset. In that case, rely on direct projection and do not carry

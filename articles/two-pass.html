@@ -155,14 +155,14 @@ within-population noise:</p>
 <span>  epsilon_global <span class="op">=</span> <span class="fl">0.3</span>,</span>
 <span>  epsilon_local  <span class="op">=</span> <span class="fl">0.1</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.08); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.53); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.15); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="va">fit2</span></span>
 <span><span class="co">#&gt; &lt;somalign_fit&gt;</span></span>
 <span><span class="co">#&gt;   solver: internal</span></span>
 <span><span class="co">#&gt;   query nodes: 9</span></span>
 <span><span class="co">#&gt;   reference nodes: 9</span></span>
-<span><span class="co">#&gt;   transport mass: 1.053</span></span></code></pre></div>
+<span><span class="co">#&gt;   transport mass: 1.12</span></span></code></pre></div>
 <p>The <code>$two_pass</code> slot records the estimated global shift
 and both epsilon values:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -170,7 +170,7 @@ and both epsilon values:</p>
 <span><span class="co">#&gt; Estimated global shift (correction direction, query -&gt; reference):</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit2</span><span class="op">$</span><span class="va">two_pass</span><span class="op">$</span><span class="va">global_shift</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    CD1    CD2    CD3    CD4 </span></span>
-<span><span class="co">#&gt; -0.165 -0.132 -0.153 -0.094</span></span>
+<span><span class="co">#&gt; -0.168 -0.133 -0.154 -0.094</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nTrue batch offset (positive = new batch above old):\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; True batch offset (positive = new batch above old):</span></span>
@@ -178,7 +178,7 @@ and both epsilon values:</p>
 <span><span class="co">#&gt; [1] 0.40 0.30 0.35 0.25</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nGlobal shift magnitude:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit2</span><span class="op">$</span><span class="va">two_pass</span><span class="op">$</span><span class="va">global_shift_norm</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Global shift magnitude: 0.277</span></span></code></pre></div>
+<span><span class="co">#&gt; Global shift magnitude: 0.28</span></span></code></pre></div>
 <p><code>global_shift</code> points in the <em>correction</em> direction
 — from query codebook toward the reference — so its sign is opposite to
 the true batch offset. Because the node shifts are the mass-weighted
@@ -201,7 +201,7 @@ principal directions of the first-pass correction field:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Batch subspace rank (pass 1):        "</span>, <span class="va">bs</span><span class="op">$</span><span class="va">rank</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Batch subspace rank (pass 1):         2</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Variance explained by leading directions:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">bs</span><span class="op">$</span><span class="va">variance_explained</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Variance explained by leading directions: 0.931</span></span></code></pre></div>
+<span><span class="co">#&gt; Variance explained by leading directions: 0.926</span></span></code></pre></div>
 <p>This is a read-only diagnostic. Rank 1 indicates that pass-1 node
 shifts are nearly collinear — which is expected when a single global
 offset dominates. Higher rank means the first-pass correction has more
@@ -218,8 +218,8 @@ see <code><a href="../articles/anchor-samples.html">vignette("anchor-samples", p
 for this diagnostic:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit2b</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit_two_pass.html">somalign_fit_two_pass</a></span><span class="op">(</span><span class="va">query</span>, <span class="va">reference</span>, variance_threshold <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.08); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.53); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.15); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Rank at variance_threshold = 1.0:"</span>, <span class="va">fit2b</span><span class="op">$</span><span class="va">two_pass</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">$</span><span class="va">rank</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Rank at variance_threshold = 1.0: 4</span></span>
 <span></span>
@@ -235,14 +235,14 @@ for this diagnostic:</p>
 pass:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit.html">somalign_fit</a></span><span class="op">(</span><span class="va">query</span>, <span class="va">reference</span>, epsilon <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 4 query node(s) have match_mass_ratio &gt; 1 (max 1.10); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.16); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean node shift -- two-pass: "</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">fit2</span><span class="op">$</span><span class="va">node_shifts</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Mean node shift -- two-pass:  0.2982</span></span>
+<span><span class="co">#&gt; Mean node shift -- two-pass:  0.317</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean node shift -- one-pass: "</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">fit1</span><span class="op">$</span><span class="va">node_shifts</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Mean node shift -- one-pass:  0.209</span></span></code></pre></div>
+<span><span class="co">#&gt; Mean node shift -- one-pass:  0.2246</span></span></code></pre></div>
 <p>Both return <code>somalign_fit</code> objects with an identical
 downstream interface:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
@@ -257,7 +257,7 @@ downstream interface:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Solver converged:"</span>, <span class="va">diag2</span><span class="op">$</span><span class="va">solver</span><span class="op">$</span><span class="va">converged</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Solver converged: TRUE</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Transport mass:  "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">diag2</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">transport_mass</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Transport mass:   1.0527</span></span></code></pre></div>
+<span><span class="co">#&gt; Transport mass:   1.1198</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="label-guided-alignment">Label-guided alignment<a class="anchor" aria-label="anchor" href="#label-guided-alignment"></a>

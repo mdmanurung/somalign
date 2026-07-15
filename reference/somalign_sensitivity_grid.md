@@ -114,23 +114,23 @@ somalign_sensitivity_grid(qry, ref,
                           epsilon = c(0.05, 0.1),
                           rho_query = c(0.5, 1),
                           rho_ref = 1)
-#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.31); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.38); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.12); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.34); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.44); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.17); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.23); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 #>   epsilon rho_query rho_ref   solver transport_mass mean_match_fraction
-#> 1    0.05       0.5       1 internal      0.8711764           0.8958259
-#> 2    0.10       0.5       1 internal      0.9210089           0.9214855
-#> 3    0.05       1.0       1 internal      0.8991056           0.9252915
-#> 4    0.10       1.0       1 internal      0.9372579           0.9449376
+#> 1    0.05       0.5       1 internal      0.9778797           0.9517853
+#> 2    0.10       0.5       1 internal      1.0304219           0.9788873
+#> 3    0.05       1.0       1 internal      0.9818532           0.9688494
+#> 4    0.10       1.0       1 internal      1.0217717           0.9890859
 #>   max_row_mass_error max_col_mass_error accepted_label_fraction
-#> 1         0.09013118         0.08489199                       0
-#> 2         0.08120687         0.06314924                       0
-#> 3         0.06178872         0.07665801                       0
-#> 4         0.05393120         0.05850111                       0
+#> 1         0.04917404         0.03447202                       0
+#> 2         0.04375593         0.03647086                       0
+#> 3         0.03268400         0.03805557                       0
+#> 4         0.02342453         0.03828297                       0
 #>   outside_direct_fraction outside_corrected_fraction
-#> 1                     0.3                        0.3
+#> 1                     0.3                        0.2
 #> 2                     0.3                        0.1
-#> 3                     0.3                        0.2
+#> 3                     0.3                        0.1
 #> 4                     0.3                        0.1
 ```
