@@ -29,15 +29,20 @@ A `ggplot` object.
 
 ``` r
 set.seed(1)
-mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
-              dimnames = list(NULL, c("F1", "F2")))
-ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+mat <- rbind(
+  matrix(rnorm(40, mean = -1), nrow = 20, ncol = 2),
+  matrix(rnorm(40, mean =  1), nrow = 20, ncol = 2)
+)
+colnames(mat) <- c("F1", "F2")
+labels <- rep(c("low", "high"), each = 20)
+ref <- somalign_train_reference(mat, labels = labels,
+                                grid = kohonen::somgrid(2, 2, "hexagonal"),
                                 rlen = 5)
-qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
+qry <- somalign_query(mat + 0.1, ref,
+                      grid = kohonen::somgrid(2, 2, "hexagonal"),
                       rlen = 5)
 #> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 fit <- somalign_fit(qry, ref)
-#> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 1 query node(s) have match_mass_ratio > 1 (max 1.07); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 somalign_plot_label_confusion(fit)
-#> Error: No accepted transferred labels found; cannot build confusion plot.
 ```

@@ -134,9 +134,20 @@ within \(3\varepsilon\) of the normalised cost).</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-
-
-
+    <p><strong>Range overlap (per feature):</strong> Does the query codebook's value range
+for each marker intersect the reference codebook's range?  Zero overlap
+means every query node sits entirely outside the reference for that marker:
+a critical failure.  Less than 50\<!-- % overlap is a warning. --></p>
+<p><strong>Mass-weighted centroid drift (per feature):</strong> The mass-weighted mean
+of the query codebook minus that of the reference, expressed in units of the
+reference codebook standard deviation.  Drift &gt; 3 SDs flags a global batch
+shift that the OT plan may not be able to absorb.</p>
+<p><strong>Transport coverage (cost matrix preview):</strong> Fraction of
+query-reference codebook pairs whose normalised squared distance falls within
+\(3\varepsilon\).  Pairs outside this band contribute negligible weight to
+the Sinkhorn kernel.  If fewer than 1\<!-- % of pairs are within -->
+\(3\varepsilon\), the transport plan will be near-singular and most query
+mass will be destroyed.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

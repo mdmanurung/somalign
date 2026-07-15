@@ -52,6 +52,38 @@ somalign_sensitivity_grid(
   `"auto"` is accepted as a compatibility alias for the internal pure-R
   solver.
 
+- min_match_fraction:
+
+  Minimum match fraction threshold passed to each
+  [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)
+  call. Default `0.05`.
+
+- confidence_threshold:
+
+  Minimum label confidence for accepted label transfer. Default `0.6`.
+
+- correction_min_mass:
+
+  Minimum OT mass for a node shift to be applied. Default `1e-8`.
+
+- max_iter:
+
+  Maximum Sinkhorn iterations. Default `1000`.
+
+- tol:
+
+  Sinkhorn convergence tolerance. Default `1e-7`.
+
+- chunk_size:
+
+  Integer. Number of samples per projection chunk. `NULL` processes all
+  samples at once. Default `10000L`.
+
+- diagonal_boost:
+
+  Non-negative scalar added to same-node OT costs to discourage
+  self-transport. Default `0`.
+
 - parallel:
 
   Logical. When `TRUE`, grid rows are evaluated in parallel using
@@ -62,11 +94,6 @@ somalign_sensitivity_grid(
   `BiocParallel::register(BiocParallel::MulticoreParam(workers = 4))`.
   When `FALSE` (default) a sequential for-loop is used, which is fully
   reproducible across platforms.
-
-- ...:
-
-  Additional arguments passed to
-  [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
 
 ## Value
 
