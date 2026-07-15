@@ -6,7 +6,10 @@
                                rho_ref,
                                solver,
                                max_iter,
-                               tol) {
+                               tol,
+                               anneal_start = 10,
+                               anneal_factor = NULL,
+                               anneal_stages = 10L) {
   requested_solver <- solver
   notes <- character()
   .somalign_validate_ot_inputs(cost, a, b, epsilon, rho_query, rho_ref)
@@ -15,6 +18,26 @@
     solver <- "internal"
     notes <- c(notes, "`solver = \"auto\"` uses the internal generalized Sinkhorn solver.")
   }
+
+  if (identical(solver, "annealing")) {
+    internal <- .somalign_solve_annealing(
+      cost, a, b, epsilon, rho_query, rho_ref, max_iter, tol,
+      anneal_start, anneal_factor, anneal_stages
+    )
+    return(list(
+      plan = internal$plan,
+      solver = "annealing",
+      requested_solver = requested_solver,
+      notes = notes,
+      iterations = internal$iterations,
+      converged = internal$converged,
+      final_delta = internal$final_delta,
+      log_Z = internal$log_Z,
+      anneal_schedule = internal$schedule,
+      anneal_stage_info = internal$stage_info
+    ))
+  }
+
   log_domain <- identical(solver, "log_domain")
   internal <- .somalign_solve_internal(cost, a, b, epsilon, rho_query, rho_ref,
                                        max_iter, tol, log_domain = log_domain)
@@ -28,7 +51,10 @@
     notes = notes,
     iterations = iterations,
     converged = internal$converged,
-    final_delta = internal$final_delta
+    final_delta = internal$final_delta,
+    log_Z = internal$log_Z,
+    anneal_schedule = NULL,
+    anneal_stage_info = NULL
   )
 }
 
@@ -80,7 +106,8 @@
   plan <- sweep(sweep(k, 1, u, "*"), 2, v, "*")
   plan[!is.finite(plan)] <- 0
   plan <- pmax(plan, 0)
-  list(plan = plan, iterations = iterations, converged = converged, final_delta = final_delta)
+  list(plan = plan, iterations = iterations, converged = converged,
+       final_delta = final_delta, log_Z = NA_real_)
 }
 
 .somalign_logsumexp <- function(x) {
@@ -100,15 +127,21 @@
                                          rho_query,
                                          rho_ref,
                                          max_iter,
-                                         tol) {
+                                         tol,
+                                         f_init = NULL,
+                                         g_init = NULL) {
+  # tau_a/tau_b are recomputed from `epsilon` on every call -- this must never
+  # be hoisted outside a per-epsilon call, since the annealing driver
+  # (.somalign_solve_annealing) calls this function once per cooling stage
+  # with a different epsilon each time.
   tau_a <- rho_query / (rho_query + epsilon)
   tau_b <- rho_ref   / (rho_ref   + epsilon)
 
   log_a <- ifelse(a > 0, log(a), -Inf)
   log_b <- ifelse(b > 0, log(b), -Inf)
 
-  f <- numeric(length(a))
-  g <- numeric(length(b))
+  f <- if (!is.null(f_init)) f_init else numeric(length(a))
+  g <- if (!is.null(g_init)) g_init else numeric(length(b))
   cost_over_eps <- cost / epsilon
 
   delta <- Inf
@@ -148,7 +181,14 @@
   plan <- exp(log_plan)
   plan[!is.finite(plan)] <- 0
   plan <- pmax(plan, 0)
-  list(plan = plan, iterations = iterations, converged = converged, final_delta = final_delta)
+
+  # Dual free energy (log partition function), from the log-sum-exp
+  # accumulator already computed on the last outer iteration:
+  # log_Z = epsilon * sum_i logsumexp_j((g_j - C_ij) / eps).
+  log_Z <- epsilon * sum(lse_g[is.finite(lse_g)])
+
+  list(plan = plan, iterations = iterations, converged = converged,
+       final_delta = final_delta, f = f, g = g, log_Z = log_Z)
 }
 
 .somalign_sinkhorn_kernel <- function(cost, epsilon, tiny) {
@@ -185,6 +225,72 @@
     )
   }
   pmax(k_raw, tiny)
+}
+
+# Geometric epsilon-cooling schedule from `anneal_start * epsilon_target` down
+# to `epsilon_target` over `anneal_stages` steps. The last entry is clamped to
+# exactly `epsilon_target` to avoid floating-point drift.
+.somalign_cooling_schedule <- function(epsilon_target, anneal_start,
+                                       anneal_stages, anneal_factor) {
+  if (anneal_stages == 1L) return(epsilon_target)
+  eps_0 <- anneal_start * epsilon_target
+  r <- if (is.null(anneal_factor)) {
+    (epsilon_target / eps_0) ^ (1 / (anneal_stages - 1))
+  } else {
+    anneal_factor
+  }
+  schedule <- eps_0 * r ^ seq(0, anneal_stages - 1)
+  schedule[anneal_stages] <- epsilon_target
+  schedule
+}
+
+# Simulated-annealing Sinkhorn: runs the log-domain solver across the cooling
+# schedule, warm-starting each stage from the previous stage's dual
+# potentials. Interior stages use a looser iteration budget and tolerance;
+# the final stage (at the target epsilon) runs to full max_iter/tol.
+.somalign_solve_annealing <- function(cost, a, b, epsilon,
+                                      rho_query, rho_ref,
+                                      max_iter, tol,
+                                      anneal_start, anneal_factor,
+                                      anneal_stages) {
+  schedule <- .somalign_cooling_schedule(epsilon, anneal_start,
+                                         anneal_stages, anneal_factor)
+  n_stages <- length(schedule)
+  inner_iter <- max(ceiling(max_iter / n_stages), 20L)
+  inner_tol <- tol * 10
+  total_iter <- 0L
+  stage_info <- vector("list", n_stages)
+
+  f <- NULL
+  g <- NULL
+  result <- NULL
+  for (k in seq_len(n_stages)) {
+    eps_k <- schedule[k]
+    is_final <- (k == n_stages)
+    result <- .somalign_solve_internal_log(
+      cost = cost, a = a, b = b, epsilon = eps_k,
+      rho_query = rho_query, rho_ref = rho_ref,
+      max_iter = if (is_final) max_iter else inner_iter,
+      tol = if (is_final) tol else inner_tol,
+      f_init = f, g_init = g
+    )
+    f <- result$f
+    g <- result$g
+    total_iter <- total_iter + result$iterations
+    stage_info[[k]] <- list(epsilon = eps_k, iterations = result$iterations,
+                            converged = result$converged,
+                            final_delta = result$final_delta)
+  }
+
+  list(
+    plan = result$plan,
+    iterations = total_iter,
+    converged = result$converged,
+    final_delta = result$final_delta,
+    log_Z = result$log_Z,
+    stage_info = stage_info,
+    schedule = schedule
+  )
 }
 
 .somalign_warn_convergence <- function(final_delta, iterations, max_iter, tol) {
@@ -251,4 +357,59 @@
   out[nonzero, ] <- out[nonzero, , drop = FALSE] / totals[nonzero]
   out[!nonzero, ] <- 0
   out
+}
+
+# Mutual information I(query node; reference node) from the raw (possibly
+# unnormalized) transport plan, plus per-query-node conditional entropy
+# H(ref | query = i) -- both in bits (log2) -- and the plan's expected cost
+# under `cost` (same units as `cost`; NA if `cost` is not supplied). Marginals
+# are the *empirical* row/col sums of the plan (what was actually
+# transported), not the input node masses -- correct under UOT, where mass
+# can be destroyed.
+.somalign_plan_mutual_information <- function(plan, cost = NULL) {
+  tiny <- .Machine$double.eps
+  total <- sum(plan)
+  if (!is.finite(total) || total <= tiny) {
+    m <- nrow(plan)
+    return(list(
+      mutual_information = NA_real_,
+      conditional_entropy = rep(NA_real_, m),
+      expected_cost = NA_real_
+    ))
+  }
+  p_joint <- plan / total
+  a_hat <- rowSums(p_joint)
+  b_hat <- colSums(p_joint)
+  outer_ab <- outer(a_hat, b_hat)
+  nz <- p_joint > tiny & outer_ab > tiny
+  mi_bits <- sum(p_joint[nz] * log2(p_joint[nz] / outer_ab[nz]))
+  mi_bits <- max(mi_bits, 0)
+
+  row_totals <- rowSums(plan)
+  cond_ent <- vapply(seq_len(nrow(plan)), function(i) {
+    if (row_totals[i] <= tiny) return(NA_real_)
+    p_cond <- plan[i, ] / row_totals[i]
+    nz_j <- p_cond > tiny
+    if (!any(nz_j)) return(0)
+    -sum(p_cond[nz_j] * log2(p_cond[nz_j]))
+  }, numeric(1))
+
+  expected_cost <- if (!is.null(cost)) sum(p_joint * cost) else NA_real_
+  list(
+    mutual_information = mi_bits,
+    conditional_entropy = cond_ent,
+    expected_cost = expected_cost
+  )
+}
+
+# Perplexity-based order parameter: mean effective fraction of reference
+# nodes used per query node, from per-node conditional entropy in bits.
+# 2^H is the "perplexity" (effective node count) of the row-normalized plan;
+# ranges from 1 (one node used) to K (all nodes used equally). Phi in
+# (1/K, 1]; NA when every row is NA (e.g. all mass destroyed).
+.somalign_order_parameter <- function(conditional_entropy, K) {
+  perplexity <- 2 ^ conditional_entropy
+  finite <- is.finite(perplexity)
+  if (!any(finite)) return(NA_real_)
+  mean(perplexity[finite]) / K
 }

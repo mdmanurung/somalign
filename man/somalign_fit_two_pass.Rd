@@ -11,7 +11,7 @@ somalign_fit_two_pass(
   epsilon_local = 0.1,
   rho_query = 1,
   rho_ref = 1,
-  solver = c("internal", "log_domain", "auto"),
+  solver = c("internal", "log_domain", "auto", "annealing"),
   min_match_fraction = 0.05,
   confidence_threshold = 0.6,
   correction_min_mass = 1e-08,
@@ -19,7 +19,10 @@ somalign_fit_two_pass(
   tol = 1e-07,
   chunk_size = 10000L,
   label_guided = FALSE,
-  variance_threshold = 0.9
+  variance_threshold = 0.9,
+  anneal_start = 10,
+  anneal_stages = 10L,
+  anneal_factor = NULL
 )
 }
 \arguments{
@@ -65,6 +68,11 @@ node pairs with discordant dominant labels in both OT passes. See
 \item{variance_threshold}{Numeric in (0, 1]. Cumulative singular-value-squared
 fraction used to select the rank of the batch-subspace \emph{diagnostic} stored in
 \verb{$two_pass$batch_subspace}. Default \code{0.9}. Has no effect on the correction.}
+
+\item{anneal_start, anneal_stages, anneal_factor}{Annealing-schedule tuning
+parameters, used only when \code{solver = "annealing"}. See \code{\link[=somalign_fit]{somalign_fit()}}.
+Applied independently within each pass (the warm start is within a pass,
+not across passes).}
 }
 \value{
 A \code{somalign_fit} object with an additional \verb{$two_pass} list

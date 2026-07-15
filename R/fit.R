@@ -20,6 +20,13 @@
 #'   numerically stable log-potential variant that avoids kernel underflow for
 #'   small `epsilon` or high-dimensional codebooks; it is slower per iteration
 #'   but tolerates cost/epsilon ratios that cause `"internal"` to warn.
+#'   `"annealing"` runs the log-domain solver across a geometric epsilon
+#'   cooling schedule (starting at `anneal_start * epsilon`, cooling to
+#'   `epsilon` over `anneal_stages` stages), warm-starting each stage from the
+#'   previous stage's dual potentials. Recommended for `label_guided` fits or
+#'   any fit with small `epsilon` (< 0.05) where cold-start Sinkhorn is slow
+#'   or non-convergent; never underflows, since it never exponentiates the
+#'   kernel.
 #' @param min_match_fraction Minimum transported fraction required before a
 #'   query node label transfer is accepted.
 #' @param confidence_threshold Minimum top-label probability required before a
@@ -45,6 +52,16 @@
 #'   between concordant cell-type nodes. Nodes where the maximum label
 #'   probability is below 0.5 are treated as unlabeled and are never penalized.
 #'   Errors if `label_guided = TRUE` but either `label_prob` is `NULL`.
+#' @param anneal_start Positive scalar >= 1. When `solver = "annealing"`, the
+#'   starting epsilon is `anneal_start * epsilon`. Default `10`. Ignored when
+#'   `solver != "annealing"`.
+#' @param anneal_stages Positive integer. Number of cooling stages in the
+#'   annealing schedule, including the final stage at the target `epsilon`.
+#'   Default `10L`. A value of `1` degenerates to a cold-start log-domain
+#'   solve. Ignored when `solver != "annealing"`.
+#' @param anneal_factor Positive scalar < 1, or `NULL` (default). When not
+#'   `NULL`, overrides the auto-computed per-stage cooling ratio. Ignored when
+#'   `solver != "annealing"`.
 #'
 #' @details
 #' The transport plan row sums will not equal `query$node_masses` exactly -- this
@@ -78,7 +95,7 @@ somalign_fit <- function(query,
                          epsilon = 0.1,
                          rho_query = 1,
                          rho_ref = 1,
-                         solver = c("internal", "log_domain", "auto"),
+                         solver = c("internal", "log_domain", "auto", "annealing"),
                          min_match_fraction = 0.05,
                          confidence_threshold = 0.6,
                          correction_min_mass = 1e-8,
@@ -86,7 +103,10 @@ somalign_fit <- function(query,
                          tol = 1e-7,
                          chunk_size = 10000L,
                          diagonal_boost = 0,
-                         label_guided = FALSE) {
+                         label_guided = FALSE,
+                         anneal_start = 10,
+                         anneal_stages = 10L,
+                         anneal_factor = NULL) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   .somalign_check_pos_scalar(epsilon, "epsilon")
@@ -94,7 +114,9 @@ somalign_fit <- function(query,
   .somalign_check_fit_params(rho_query, rho_ref, min_match_fraction,
                              confidence_threshold, correction_min_mass,
                              max_iter, tol, chunk_size, label_guided)
-  solver <- match.arg(solver, c("internal", "log_domain", "auto"))
+  solver <- match.arg(solver, c("internal", "log_domain", "auto", "annealing"))
+  if (identical(solver, "annealing"))
+    .somalign_check_anneal_params(anneal_start, anneal_factor, anneal_stages)
 
   label_mask <- if (isTRUE(label_guided)) {
     if (is.null(query$label_prob))
@@ -108,7 +130,9 @@ somalign_fit <- function(query,
 
   transport <- .somalign_align_transport(
     query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol,
-    diagonal_boost = diagonal_boost, label_mask = label_mask
+    diagonal_boost = diagonal_boost, label_mask = label_mask,
+    anneal_start = anneal_start, anneal_factor = anneal_factor,
+    anneal_stages = anneal_stages
   )
   .somalign_finish_fit(
     query, reference, transport,
@@ -206,7 +230,10 @@ somalign_fit <- function(query,
                                       rho_ref, solver, max_iter, tol,
                                       cost_bonus = NULL,
                                       diagonal_boost = 0,
-                                      label_mask = NULL) {
+                                      label_mask = NULL,
+                                      anneal_start = 10,
+                                      anneal_factor = NULL,
+                                      anneal_stages = 10L) {
   cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
   prepared <- .somalign_prepare_cost(cost, diagonal_boost, cost_bonus, label_mask)
   cost_normalized <- prepared$cost_normalized
@@ -220,7 +247,10 @@ somalign_fit <- function(query,
     rho_ref = rho_ref,
     solver = solver,
     max_iter = max_iter,
-    tol = tol
+    tol = tol,
+    anneal_start = anneal_start,
+    anneal_factor = anneal_factor,
+    anneal_stages = anneal_stages
   )
   plan <- ot$plan
   correspondence <- .somalign_row_normalize(plan)
@@ -248,6 +278,46 @@ somalign_fit <- function(query,
   )
 }
 
+# Cheap OT-only sweep primitive shared by somalign_epsilon_sweep() and
+# somalign_select_epsilon(): builds the cost matrix and solves the OT problem
+# for a single epsilon, WITHOUT per-cell projection, node shifts, or label
+# transfer. Deliberately bypasses .somalign_align_transport() (which emits a
+# match_mass_ratio message meant for a single interactive fit -- noisy across
+# a 25+ point epsilon grid).
+.somalign_ot_sweep_one <- function(query, reference, epsilon,
+                                   rho_query, rho_ref,
+                                   solver, max_iter, tol,
+                                   diagonal_boost = 0,
+                                   label_mask = NULL,
+                                   cost_bonus = NULL) {
+  cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
+  prepared <- .somalign_prepare_cost(cost, diagonal_boost, cost_bonus, label_mask)
+  ot <- .somalign_solve_ot(
+    cost = prepared$cost_normalized,
+    a = query$node_masses,
+    b = reference$node_masses,
+    epsilon = epsilon,
+    rho_query = rho_query,
+    rho_ref = rho_ref,
+    solver = solver,
+    max_iter = max_iter,
+    tol = tol
+  )
+  mi <- .somalign_plan_mutual_information(ot$plan, cost = prepared$cost_normalized)
+  list(
+    epsilon = epsilon,
+    plan = ot$plan,
+    cost_scale = prepared$cost_scale,
+    mutual_information = mi$mutual_information,
+    conditional_entropy = mi$conditional_entropy,
+    expected_cost = mi$expected_cost,
+    transport_mass = sum(ot$plan),
+    log_Z = ot$log_Z,
+    iterations = ot$iterations,
+    converged = ot$converged
+  )
+}
+
 .somalign_project_pair <- function(query, reference, node_shifts, chunk_size,
                                    direct_cache = NULL) {
   direct <- if (!is.null(direct_cache)) {
@@ -270,6 +340,9 @@ somalign_fit <- function(query,
   col_mass <- transport$col_mass
   direct <- projection$direct
   corrected <- projection$corrected
+  mi_result <- .somalign_plan_mutual_information(
+    plan, cost = transport$cost / transport$cost_scale
+  )
   list(
     solver = list(
       requested = ot$requested_solver,
@@ -282,6 +355,9 @@ somalign_fit <- function(query,
       rho_query = rho_query,
       rho_ref = rho_ref,
       cost_scale = transport$cost_scale,
+      log_Z = ot$log_Z,
+      anneal_schedule = ot$anneal_schedule,
+      anneal_stage_info = ot$anneal_stage_info,
       rel_marginal_row_error = max(abs(row_mass - query$node_masses)) /
         max(sum(query$node_masses), .Machine$double.eps),
       rel_marginal_col_error = max(abs(col_mass - reference$node_masses)) /
@@ -296,9 +372,10 @@ somalign_fit <- function(query,
       match_fraction = transport$match_fraction,
       match_mass_ratio = transport$match_mass_ratio,
       max_row_mass_error = max(abs(row_mass - query$node_masses)),
-      max_col_mass_error = max(abs(col_mass - reference$node_masses))
+      max_col_mass_error = max(abs(col_mass - reference$node_masses)),
+      mutual_information = mi_result$mutual_information
     ),
-    nodes = .somalign_build_nodes_diag(query, transport, node_shifts),
+    nodes = .somalign_build_nodes_diag(query, transport, node_shifts, mi_result),
     projection = list(
       outside_direct_fraction = mean(direct$outside),
       outside_corrected_fraction = mean(corrected$outside)
@@ -306,14 +383,15 @@ somalign_fit <- function(query,
   )
 }
 
-.somalign_build_nodes_diag <- function(query, transport, node_shifts) {
+.somalign_build_nodes_diag <- function(query, transport, node_shifts, mi_result) {
   data.frame(
     query_node = seq_len(nrow(query$codebook)),
     query_mass = query$node_masses,
     transported_mass = transport$row_mass,
     match_fraction = transport$match_fraction,
     correction_allowed = attr(node_shifts, "correction_allowed"),
-    correction_norm = sqrt(rowSums(node_shifts^2))
+    correction_norm = sqrt(rowSums(node_shifts^2)),
+    transport_entropy = mi_result$conditional_entropy
   )
 }
 
@@ -513,6 +591,10 @@ somalign_fit <- function(query,
 #' @param variance_threshold Numeric in (0, 1]. Cumulative singular-value-squared
 #'   fraction used to select the rank of the batch-subspace *diagnostic* stored in
 #'   `$two_pass$batch_subspace`. Default `0.9`. Has no effect on the correction.
+#' @param anneal_start,anneal_stages,anneal_factor Annealing-schedule tuning
+#'   parameters, used only when `solver = "annealing"`. See [somalign_fit()].
+#'   Applied independently within each pass (the warm start is within a pass,
+#'   not across passes).
 #'
 #' @return A `somalign_fit` object with an additional `$two_pass` list
 #'   containing `global_shift` (per-feature vector), `global_shift_norm`
@@ -558,7 +640,7 @@ somalign_fit_two_pass <- function(query,
                                   epsilon_local = 0.1,
                                   rho_query = 1,
                                   rho_ref = 1,
-                                  solver = c("internal", "log_domain", "auto"),
+                                  solver = c("internal", "log_domain", "auto", "annealing"),
                                   min_match_fraction = 0.05,
                                   confidence_threshold = 0.6,
                                   correction_min_mass = 1e-8,
@@ -566,7 +648,10 @@ somalign_fit_two_pass <- function(query,
                                   tol = 1e-7,
                                   chunk_size = 10000L,
                                   label_guided = FALSE,
-                                  variance_threshold = 0.9) {
+                                  variance_threshold = 0.9,
+                                  anneal_start = 10,
+                                  anneal_stages = 10L,
+                                  anneal_factor = NULL) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   .somalign_check_pos_scalar(epsilon_global, "epsilon_global")
@@ -575,7 +660,9 @@ somalign_fit_two_pass <- function(query,
                              confidence_threshold, correction_min_mass,
                              max_iter, tol, chunk_size, label_guided)
   .somalign_check_unit_scalar(variance_threshold, "variance_threshold")
-  solver <- match.arg(solver, c("internal", "log_domain", "auto"))
+  solver <- match.arg(solver, c("internal", "log_domain", "auto", "annealing"))
+  if (identical(solver, "annealing"))
+    .somalign_check_anneal_params(anneal_start, anneal_factor, anneal_stages)
 
   label_mask <- if (isTRUE(label_guided)) {
     if (is.null(query$label_prob))
@@ -589,7 +676,10 @@ somalign_fit_two_pass <- function(query,
 
   t1 <- .somalign_align_transport(query, reference, epsilon_global, rho_query,
                                    rho_ref, solver, max_iter, tol,
-                                   label_mask = label_mask)
+                                   label_mask = label_mask,
+                                   anneal_start = anneal_start,
+                                   anneal_factor = anneal_factor,
+                                   anneal_stages = anneal_stages)
   ns1 <- .somalign_node_shifts(
     query_codebook    = query$codebook,
     reference_codebook = reference$codebook,
@@ -614,7 +704,10 @@ somalign_fit_two_pass <- function(query,
 
   t2 <- .somalign_align_transport(query2, reference, epsilon_local, rho_query,
                                    rho_ref, solver, max_iter, tol,
-                                   label_mask = label_mask)
+                                   label_mask = label_mask,
+                                   anneal_start = anneal_start,
+                                   anneal_factor = anneal_factor,
+                                   anneal_stages = anneal_stages)
   ns2 <- .somalign_node_shifts(
     query_codebook    = query2$codebook,
     reference_codebook = reference$codebook,

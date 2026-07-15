@@ -10,7 +10,7 @@ somalign_sensitivity_grid(
   epsilon,
   rho_query,
   rho_ref,
-  solver = c("internal", "auto"),
+  solver = c("internal", "auto", "log_domain", "annealing"),
   min_match_fraction = 0.05,
   confidence_threshold = 0.6,
   correction_min_mass = 1e-08,
@@ -18,7 +18,10 @@ somalign_sensitivity_grid(
   tol = 1e-07,
   chunk_size = 10000L,
   diagonal_boost = 0,
-  parallel = FALSE
+  parallel = FALSE,
+  anneal_start = 10,
+  anneal_stages = 10L,
+  anneal_factor = NULL
 )
 }
 \arguments{
@@ -61,9 +64,14 @@ back-end before calling this function, e.g.
 \code{BiocParallel::register(BiocParallel::MulticoreParam(workers = 4))}. When
 \code{FALSE} (default) a sequential for-loop is used, which is fully
 reproducible across platforms.}
+
+\item{anneal_start, anneal_stages, anneal_factor}{Annealing-schedule tuning
+parameters, used only when \code{solver = "annealing"}. See \code{\link[=somalign_fit]{somalign_fit()}}.}
 }
 \value{
-A data frame with one row per parameter combination.
+A data frame with one row per parameter combination, including a
+\code{mutual_information} column (bits; \code{diagnostics$ot$mutual_information}
+for that grid point's fit).
 }
 \description{
 Run an OT sensitivity grid

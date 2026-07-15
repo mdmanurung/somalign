@@ -4,7 +4,8 @@ utils::globalVariables(c(
   "Projection", "outside_pct",
   "old", "transferred", "pct",
   "src", "xmin", "xend", "xmax", "yend", "flag",
-  "feature", "value"
+  "feature", "value",
+  "log_epsilon", "metric_value", "metric"
 ))
 
 # ---- internal helpers -------------------------------------------------------
@@ -473,6 +474,27 @@ somalign_plot_marker_distributions <- function(query, reference = NULL,
     p <- p + ggplot2::geom_rug(
       data = d$ref_cb, colour = "#d73027", alpha = 0.8, sides = "b") +
       ggplot2::labs(subtitle = "Blue density = query cells | Red rug = reference SOM nodes")
+  }
+  p
+}
+
+.somalign_plot_eps_sweep <- function(sweep) {
+  long <- rbind(
+    data.frame(log_epsilon = sweep$table$log_epsilon, metric = "Phi (order parameter)",
+              metric_value = sweep$table$Phi),
+    data.frame(log_epsilon = sweep$table$log_epsilon, metric = "susceptibility",
+              metric_value = sweep$table$susceptibility)
+  )
+  p <- ggplot2::ggplot(long, ggplot2::aes(x = log_epsilon, y = metric_value)) +
+    ggplot2::geom_line(colour = "#4575b4") +
+    ggplot2::geom_point(colour = "#4575b4", size = 1) +
+    ggplot2::facet_wrap(~metric, scales = "free_y", ncol = 1) +
+    ggplot2::labs(title = "Epsilon phase-transition sweep",
+                  x = "log(epsilon)", y = NULL) +
+    ggplot2::theme_minimal()
+  if (is.finite(sweep$epsilon_c)) {
+    p <- p + ggplot2::geom_vline(xintercept = log(sweep$epsilon_c),
+                                 colour = "#d73027", linetype = "dashed")
   }
   p
 }

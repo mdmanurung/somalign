@@ -10,7 +10,7 @@ somalign_fit(
   epsilon = 0.1,
   rho_query = 1,
   rho_ref = 1,
-  solver = c("internal", "log_domain", "auto"),
+  solver = c("internal", "log_domain", "auto", "annealing"),
   min_match_fraction = 0.05,
   confidence_threshold = 0.6,
   correction_min_mass = 1e-08,
@@ -18,7 +18,10 @@ somalign_fit(
   tol = 1e-07,
   chunk_size = 10000L,
   diagonal_boost = 0,
-  label_guided = FALSE
+  label_guided = FALSE,
+  anneal_start = 10,
+  anneal_stages = 10L,
+  anneal_factor = NULL
 )
 }
 \arguments{
@@ -46,7 +49,14 @@ is stored in \code{diagnostics$solver$cost_scale}.}
 both use the primal-domain scaling iteration. \code{"log_domain"} uses a
 numerically stable log-potential variant that avoids kernel underflow for
 small \code{epsilon} or high-dimensional codebooks; it is slower per iteration
-but tolerates cost/epsilon ratios that cause \code{"internal"} to warn.}
+but tolerates cost/epsilon ratios that cause \code{"internal"} to warn.
+\code{"annealing"} runs the log-domain solver across a geometric epsilon
+cooling schedule (starting at \code{anneal_start * epsilon}, cooling to
+\code{epsilon} over \code{anneal_stages} stages), warm-starting each stage from the
+previous stage's dual potentials. Recommended for \code{label_guided} fits or
+any fit with small \code{epsilon} (< 0.05) where cold-start Sinkhorn is slow
+or non-convergent; never underflows, since it never exponentiates the
+kernel.}
 
 \item{min_match_fraction}{Minimum transported fraction required before a
 query node label transfer is accepted.}
@@ -80,6 +90,19 @@ dominant labels disagree, constraining OT to transport mass predominantly
 between concordant cell-type nodes. Nodes where the maximum label
 probability is below 0.5 are treated as unlabeled and are never penalized.
 Errors if \code{label_guided = TRUE} but either \code{label_prob} is \code{NULL}.}
+
+\item{anneal_start}{Positive scalar >= 1. When \code{solver = "annealing"}, the
+starting epsilon is \code{anneal_start * epsilon}. Default \code{10}. Ignored when
+\code{solver != "annealing"}.}
+
+\item{anneal_stages}{Positive integer. Number of cooling stages in the
+annealing schedule, including the final stage at the target \code{epsilon}.
+Default \code{10L}. A value of \code{1} degenerates to a cold-start log-domain
+solve. Ignored when \code{solver != "annealing"}.}
+
+\item{anneal_factor}{Positive scalar < 1, or \code{NULL} (default). When not
+\code{NULL}, overrides the auto-computed per-stage cooling ratio. Ignored when
+\code{solver != "annealing"}.}
 }
 \value{
 A \code{somalign_fit} object.
