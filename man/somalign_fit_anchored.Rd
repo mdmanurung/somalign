@@ -19,7 +19,9 @@ somalign_fit_anchored(
   correction_min_mass = 1e-08,
   max_iter = 1000,
   tol = 1e-07,
-  chunk_size = 10000L
+  chunk_size = 10000L,
+  correction = c("cost_bonus", "subspace", "both"),
+  variance_threshold = 0.9
 )
 }
 \arguments{
@@ -45,7 +47,8 @@ numeric columns.}
 \item{rho_anchor}{Non-negative scalar. Controls how strongly anchor pairs
 bias the OT cost. At \code{rho_anchor = 0} the result equals \code{\link[=somalign_fit]{somalign_fit()}}.
 Larger values reduce the effective cost for anchor-supported node pairs,
-concentrating the transport plan on those routes. Typical range: 0.5--3.}
+concentrating the transport plan on those routes. Typical range: 0.5--3.
+Has no effect when \code{correction = "subspace"}.}
 
 \item{epsilon}{Entropic regularisation strength (see \code{\link[=somalign_fit]{somalign_fit()}}).}
 
@@ -66,6 +69,14 @@ concentrating the transport plan on those routes. Typical range: 0.5--3.}
 \item{tol}{Sinkhorn convergence tolerance.}
 
 \item{chunk_size}{Integer. Samples projected per chunk. Default \code{10000L}.}
+
+\item{correction}{Character. Correction strategy — one of
+\code{"cost_bonus"} (default), \code{"subspace"}, or \code{"both"}. See Details.}
+
+\item{variance_threshold}{Numeric in (0, 1]. Cumulative singular-value-squared
+fraction for selecting the rank of the batch subspace. Default \code{0.9}
+(CellANOVA convention). Only used when \code{correction} is \code{"subspace"} or
+\code{"both"}.}
 }
 \value{
 A \code{somalign_anchored_fit} object (also inherits \code{somalign_fit}).
@@ -81,6 +92,33 @@ with the observed per-sample batch displacement — while still solving a
 valid optimal transport problem over the full codebook.
 }
 \details{
+\strong{Correction modes.} Three strategies are available via the \code{correction}
+argument.
+\itemize{
+\item \code{"cost_bonus"} (default, current behaviour): the anchor count matrix
+biases the OT cost so anchor-supported node pairs are cheaper; the
+resulting node shifts are applied to the full feature space.
+\item \code{"subspace"}: a batch subspace \eqn{V_{\text{batch}}} is estimated by
+SVD of the anchor displacement matrix
+\eqn{D = X_{\text{old}} - X_{\text{new}}} (n_anchors × p). Because each
+row of \eqn{D} is a \emph{same-biological-unit} before–after measurement, the
+dominant singular vectors isolate the true batch direction. Node shifts
+from a \emph{plain} OT solve (no cost bonus) are then projected onto
+\eqn{V_{\text{batch}}}: only the batch-direction component is applied.
+Biological variation orthogonal to \eqn{V_{\text{batch}}} is preserved.
+A synthetic validation shows the orthogonal component survives at
+~99.7\% (1.496 vs ideal 1.500) while \code{"cost_bonus"} erases it.
+The rank \eqn{r} is the smallest index where the cumulative squared
+singular values reach \code{variance_threshold} (default 0.9).
+\eqn{D} is \strong{not centred} — the mean batch direction is the dominant
+structure we want to capture.
+\item \code{"both"}: applies the cost bonus to the OT solve \emph{and} restricts the
+resulting shifts to \eqn{V_{\text{batch}}}.
+}
+
+\code{"subspace"} and \code{"both"} expose \code{fit$anchors$batch_subspace} (a list with
+\code{V}, \code{rank}, \code{variance_explained}). \code{"cost_bonus"} sets this to \code{NULL}.
+
 \strong{Cost modification.} Let \eqn{C} be the M×K codebook distance matrix
 normalised by its median positive entry (as in \code{\link[=somalign_fit]{somalign_fit()}}). The
 anchor pairs are projected onto the query codebook (old batch) and
@@ -119,8 +157,12 @@ work unchanged. An additional \verb{$anchors} list element is attached:
 \describe{
 \item{\code{n_anchors}}{Number of anchor pairs supplied.}
 \item{\code{rho_anchor}}{The value of \code{rho_anchor} used.}
+\item{\code{correction}}{The correction mode: \code{"cost_bonus"}, \code{"subspace"}, or \code{"both"}.}
 \item{\code{nodes_covered}}{Number of query nodes with ≥ 1 anchor pair.}
 \item{\code{coverage_fraction}}{\code{nodes_covered / nrow(query$codebook)}.}
+\item{\code{batch_subspace}}{For \code{"subspace"} and \code{"both"} modes: a list with
+\code{V} (p × rank matrix), \code{rank} (integer), and \code{variance_explained}
+(cumulative variance at the selected rank). \code{NULL} for \code{"cost_bonus"}.}
 }
 }
 \note{

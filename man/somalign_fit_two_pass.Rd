@@ -18,7 +18,8 @@ somalign_fit_two_pass(
   max_iter = 1000,
   tol = 1e-07,
   chunk_size = 10000L,
-  label_guided = FALSE
+  label_guided = FALSE,
+  variance_threshold = 0.9
 )
 }
 \arguments{
@@ -60,11 +61,18 @@ See \code{\link[=somalign_fit]{somalign_fit()}}.}
 \item{label_guided}{Logical. When \code{TRUE}, applies a large cost penalty to
 node pairs with discordant dominant labels in both OT passes. See
 \code{\link[=somalign_fit]{somalign_fit()}} for details.}
+
+\item{variance_threshold}{Numeric in (0, 1]. Cumulative singular-value-squared
+fraction used to select the rank of the batch-subspace \emph{diagnostic} stored in
+\verb{$two_pass$batch_subspace}. Default \code{0.9}. Has no effect on the correction.}
 }
 \value{
 A \code{somalign_fit} object with an additional \verb{$two_pass} list
 containing \code{global_shift} (per-feature vector), \code{global_shift_norm}
-(Euclidean magnitude), \code{epsilon_global}, and \code{epsilon_local}.
+(Euclidean magnitude), \code{epsilon_global}, \code{epsilon_local}, and
+\code{batch_subspace} (a list with \code{V}, \code{rank}, \code{variance_explained} derived
+from the pass-1 correction field — \strong{descriptive only}, not used for
+correction; may conflate batch effects with biology).
 }
 \description{
 A two-stage variant of \code{\link[=somalign_fit]{somalign_fit()}} that separates the batch correction
