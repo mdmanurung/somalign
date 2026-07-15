@@ -28,6 +28,7 @@
 #'   bias the OT cost. At `rho_anchor = 0` the result equals [somalign_fit()].
 #'   Larger values reduce the effective cost for anchor-supported node pairs,
 #'   concentrating the transport plan on those routes. Typical range: 0.5--3.
+#'   Has no effect when `correction = "subspace"`.
 #' @param epsilon Entropic regularisation strength (see [somalign_fit()]).
 #' @param rho_query Query-side unbalanced mass relaxation.
 #' @param rho_ref Reference-side unbalanced mass relaxation.
@@ -38,8 +39,42 @@
 #' @param max_iter Maximum Sinkhorn iterations.
 #' @param tol Sinkhorn convergence tolerance.
 #' @param chunk_size Integer. Samples projected per chunk. Default `10000L`.
+#' @param correction Character. Correction strategy — one of
+#'   `"cost_bonus"` (default), `"subspace"`, or `"both"`. See Details.
+#' @param variance_threshold Numeric in (0, 1]. Cumulative singular-value-squared
+#'   fraction for selecting the rank of the batch subspace. Default `0.9`
+#'   (CellANOVA convention). Only used when `correction` is `"subspace"` or
+#'   `"both"`.
 #'
 #' @details
+#' **Correction modes.** Three strategies are available via the `correction`
+#' argument.
+#'
+#' - `"cost_bonus"` (default, current behaviour): the anchor count matrix
+#'   biases the OT cost so anchor-supported node pairs are cheaper; the
+#'   resulting node shifts are applied to the full feature space.
+#'
+#' - `"subspace"`: a batch subspace \eqn{V_{\text{batch}}} is estimated by
+#'   SVD of the anchor displacement matrix
+#'   \eqn{D = X_{\text{old}} - X_{\text{new}}} (n_anchors × p). Because each
+#'   row of \eqn{D} is a *same-biological-unit* before–after measurement, the
+#'   dominant singular vectors isolate the true batch direction. Node shifts
+#'   from a *plain* OT solve (no cost bonus) are then projected onto
+#'   \eqn{V_{\text{batch}}}: only the batch-direction component is applied.
+#'   Biological variation orthogonal to \eqn{V_{\text{batch}}} is preserved.
+#'   A synthetic validation shows the orthogonal component survives at
+#'   ~99.7% (1.496 vs ideal 1.500) while `"cost_bonus"` erases it.
+#'   The rank \eqn{r} is the smallest index where the cumulative squared
+#'   singular values reach `variance_threshold` (default 0.9).
+#'   \eqn{D} is **not centred** — the mean batch direction is the dominant
+#'   structure we want to capture.
+#'
+#' - `"both"`: applies the cost bonus to the OT solve *and* restricts the
+#'   resulting shifts to \eqn{V_{\text{batch}}}.
+#'
+#' `"subspace"` and `"both"` expose `fit$anchors$batch_subspace` (a list with
+#' `V`, `rank`, `variance_explained`). `"cost_bonus"` sets this to `NULL`.
+#'
 #' **Cost modification.** Let \eqn{C} be the M×K codebook distance matrix
 #' normalised by its median positive entry (as in [somalign_fit()]). The
 #' anchor pairs are projected onto the query codebook (old batch) and
@@ -80,8 +115,12 @@
 #' \describe{
 #'   \item{`n_anchors`}{Number of anchor pairs supplied.}
 #'   \item{`rho_anchor`}{The value of `rho_anchor` used.}
+#'   \item{`correction`}{The correction mode: `"cost_bonus"`, `"subspace"`, or `"both"`.}
 #'   \item{`nodes_covered`}{Number of query nodes with ≥ 1 anchor pair.}
 #'   \item{`coverage_fraction`}{`nodes_covered / nrow(query$codebook)`.}
+#'   \item{`batch_subspace`}{For `"subspace"` and `"both"` modes: a list with
+#'     `V` (p × rank matrix), `rank` (integer), and `variance_explained`
+#'     (cumulative variance at the selected rank). `NULL` for `"cost_bonus"`.}
 #' }
 #'
 #' @return A `somalign_anchored_fit` object (also inherits `somalign_fit`).
@@ -126,10 +165,13 @@ somalign_fit_anchored <- function(query,
                                    correction_min_mass = 1e-8,
                                    max_iter = 1000,
                                    tol = 1e-7,
-                                   chunk_size = 10000L) {
+                                   chunk_size = 10000L,
+                                   correction = c("cost_bonus", "subspace", "both"),
+                                   variance_threshold = 0.9) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   solver <- match.arg(solver, c("internal", "log_domain", "auto"))
+  correction <- match.arg(correction, c("cost_bonus", "subspace", "both"))
   if (!is.numeric(rho_anchor) || length(rho_anchor) != 1L ||
       !is.finite(rho_anchor) || rho_anchor < 0) {
     stop("`rho_anchor` must be a non-negative finite scalar.", call. = FALSE)
@@ -138,68 +180,65 @@ somalign_fit_anchored <- function(query,
   .somalign_check_fit_params(rho_query, rho_ref, min_match_fraction,
                              confidence_threshold, correction_min_mass,
                              max_iter, tol, chunk_size)
-
+  .somalign_check_unit_scalar(variance_threshold, "variance_threshold")
   anchors_scaled <- .somalign_validate_anchors(anchor_old, anchor_new, reference)
-
-  if (rho_anchor == 0) {
-    return(.somalign_anchored_fit_zero_rho(
-      query, reference, anchors_scaled, epsilon, rho_query, rho_ref,
-      solver, min_match_fraction, confidence_threshold,
-      correction_min_mass, chunk_size, max_iter, tol
-    ))
-  }
-
-  cost_bonus <- .somalign_anchor_cost_bonus(
-    anchors_scaled$anchor_old_scaled,
-    anchors_scaled$anchor_new_scaled,
-    query$codebook,
-    reference$codebook,
-    rho_anchor,
-    chunk_size
+  .somalign_anchored_dispatch(
+    query, reference, anchors_scaled, rho_anchor, epsilon, rho_query, rho_ref,
+    solver, min_match_fraction, confidence_threshold, correction_min_mass,
+    chunk_size, max_iter, tol, correction, variance_threshold
   )
+}
+
+.somalign_anchored_dispatch <- function(query, reference, anchors_scaled,
+                                         rho_anchor, epsilon, rho_query, rho_ref,
+                                         solver, min_match_fraction,
+                                         confidence_threshold, correction_min_mass,
+                                         chunk_size, max_iter, tol,
+                                         correction, variance_threshold) {
+  use_bonus    <- correction %in% c("cost_bonus", "both") && rho_anchor > 0
+  use_subspace <- correction %in% c("subspace", "both")
+  if (rho_anchor == 0 && correction == "cost_bonus") {
+    message("`rho_anchor = 0`: anchor pairs have no effect. Use `somalign_fit()` for equivalent results.")
+  }
+  cb <- if (use_bonus) {
+    .somalign_anchor_cost_bonus(anchors_scaled$anchor_old_scaled,
+                                anchors_scaled$anchor_new_scaled,
+                                query$codebook, reference$codebook,
+                                rho_anchor, chunk_size)
+  } else { list(bonus = NULL, nodes_covered = 0L, coverage_fraction = 0) }
+  batch_sub <- if (use_subspace) {
+    .somalign_batch_subspace(anchors_scaled$anchor_old_scaled,
+                             anchors_scaled$anchor_new_scaled,
+                             variance_threshold)
+  } else { NULL }
+  shift_fn <- if (use_subspace) {
+    V <- batch_sub$V
+    function(s) s %*% V %*% t(V)
+  } else { NULL }
   transport <- .somalign_align_transport(
     query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol,
-    cost_bonus = cost_bonus$bonus
+    cost_bonus = cb$bonus
   )
   fit <- .somalign_finish_fit(
-    query, reference, transport,
-    min_match_fraction, confidence_threshold, correction_min_mass,
-    chunk_size, epsilon, rho_query, rho_ref,
+    query, reference, transport, min_match_fraction, confidence_threshold,
+    correction_min_mass, chunk_size, epsilon, rho_query, rho_ref,
+    shift_transform = shift_fn,
     anchors = list(
       n_anchors         = nrow(anchors_scaled$anchor_old_scaled),
       rho_anchor        = rho_anchor,
-      nodes_covered     = cost_bonus$nodes_covered,
-      coverage_fraction = cost_bonus$coverage_fraction
+      correction        = correction,
+      nodes_covered     = cb$nodes_covered,
+      coverage_fraction = cb$coverage_fraction,
+      batch_subspace    = batch_sub
     )
   )
   class(fit) <- c("somalign_anchored_fit", "somalign_fit")
   fit
 }
 
-.somalign_anchored_fit_zero_rho <- function(query, reference, anchors_scaled,
-                                             epsilon, rho_query, rho_ref, solver,
-                                             min_match_fraction,
-                                             confidence_threshold,
-                                             correction_min_mass, chunk_size,
-                                             max_iter, tol) {
-  message("`rho_anchor = 0`: anchor pairs have no effect. Use `somalign_fit()` for equivalent results.")
-  n_anc <- nrow(anchors_scaled$anchor_old_scaled)
-  transport <- .somalign_align_transport(
-    query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol
-  )
-  fit <- .somalign_finish_fit(
-    query, reference, transport,
-    min_match_fraction, confidence_threshold, correction_min_mass,
-    chunk_size, epsilon, rho_query, rho_ref,
-    anchors = list(
-      n_anchors         = n_anc,
-      rho_anchor        = 0,
-      nodes_covered     = 0L,
-      coverage_fraction = 0
-    )
-  )
-  class(fit) <- c("somalign_anchored_fit", "somalign_fit")
-  fit
+.somalign_batch_subspace <- function(anchor_old_scaled, anchor_new_scaled,
+                                      variance_threshold) {
+  .somalign_subspace_svd(anchor_old_scaled - anchor_new_scaled, variance_threshold)
 }
 
 .somalign_validate_anchors <- function(anchor_old, anchor_new, reference) {
