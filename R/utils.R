@@ -74,6 +74,33 @@
   invisible(grid)
 }
 
+.somalign_check_unit_scalar <- function(x, nm) {
+  if (!is.numeric(x) || length(x) != 1L || !is.finite(x) || x <= 0 || x > 1)
+    stop("`", nm, "` must be a single number in (0, 1].", call. = FALSE)
+  invisible(x)
+}
+
+# Compute a low-rank batch subspace via variance-threshold SVD.
+# M: n_obs × p matrix (displacement vectors); weights: optional length-n_obs mass weights.
+# Returns list(V = p × r, rank = r, variance_explained = cumvar[r]).
+.somalign_subspace_svd <- function(M, variance_threshold, weights = NULL) {
+  if (!is.null(weights) && length(weights) > 0 && sum(weights) > 0) {
+    w <- sqrt(weights / sum(weights))
+    M <- M * w
+  }
+  tot <- sum(M^2)
+  if (!is.finite(tot) || tot == 0) {
+    V <- matrix(0, nrow = ncol(M), ncol = 1L)
+    return(list(V = V, rank = 1L, variance_explained = 1))
+  }
+  sv <- svd(M, nu = 0L)
+  cumvar <- cumsum(sv$d^2) / sum(sv$d^2)
+  r <- which(cumvar >= variance_threshold)
+  r <- if (length(r) == 0L) ncol(M) else r[[1L]]
+  r <- max(1L, r)
+  list(V = sv$v[, seq_len(r), drop = FALSE], rank = r, variance_explained = cumvar[[r]])
+}
+
 # ---------------------------------------------------------------------------
 # Bundle validators (one call per exported function)
 # ---------------------------------------------------------------------------
