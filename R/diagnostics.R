@@ -59,8 +59,16 @@ somalign_sensitivity_grid <- function(query,
                                       rho_query,
                                       rho_ref,
                                       solver = c("internal", "auto"),
-                                      parallel = FALSE,
-                                      ...) {
+                                      min_match_fraction = 0.05,
+                                      confidence_threshold = 0.6,
+                                      correction_min_mass = 1e-8,
+                                      max_iter = 1000,
+                                      tol = 1e-7,
+                                      chunk_size = 10000L,
+                                      diagonal_boost = 0,
+                                      parallel = FALSE) {
+  .somalign_check_query(query)
+  .somalign_check_reference(reference)
   solver <- match.arg(solver)
   epsilon <- .somalign_validate_grid_vector(epsilon, "epsilon")
   rho_query <- .somalign_validate_grid_vector(rho_query, "rho_query")
@@ -72,22 +80,25 @@ somalign_sensitivity_grid <- function(query,
     KEEP.OUT.ATTRS = FALSE
   )
 
+  # Pre-compute the direct projection once: it is identical for every grid point
+  # (same scaled_data + reference codebook), saving (K-1) x O(N x nodes) passes.
+  direct_cache <- .somalign_project_samples(query$scaled_data, reference,
+                                            chunk_size = chunk_size)
+
   .run_one <- function(i) {
-    fit <- somalign_fit(
-      query = query,
-      reference = reference,
-      epsilon = grid$epsilon[i],
-      rho_query = grid$rho_query[i],
-      rho_ref = grid$rho_ref[i],
-      solver = solver,
-      ...
+    transport <- .somalign_align_transport(
+      query, reference,
+      grid$epsilon[i], grid$rho_query[i], grid$rho_ref[i],
+      solver, max_iter, tol,
+      diagonal_boost = diagonal_boost
     )
-    .somalign_grid_row_summary(
-      fit,
-      grid$epsilon[i],
-      grid$rho_query[i],
-      grid$rho_ref[i]
+    fit <- .somalign_finish_fit(
+      query, reference, transport,
+      min_match_fraction, confidence_threshold, correction_min_mass,
+      chunk_size, grid$epsilon[i], grid$rho_query[i], grid$rho_ref[i],
+      direct_cache = direct_cache
     )
+    .somalign_grid_row_summary(fit, grid$epsilon[i], grid$rho_query[i], grid$rho_ref[i])
   }
 
   rows <- .somalign_run_grid(nrow(grid), .run_one, parallel)

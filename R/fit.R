@@ -99,7 +99,8 @@ somalign_fit <- function(query,
                                  min_match_fraction, confidence_threshold,
                                  correction_min_mass, chunk_size,
                                  epsilon, rho_query, rho_ref,
-                                 anchors = NULL) {
+                                 anchors = NULL,
+                                 direct_cache = NULL) {
   label_transfer <- .somalign_transfer_labels(
     correspondence = transport$correspondence,
     label_prob = reference$label_prob,
@@ -116,7 +117,8 @@ somalign_fit <- function(query,
     min_match_fraction = min_match_fraction,
     correction_min_mass = correction_min_mass
   )
-  projection <- .somalign_project_pair(query, reference, node_shifts, chunk_size)
+  projection <- .somalign_project_pair(query, reference, node_shifts, chunk_size,
+                                       direct_cache = direct_cache)
   diagnostics <- .somalign_build_diagnostics(
     transport, query, reference, node_shifts, projection, epsilon, rho_query, rho_ref
   )
@@ -182,8 +184,13 @@ somalign_fit <- function(query,
   )
 }
 
-.somalign_project_pair <- function(query, reference, node_shifts, chunk_size) {
-  direct <- .somalign_project_samples(query$scaled_data, reference, chunk_size = chunk_size)
+.somalign_project_pair <- function(query, reference, node_shifts, chunk_size,
+                                   direct_cache = NULL) {
+  direct <- if (!is.null(direct_cache)) {
+    direct_cache
+  } else {
+    .somalign_project_samples(query$scaled_data, reference, chunk_size = chunk_size)
+  }
   corrected_matrix <- query$scaled_data + node_shifts[query$sample_unit, , drop = FALSE]
   corrected <- .somalign_project_samples(corrected_matrix, reference, chunk_size = chunk_size)
   correction_norm <- sqrt(rowSums(node_shifts[query$sample_unit, , drop = FALSE]^2))

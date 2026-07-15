@@ -121,6 +121,140 @@ somalign_query <- function(data,
   )
 }
 
+#' Build a query object from a pre-trained kohonen SOM
+#'
+#' Creates a \code{somalign_query} by reusing the per-cell node assignments
+#' (\code{som$unit.classif}) already computed during SOM training, bypassing
+#' the O(N \eqn{\times} nodes) per-cell argmax that
+#' \code{\link{somalign_query}()} would otherwise perform.
+#'
+#' @param som A trained kohonen SOM (output of \code{kohonen::som()} or
+#'   \code{kohonen::supersom()}) with \code{$unit.classif} populated
+#'   (\code{keep.data = TRUE} during training is \emph{not} required here, but
+#'   \code{unit.classif} must be present).
+#' @param data Numeric matrix of raw query cell values (cells \eqn{\times}
+#'   features).  Must include all features in \code{reference$features}, and
+#'   \code{nrow(data)} must equal \code{length(som$unit.classif)}.
+#' @param reference A \code{somalign_reference} object.
+#' @param codebook Optional numeric matrix of SOM codebook vectors in the
+#'   coordinate space given by \code{codebook_space} (nodes \eqn{\times}
+#'   features).  When \code{NULL} (default) the X-layer codebook
+#'   \code{som$codes[[1]]} is used.  Supply an explicitly transformed codebook
+#'   (e.g.\ after winsorisation and rescaling into reference-scaled space) when
+#'   the SOM's native codebook has been post-processed before alignment.
+#' @param codebook_space Coordinate system of the codebook.
+#'   \code{"reference_scaled"} (default) assumes the codebook is already in the
+#'   reference-scaled coordinate system.  \code{"raw"} applies
+#'   \code{reference$center} and \code{reference$scale} before use.
+#' @param features Optional character vector of feature names.  Defaults to
+#'   \code{reference$features}.
+#'
+#' @details
+#' \code{somalign_query_from_som()} reuses \code{som$unit.classif} directly as
+#' the per-cell query-node assignment, so the O(N \eqn{\times} nodes) nearest-
+#' code search is skipped entirely.  This is exact when the supplied
+#' \code{codebook} was used as-is during SOM training.  If the codebook has
+#' been post-processed (e.g.\ winsorised and rescaled into reference space),
+#' the reused assignments are an approximation: cells near node boundaries may
+#' flip under the non-linear transform, but in practice this affects only a
+#' small fraction of cells at the distributional tails and does not measurably
+#' impact OT alignment quality.
+#'
+#' Unlike \code{\link{somalign_query}()}, \code{sample_distance} is not
+#' recomputed and is set to \code{NA} in the returned object.  The field is not
+#' used by \code{\link{somalign_fit}()}.
+#'
+#' The returned object is identical in structure to a \code{somalign_query}
+#' produced by \code{somalign_query()}, and is fully compatible with
+#' \code{\link{somalign_fit}()}.
+#'
+#' @return A \code{somalign_query} object.
+#'
+#' @seealso [somalign_query()], [somalign_reference_from_som()], [somalign_fit()]
+#'
+#' @export
+somalign_query_from_som <- function(som,
+                                    data,
+                                    reference,
+                                    codebook = NULL,
+                                    codebook_space = c("reference_scaled", "raw"),
+                                    features = NULL) {
+  .somalign_check_reference(reference)
+  codebook_space <- match.arg(codebook_space)
+  features <- .somalign_query_features(features, reference)
+  data <- .somalign_prepare_feature_matrix(data, features, what = "query data")
+  scaled_data <- .somalign_scale_matrix(data, reference$center, reference$scale)
+
+  # --- SOM unit assignments --------------------------------------------------
+  unit <- som$unit.classif
+  if (is.null(unit) || length(unit) == 0L) {
+    stop(
+      "`som$unit.classif` is absent or empty. ",
+      "The SOM must have been trained with `keep.data = TRUE`, ",
+      "or `unit.classif` must otherwise be populated.",
+      call. = FALSE
+    )
+  }
+  if (length(unit) != nrow(data)) {
+    stop(
+      "`som$unit.classif` has ", length(unit), " entries but `data` has ",
+      nrow(data), " rows. They must match.",
+      call. = FALSE
+    )
+  }
+
+  # --- Codebook --------------------------------------------------------------
+  if (is.null(codebook)) {
+    codebook <- .somalign_get_codebook(som, features = features, what = "som_query")
+  } else {
+    codebook <- as.matrix(codebook)
+    storage.mode(codebook) <- "double"
+    missing_f <- setdiff(features, colnames(codebook))
+    if (length(missing_f) > 0L) {
+      stop(
+        "`codebook` is missing feature(s): ",
+        paste(missing_f, collapse = ", "), ".",
+        call. = FALSE
+      )
+    }
+    if (!identical(colnames(codebook), features)) {
+      codebook <- codebook[, features, drop = FALSE]
+    }
+  }
+  if (identical(codebook_space, "raw")) {
+    codebook <- .somalign_scale_matrix(codebook, reference$center, reference$scale)
+  }
+
+  n_nodes <- nrow(codebook)
+  if (max(unit) > n_nodes) {
+    stop(
+      "`som$unit.classif` contains indices up to ", max(unit),
+      " but the codebook has only ", n_nodes, " rows.",
+      call. = FALSE
+    )
+  }
+
+  node_masses <- .somalign_node_masses(as.integer(unit), n_nodes)
+
+  sample_id <- rownames(data)
+  if (is.null(sample_id)) sample_id <- as.character(seq_len(nrow(data)))
+
+  structure(
+    list(
+      data             = data,
+      scaled_data      = scaled_data,
+      som_query        = som,
+      codebook         = codebook,
+      node_masses      = node_masses,
+      sample_unit      = as.integer(unit),
+      sample_distance  = rep(NA_real_, nrow(data)),
+      sample_id        = sample_id,
+      reference_features = reference$features
+    ),
+    class = "somalign_query"
+  )
+}
+
 #' Global pre-correction of query data to match the reference distribution
 #'
 #' An optional pre-processing step that shifts (or shifts and scales) query

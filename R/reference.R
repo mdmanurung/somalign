@@ -242,3 +242,188 @@ somalign_reference_from_nodes <- function(codebook,
   }
   global_distance_quantiles
 }
+
+#' Build a reference object directly from a trained kohonen SOM
+#'
+#' Constructs a \code{somalign_reference} without reprojecting any cells by
+#' reusing information already stored inside the trained kohonen object:
+#'
+#' \describe{
+#'   \item{X codebook}{\code{codes[[1]]} — the reference node positions in
+#'     feature space, already used by the existing API.}
+#'   \item{Node masses}{\code{tabulate(som$unit.classif)} — exact counts over
+#'     *all* training cells, zero cost.}
+#'   \item{Label probabilities}{\code{codes[[2]]} — the supervised Y-layer
+#'     codebook from an \code{xyf}/\code{supersom} object.  Each row is a
+#'     per-node distribution over cell-type labels.  Absent for plain
+#'     \code{som()} objects, in which case label transfer is disabled.}
+#'   \item{Distance quantiles}{Recomputed in reference-scaled X-space from the
+#'     embedded \code{som$data[[1]]} using each cell's known
+#'     \code{unit.classif} assignment.  This is O(N \eqn{\times} p) with no
+#'     argmax and no O(N \eqn{\times} nodes) memory peak.}
+#' }
+#'
+#' \strong{Note on partition semantics.}  On an \code{xyf}/\code{supersom}
+#' trained with equal layer weights, \code{unit.classif} reflects a joint X+Y
+#' (label-weighted) assignment, not a pure-X nearest-node assignment.  Node
+#' masses therefore match the SOM's own supervised partition rather than
+#' somalign's X-only geometry.  Distance quantiles are still computed in X-only
+#' space so the outside-reference threshold is on the same scale as
+#' \code{somalign_fit()}'s query distances.
+#'
+#' @param som A trained \code{kohonen} SOM object (from \code{kohonen::som()},
+#'   \code{kohonen::supersom()}, or \code{kohonen::xyf()}) with
+#'   \code{keep.data = TRUE} (the kohonen default).
+#' @param center Named numeric vector of reference feature centers, one per
+#'   feature.  Required.
+#' @param scale Named numeric vector of reference feature scales, one per
+#'   feature (must be strictly positive).  Required.
+#' @param codebook_space Coordinate system of the SOM codebook.
+#'   \code{"reference_scaled"} when the SOM was trained on data already
+#'   transformed by \code{center} and \code{scale};
+#'   \code{"raw"} when the SOM was trained on raw feature values that should
+#'   be transformed into reference-scaled space before use.
+#' @param labels \code{"codebook"} (default) reads the per-node label
+#'   distribution from the Y-layer \code{codes[[2]]} and enables label
+#'   transfer.  \code{"none"} skips label extraction and disables label
+#'   transfer regardless of whether a Y-layer is present.
+#' @param quantile_probs Quantile levels for per-node distance thresholds.
+#'   Passed to \code{\link{somalign_reference_from_nodes}}.
+#' @param distance_chunk_size Number of cells to process per chunk when
+#'   computing X-space cell-to-node distances.  Reduce if memory is tight;
+#'   increase for faster throughput.  Default 1e6.
+#'
+#' @return A \code{somalign_reference} object, identical in structure to the
+#'   output of \code{\link{somalign_reference}} but built without reprojecting
+#'   any cells.
+#'
+#' @seealso [somalign_reference()], [somalign_reference_from_nodes()],
+#'   [somalign_query()], [somalign_fit()]
+#'
+#' @examples
+#' set.seed(1)
+#' n <- 120
+#' X <- matrix(rnorm(n * 2), nrow = n, ncol = 2,
+#'             dimnames = list(NULL, c("F1", "F2")))
+#' Y <- cbind(A = rep(c(1, 0), each = n / 2),
+#'            B = rep(c(0, 1), each = n / 2))
+#' som_obj <- kohonen::supersom(list(X, Y),
+#'                              grid = kohonen::somgrid(3, 3, "hexagonal"),
+#'                              rlen = 5, keep.data = TRUE)
+#' center <- colMeans(X)
+#' scale  <- apply(X, 2, sd)
+#' X_scaled <- scale(X, center = center, scale = scale)
+#' som_scaled <- kohonen::supersom(list(X_scaled, Y),
+#'                                 grid = kohonen::somgrid(3, 3, "hexagonal"),
+#'                                 rlen = 5, keep.data = TRUE)
+#' ref <- somalign_reference_from_som(som_scaled,
+#'                                    center = center, scale = scale,
+#'                                    codebook_space = "reference_scaled")
+#' @export
+somalign_reference_from_som <- function(som,
+                                        center,
+                                        scale,
+                                        codebook_space,
+                                        labels = c("codebook", "none"),
+                                        quantile_probs = c(0.5, 0.9, 0.95, 0.99),
+                                        distance_chunk_size = 1e6L) {
+  labels <- match.arg(labels)
+
+  # --- 1. X codebook and features -------------------------------------------
+  codebook <- .somalign_get_codebook(som, what = "som")
+  features <- colnames(codebook)
+  n_nodes <- nrow(codebook)
+
+  # --- 2. center / scale / codebook_space -----------------------------------
+  codebook_space <- .somalign_validate_codebook_space(codebook_space)
+  center <- .somalign_named_numeric(center, features, "center")
+  scale  <- .somalign_named_numeric(scale,  features, "scale")
+  .somalign_validate_scale(scale)
+
+  if (identical(codebook_space, "raw")) {
+    codebook <- .somalign_scale_matrix(codebook, center, scale)
+  }
+
+  # --- 3. Node masses from unit.classif (all training cells) ----------------
+  unit <- som$unit.classif
+  if (is.null(unit) || length(unit) == 0L) {
+    stop(
+      "`som$unit.classif` is absent or empty.  ",
+      "Ensure the SOM was trained with `keep.data = TRUE`.",
+      call. = FALSE
+    )
+  }
+  if (max(unit) > n_nodes) {
+    stop(
+      "`som$unit.classif` contains node indices larger than the number of ",
+      "codebook rows (", n_nodes, ").  The SOM may have been modified after ",
+      "training.",
+      call. = FALSE
+    )
+  }
+  node_masses <- tabulate(unit, nbins = n_nodes)
+
+  # --- 4. Label probabilities from Y-layer codebook -------------------------
+  label_prob <- if (identical(labels, "codebook")) {
+    .somalign_extract_label_codes(som)
+  } else {
+    NULL
+  }
+
+  # --- 5. X-space distances (chunked, O(N * p), no argmax) -----------------
+  X <- .somalign_extract_som_data(som)
+  if (!identical(as.integer(ncol(X)), as.integer(length(features)))) {
+    stop(
+      "`som$data[[1]]` has ", ncol(X), " columns but the X codebook has ",
+      length(features), " features.  The SOM object may be inconsistent.",
+      call. = FALSE
+    )
+  }
+  if (!identical(as.integer(nrow(X)), as.integer(length(unit)))) {
+    stop(
+      "`som$data[[1]]` has ", nrow(X), " rows but `som$unit.classif` has ",
+      length(unit), " entries.  The SOM object may be inconsistent.",
+      call. = FALSE
+    )
+  }
+
+  # If raw codebook, data must also be scaled before distance computation
+  if (identical(codebook_space, "raw")) {
+    X <- .somalign_scale_matrix(X, center, scale)
+  }
+
+  # Select features in the same order as the codebook (skip copy if already aligned)
+  if (!identical(colnames(X), features)) {
+    X <- X[, features, drop = FALSE]
+  }
+
+  d <- .somalign_som_cell_distances(X, codebook, unit,
+                                    chunk_size = distance_chunk_size)
+
+  quantiles <- .somalign_distance_quantiles(d, unit, n_nodes, quantile_probs)
+
+  # --- 6. Delegate validation/normalisation to somalign_reference_from_nodes ---
+  ref <- somalign_reference_from_nodes(
+    codebook               = codebook,
+    features               = features,
+    center                 = center,
+    scale                  = scale,
+    node_masses            = node_masses,
+    label_prob             = label_prob,
+    distance_quantiles     = quantiles$node,
+    global_distance_quantiles = quantiles$global
+  )
+
+  # --- 7. Enrich with per-cell fields (mirrors somalign_reference output) ---
+  # Strip $data from the stored SOM copy: everything we needed is already
+  # extracted above, and keeping the full N×p matrix (up to ~10 GB for 44.6M
+  # cells) would double the memory footprint of the returned reference object.
+  som_ref <- som
+  som_ref$data <- NULL
+  ref$som_ref             <- som_ref
+  ref$reference_units     <- as.integer(unit)
+  ref$reference_distances <- d
+  ref$n_samples           <- length(unit)
+
+  ref
+}

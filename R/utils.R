@@ -377,3 +377,69 @@
   }
   -sum(prob * log(prob))
 }
+
+# ---------------------------------------------------------------------------
+# Helpers for somalign_reference_from_som()
+# ---------------------------------------------------------------------------
+
+# Extract the Y-layer (label) codebook from a kohonen xyf/supersom object.
+# Returns NULL with a message when no second code layer is present (plain som).
+.somalign_extract_label_codes <- function(som) {
+  codes <- som$codes
+  if (is.null(codes) || !is.list(codes) || length(codes) < 2L) {
+    message(
+      "somalign_reference_from_som: SOM has no second code layer; ",
+      "label transfer will be disabled."
+    )
+    return(NULL)
+  }
+  yc <- codes[[2L]]
+  if (!is.matrix(yc) && !is.data.frame(yc)) {
+    message(
+      "somalign_reference_from_som: second code layer is not a matrix; ",
+      "label transfer will be disabled."
+    )
+    return(NULL)
+  }
+  yc <- as.matrix(yc)
+  storage.mode(yc) <- "double"
+  yc
+}
+
+# Extract the X-layer training data from a kohonen object.
+# For supersom/xyf: som$data is a list; takes [[1]].
+# For plain som:    som$data is also a list (one element).
+# Errors clearly when data were not retained (keep.data = FALSE).
+.somalign_extract_som_data <- function(som) {
+  d <- som[["data"]]
+  if (is.null(d)) {
+    stop(
+      "The SOM does not store training data (`som$data` is NULL). ",
+      "Retrain with `keep.data = TRUE` (the kohonen default) or supply ",
+      "distance quantiles manually via `somalign_reference_from_nodes()`.",
+      call. = FALSE
+    )
+  }
+  if (is.list(d)) {
+    d <- d[[1L]]
+  }
+  d <- as.matrix(d)
+  storage.mode(d) <- "double"
+  d
+}
+
+# Compute per-cell Euclidean distance to each cell's already-known assigned
+# node.  O(N * p) — no 900-way argmax, no O(N * nodes) matrix.
+# Processed in chunks to bound peak memory.
+.somalign_som_cell_distances <- function(X, codebook, unit, chunk_size) {
+  n <- nrow(X)
+  d <- numeric(n)
+  chunk_size <- max(1L, as.integer(chunk_size))
+  for (s in seq(1L, n, by = chunk_size)) {
+    idx <- s:min(s + chunk_size - 1L, n)
+    d[idx] <- sqrt(rowSums(
+      (X[idx, , drop = FALSE] - codebook[unit[idx], , drop = FALSE]) ^ 2
+    ))
+  }
+  d
+}

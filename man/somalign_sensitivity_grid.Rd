@@ -11,8 +11,14 @@ somalign_sensitivity_grid(
   rho_query,
   rho_ref,
   solver = c("internal", "auto"),
-  parallel = FALSE,
-  ...
+  min_match_fraction = 0.05,
+  confidence_threshold = 0.6,
+  correction_min_mass = 1e-08,
+  max_iter = 1000,
+  tol = 1e-07,
+  chunk_size = 10000L,
+  diagonal_boost = 0,
+  parallel = FALSE
 )
 }
 \arguments{
