@@ -74,13 +74,40 @@ test_that("somalign_plot_label_confusion returns ggplot when labels exist", {
   expect_true(any(tile_layers))
 })
 
-test_that("somalign_plot_label_confusion errors with no accepted labels", {
+test_that("somalign_plot_label_confusion rejects out-of-range min_confidence", {
   skip_if_not_installed("kohonen")
   fx  <- make_anchored_fixture()
   fit <- somalign_fit(fx$qry, fx$ref)
-  # min_confidence = 2 → no cell can pass
   expect_error(
     somalign_plot_label_confusion(fit, min_confidence = 2),
+    "must be in"
+  )
+  expect_error(
+    somalign_plot_label_confusion(fit, min_confidence = -0.1),
+    "must be in"
+  )
+})
+
+test_that("somalign_plot_label_confusion errors with no accepted labels", {
+  skip_if_not_installed("kohonen")
+  withr::local_seed(1L)
+  p_data <- 3L
+  ref_data <- rbind(
+    matrix(rnorm(30 * p_data, mean = -3, sd = 0.5), ncol = p_data),
+    matrix(rnorm(30 * p_data, mean =  3, sd = 0.5), ncol = p_data)
+  )
+  colnames(ref_data) <- paste0("F", seq_len(p_data))
+  labels <- rep(c("low", "high"), each = 30L)
+  ref <- somalign_train_reference(
+    ref_data, labels = labels,
+    grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 10
+  )
+  qry <- somalign_query(ref_data + 0.5, ref,
+                        grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 10)
+  fit <- somalign_fit(qry, ref)
+  # min_confidence = 1 is valid but no cell achieves confidence exactly 1
+  expect_error(
+    somalign_plot_label_confusion(fit, min_confidence = 1),
     "No accepted transferred labels found"
   )
 })
@@ -164,6 +191,64 @@ test_that("somalign_plot_marker_distributions rejects unknown features", {
 
 test_that("somalign_plot_marker_distributions rejects non-query input", {
   expect_error(somalign_plot_marker_distributions(list()), "somalign_query", fixed = TRUE)
+})
+
+test_that("somalign_plot_match_fraction rejects bad threshold", {
+  skip_if_not_installed("kohonen")
+  fx  <- make_anchored_fixture()
+  fit <- somalign_fit(fx$qry, fx$ref)
+  expect_error(somalign_plot_match_fraction(fit, threshold = 1.5), "must be in")
+  expect_error(somalign_plot_match_fraction(fit, threshold = -0.1), "must be in")
+  expect_error(somalign_plot_match_fraction(fit, threshold = "high"), "single finite number")
+  expect_error(somalign_plot_match_fraction(fit, threshold = c(0.05, 0.1)), "single finite number")
+})
+
+test_that("somalign_worst_nodes rejects bad n", {
+  skip_if_not_installed("kohonen")
+  fx  <- make_anchored_fixture()
+  fit <- somalign_fit(fx$qry, fx$ref)
+  expect_error(somalign_worst_nodes(fit, n = 0L), "positive integer")
+  expect_error(somalign_worst_nodes(fit, n = -1L), "positive integer")
+  expect_error(somalign_worst_nodes(fit, n = "all"), "positive integer")
+})
+
+test_that("somalign_plot_marker_distributions rejects bad downsample/seed/features", {
+  skip_if_not_installed("kohonen")
+  fx <- make_anchored_fixture()
+  expect_error(
+    somalign_plot_marker_distributions(fx$qry, downsample = 0),
+    "positive number"
+  )
+  expect_error(
+    somalign_plot_marker_distributions(fx$qry, downsample = -10),
+    "positive number"
+  )
+  expect_error(
+    somalign_plot_marker_distributions(fx$qry, seed = NA_real_),
+    "numeric scalar"
+  )
+  expect_error(
+    somalign_plot_marker_distributions(fx$qry, features = 123),
+    "character vector"
+  )
+})
+
+test_that("somalign_plot_marker_distributions rejects reference_data with missing columns", {
+  skip_if_not_installed("kohonen")
+  fx       <- make_anchored_fixture()
+  bad_data <- matrix(1:10, nrow = 5, dimnames = list(NULL, c("X1", "X2")))
+  expect_error(
+    somalign_plot_marker_distributions(fx$qry, reference_data = bad_data),
+    "missing columns"
+  )
+})
+
+test_that("somalign_plot_codebook_range rejects malformed per_feature", {
+  chk <- structure(
+    list(per_feature = data.frame(feature = "F1", ref_min = 0)),
+    class = "somalign_codebook_check"
+  )
+  expect_error(somalign_plot_codebook_range(chk), "per_feature missing")
 })
 
 test_that(".somalign_downsample_rows preserves RNG state", {
