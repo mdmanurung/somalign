@@ -241,11 +241,14 @@ legend("right",
 The transport plan $P$ minimises:
 
 $$\sum_{ij} P_{ij} D_{ij}
-  + \varepsilon \cdot \mathrm{KL}(P \,\|\, \mathbf{a}\otimes\mathbf{b})
+  + \varepsilon \cdot \mathrm{KL}(P \,\|\, \mathbf{1})
   + \rho_q \cdot \mathrm{KL}(P\mathbf{1} \,\|\, \mathbf{a})
   + \rho_r \cdot \mathrm{KL}(P^\top\!\mathbf{1} \,\|\, \mathbf{b})$$
 
 where $\mathbf{a}$ and $\mathbf{b}$ are the query and reference node masses.
+The entropic term $\varepsilon \cdot \mathrm{KL}(P \,\|\, \mathbf{1})$ is the
+negentropy regulariser of Cuturi (2013), which yields the Gibbs kernel
+$K_{ij} = \exp(-D_{ij}/\varepsilon)$ used by the solver.
 The KL marginal penalties relax the balance constraint: mass can be destroyed
 rather than transported, so a query node with no good reference counterpart
 routes only a small fraction of its mass rather than forcing an artificial
