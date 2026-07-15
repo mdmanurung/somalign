@@ -13,7 +13,7 @@ test_that("internal solver warns on non-convergence", {
       solver = "internal",
       epsilon = 0.1,
       max_iter = 1L,
-      tol = 0
+      tol = .Machine$double.eps
     ),
     "did not converge"
   )

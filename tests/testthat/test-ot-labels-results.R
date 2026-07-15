@@ -138,7 +138,7 @@ test_that("somalign_results errors when data has wrong row count", {
   expect_true("extra" %in% names(res))
 })
 
-test_that("weakly matched nodes receive zero correction", {
+test_that("nodes below mass threshold receive zero correction", {
   ref <- tiny_reference()
   query <- matrix(c(-1, 0, 1, 0), ncol = 2, byrow = TRUE)
   colnames(query) <- ref$features
@@ -148,12 +148,14 @@ test_that("weakly matched nodes receive zero correction", {
     som_query = make_som(rbind(c(-1, 0), c(1, 0)))
   )
 
+  # correction_min_mass far exceeds any node's transported mass (~0.5),
+  # so all nodes must have correction_allowed = FALSE.
   fit <- somalign_fit(
     query_obj,
     ref,
     solver = "internal",
     epsilon = 0.1,
-    min_match_fraction = 2
+    correction_min_mass = 1e6
   )
 
   expect_true(all(fit$diagnostics$nodes$correction_allowed == FALSE))
