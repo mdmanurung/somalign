@@ -17,7 +17,8 @@ somalign_fit(
   max_iter = 1000,
   tol = 1e-07,
   chunk_size = 10000L,
-  diagonal_boost = 0
+  diagonal_boost = 0,
+  label_guided = FALSE
 )
 }
 \arguments{
@@ -72,6 +73,13 @@ shrinking over-correction when the two codebooks are already close. Zero
 (default) leaves the cost unchanged. Values around 0.1--0.5 are a
 reasonable starting point; very large values concentrate all mass on the
 diagonal and the plan degrades toward simple nearest-neighbour assignment.}
+
+\item{label_guided}{Logical. When \code{TRUE}, uses \code{query$label_prob} and
+\code{reference$label_prob} to add a large cost penalty for node pairs whose
+dominant labels disagree, constraining OT to transport mass predominantly
+between concordant cell-type nodes. Nodes where the maximum label
+probability is below 0.5 are treated as unlabeled and are never penalized.
+Errors if \code{label_guided = TRUE} but either \code{label_prob} is \code{NULL}.}
 }
 \value{
 A \code{somalign_fit} object.

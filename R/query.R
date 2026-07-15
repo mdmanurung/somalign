@@ -115,7 +115,8 @@ somalign_query <- function(data,
       sample_unit = sample_map$unit,
       sample_distance = sample_map$distance,
       sample_id = sample_id,
-      reference_features = reference$features
+      reference_features = reference$features,
+      label_prob = .somalign_extract_label_codes(som_query)
     ),
     class = "somalign_query"
   )
@@ -319,4 +320,66 @@ somalign_normalize <- function(data, reference,
   }
 
   sweep(sweep(scaled, 2, reference$scale, "*"), 2, reference$center, "+")
+}
+
+#' Divide each feature column by its upper quantile
+#'
+#' @description
+#' Divides each feature column by its upper quantile so that the
+#' `probs`-quantile maps to 1.0. Scale-only normalisation. Returned matrix
+#' passes directly to [somalign_query()].
+#'
+#' An optional pre-processing step that brings each marker's dynamic range into
+#' \eqn{[0, 1]} before projection to the reference. Unlike [somalign_normalize()],
+#' this operates entirely in raw (unscaled) space and does not use the reference
+#' mean or standard deviation; it only uses the reference to resolve feature names.
+#'
+#' @param data Numeric matrix of query data, same format as the `data` argument
+#'   to [somalign_query()].
+#' @param reference A `somalign_reference` object.
+#' @param probs Single numeric in the open interval (0, 1). The quantile used
+#'   as the normalisation denominator. Default is 0.999 (99.9th percentile).
+#' @param features Optional character vector of feature names. Defaults to
+#'   `reference$features`.
+#'
+#' @return A numeric matrix with the same dimensions as `data`, with columns in
+#'   `reference$features` order. Each column is divided by its `probs`-quantile
+#'   so the bulk of the signal maps into \eqn{[0, 1]}. Pass this matrix directly
+#'   to [somalign_query()].
+#'
+#' @seealso [somalign_normalize()], [somalign_query()]
+#' @examples
+#' set.seed(1)
+#' mat <- matrix(abs(rnorm(40)) * 1000, nrow = 20, ncol = 2,
+#'               dimnames = list(NULL, c("F1", "F2")))
+#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                                 rlen = 5)
+#' normed <- somalign_quantile_normalize(mat, ref, probs = 0.999)
+#' @export
+somalign_quantile_normalize <- function(data, reference, probs = 0.999,
+                                        features = NULL) {
+  .somalign_check_reference(reference)
+
+  if (!is.numeric(probs) || length(probs) != 1L || !is.finite(probs) ||
+      probs <= 0 || probs >= 1) {
+    stop("`probs` must be a single numeric value strictly between 0 and 1.",
+         call. = FALSE)
+  }
+
+  features <- .somalign_query_features(features, reference)
+  data <- .somalign_prepare_feature_matrix(data, features, what = "query data")
+
+  q <- apply(data, 2L, stats::quantile, probs = probs, na.rm = TRUE)
+
+  bad <- !is.finite(q) | q == 0
+  if (any(bad)) {
+    warning(
+      "Some features have a zero or non-finite upper quantile; ",
+      "those columns will not be rescaled.",
+      call. = FALSE
+    )
+    q[bad] <- 1
+  }
+
+  sweep(data, 2L, q, "/")
 }

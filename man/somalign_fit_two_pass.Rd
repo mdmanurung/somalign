@@ -17,7 +17,8 @@ somalign_fit_two_pass(
   correction_min_mass = 1e-08,
   max_iter = 1000,
   tol = 1e-07,
-  chunk_size = 10000L
+  chunk_size = 10000L,
+  label_guided = FALSE
 )
 }
 \arguments{
@@ -55,6 +56,10 @@ See \code{\link[=somalign_fit]{somalign_fit()}}.}
 
 \item{chunk_size}{Integer. Number of samples per projection chunk.
 See \code{\link[=somalign_fit]{somalign_fit()}}.}
+
+\item{label_guided}{Logical. When \code{TRUE}, applies a large cost penalty to
+node pairs with discordant dominant labels in both OT passes. See
+\code{\link[=somalign_fit]{somalign_fit()}} for details.}
 }
 \value{
 A \code{somalign_fit} object with an additional \verb{$two_pass} list

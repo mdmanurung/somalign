@@ -39,6 +39,12 @@
 #'   (default) leaves the cost unchanged. Values around 0.1--0.5 are a
 #'   reasonable starting point; very large values concentrate all mass on the
 #'   diagonal and the plan degrades toward simple nearest-neighbour assignment.
+#' @param label_guided Logical. When `TRUE`, uses `query$label_prob` and
+#'   `reference$label_prob` to add a large cost penalty for node pairs whose
+#'   dominant labels disagree, constraining OT to transport mass predominantly
+#'   between concordant cell-type nodes. Nodes where the maximum label
+#'   probability is below 0.5 are treated as unlabeled and are never penalized.
+#'   Errors if `label_guided = TRUE` but either `label_prob` is `NULL`.
 #'
 #' @details
 #' The transport plan row sums will not equal `query$node_masses` exactly -- this
@@ -79,14 +85,25 @@ somalign_fit <- function(query,
                          max_iter = 1000,
                          tol = 1e-7,
                          chunk_size = 10000L,
-                         diagonal_boost = 0) {
+                         diagonal_boost = 0,
+                         label_guided = FALSE) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   solver <- match.arg(solver, c("internal", "log_domain", "auto"))
 
+  label_mask <- if (isTRUE(label_guided)) {
+    if (is.null(query$label_prob))
+      stop("label_guided = TRUE but query$label_prob is NULL.", call. = FALSE)
+    if (is.null(reference$label_prob))
+      stop("label_guided = TRUE but reference$label_prob is NULL.", call. = FALSE)
+    .somalign_build_label_mask(query$label_prob, reference$label_prob)
+  } else {
+    NULL
+  }
+
   transport <- .somalign_align_transport(
     query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol,
-    diagonal_boost = diagonal_boost
+    diagonal_boost = diagonal_boost, label_mask = label_mask
   )
   .somalign_finish_fit(
     query, reference, transport,
@@ -129,10 +146,35 @@ somalign_fit <- function(query,
   )
 }
 
+.somalign_build_label_mask <- function(query_label_prob, ref_label_prob) {
+  if (!identical(colnames(query_label_prob), colnames(ref_label_prob))) {
+    stop(
+      "label_guided = TRUE requires query$label_prob and reference$label_prob ",
+      "to have identical column names (same cell-type taxonomy). ",
+      "query has: ", paste(colnames(query_label_prob), collapse = ", "), ". ",
+      "reference has: ", paste(colnames(ref_label_prob), collapse = ", "), ".",
+      call. = FALSE
+    )
+  }
+  row_sum_q <- rowSums(query_label_prob)
+  row_sum_r <- rowSums(ref_label_prob)
+  q_norm <- query_label_prob / ifelse(row_sum_q > 0, row_sum_q, 1)
+  r_norm <- ref_label_prob   / ifelse(row_sum_r > 0, row_sum_r, 1)
+  q_dom <- max.col(q_norm, ties.method = "first")
+  r_dom <- max.col(r_norm, ties.method = "first")
+  q_unlab <- apply(q_norm, 1, max) < 0.5
+  r_unlab <- apply(r_norm, 1, max) < 0.5
+  mask <- outer(q_dom, r_dom, "!=")
+  mask[q_unlab, ] <- FALSE
+  mask[, r_unlab] <- FALSE
+  mask
+}
+
 .somalign_align_transport <- function(query, reference, epsilon, rho_query,
                                       rho_ref, solver, max_iter, tol,
                                       cost_bonus = NULL,
-                                      diagonal_boost = 0) {
+                                      diagonal_boost = 0,
+                                      label_mask = NULL) {
   cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
   cost_scale <- stats::median(cost[cost > 0])
   if (!is.finite(cost_scale) || cost_scale == 0) {
@@ -146,6 +188,10 @@ somalign_fit <- function(query,
   }
   if (!is.null(cost_bonus)) {
     cost_normalized <- pmax(cost_normalized - cost_bonus, 0)
+  }
+  if (!is.null(label_mask)) {
+    penalty <- max(cost_normalized) * 1e4
+    cost_normalized[label_mask] <- cost_normalized[label_mask] + penalty
   }
   ot <- .somalign_solve_ot(
     cost = cost_normalized,
@@ -439,6 +485,9 @@ somalign_fit <- function(query,
 #' @param tol Sinkhorn convergence tolerance.
 #' @param chunk_size Integer. Number of samples per projection chunk.
 #'   See [somalign_fit()].
+#' @param label_guided Logical. When `TRUE`, applies a large cost penalty to
+#'   node pairs with discordant dominant labels in both OT passes. See
+#'   [somalign_fit()] for details.
 #'
 #' @return A `somalign_fit` object with an additional `$two_pass` list
 #'   containing `global_shift` (per-feature vector), `global_shift_norm`
@@ -487,13 +536,25 @@ somalign_fit_two_pass <- function(query,
                                   correction_min_mass = 1e-8,
                                   max_iter = 1000,
                                   tol = 1e-7,
-                                  chunk_size = 10000L) {
+                                  chunk_size = 10000L,
+                                  label_guided = FALSE) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   solver <- match.arg(solver, c("internal", "log_domain", "auto"))
 
+  label_mask <- if (isTRUE(label_guided)) {
+    if (is.null(query$label_prob))
+      stop("label_guided = TRUE but query$label_prob is NULL.", call. = FALSE)
+    if (is.null(reference$label_prob))
+      stop("label_guided = TRUE but reference$label_prob is NULL.", call. = FALSE)
+    .somalign_build_label_mask(query$label_prob, reference$label_prob)
+  } else {
+    NULL
+  }
+
   t1 <- .somalign_align_transport(query, reference, epsilon_global, rho_query,
-                                   rho_ref, solver, max_iter, tol)
+                                   rho_ref, solver, max_iter, tol,
+                                   label_mask = label_mask)
   ns1 <- .somalign_node_shifts(
     query_codebook    = query$codebook,
     reference_codebook = reference$codebook,
@@ -517,7 +578,8 @@ somalign_fit_two_pass <- function(query,
   query2$codebook <- query$codebook + g_mat
 
   t2 <- .somalign_align_transport(query2, reference, epsilon_local, rho_query,
-                                   rho_ref, solver, max_iter, tol)
+                                   rho_ref, solver, max_iter, tol,
+                                   label_mask = label_mask)
   ns2 <- .somalign_node_shifts(
     query_codebook    = query2$codebook,
     reference_codebook = reference$codebook,

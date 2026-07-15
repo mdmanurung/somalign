@@ -385,6 +385,9 @@
 # Extract the Y-layer (label) codebook from a kohonen xyf/supersom object.
 # Returns NULL with a message when no second code layer is present (plain som).
 .somalign_extract_label_codes <- function(som) {
+  if (!is.list(som)) {
+    return(NULL)
+  }
   codes <- som$codes
   if (is.null(codes) || !is.list(codes) || length(codes) < 2L) {
     message(
