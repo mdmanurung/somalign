@@ -204,6 +204,76 @@ node-level `match_fraction` and `correction_norm` across values, and use
 `somalign_results()` to check whether corrected node assignments shift in a
 direction consistent with your biological expectations.
 
+## Signal-preserving correction
+
+The default `correction = "cost_bonus"` applies the OT-derived shift across all
+features. For most reagent- or calibration-driven batch effects this is correct —
+the displacement is genuinely technical and should be removed. The assumption breaks
+when the new batch contains populations or activation states absent from the reference:
+a full-space shift pushes those cells toward reference coordinates and erases their
+distinguishing biology.
+
+Because each anchor pair links *the same biological unit* measured in both batches,
+the row vector `anchor_old - anchor_new` is a direct observation of the batch
+displacement with no biological contribution. SVD of the n_anchors × p displacement
+matrix isolates the true batch directions — call this `V_batch`. Restricting node
+shifts to `V_batch` corrects only the batch component; biology orthogonal to
+`V_batch` is preserved.
+
+```{r subspace, eval = requireNamespace("kohonen", quietly = TRUE)}
+fit_sub <- somalign_fit_anchored(
+  query, reference,
+  anchor_old = anchor_old,
+  anchor_new = anchor_new,
+  correction = "subspace"
+)
+cat("Correction mode:  ", fit_sub$anchors$correction, "\n")
+cat("Batch subspace V: ", nrow(fit_sub$anchors$batch_subspace$V), "rows x",
+                          ncol(fit_sub$anchors$batch_subspace$V), "cols\n")
+cat("Rank:             ", fit_sub$anchors$batch_subspace$rank, "\n")
+cat("Variance explained:", round(fit_sub$anchors$batch_subspace$variance_explained, 3), "\n")
+```
+
+The `batch_subspace` element carries `V` (p × rank), `rank`, and
+`variance_explained`. The default `variance_threshold = 0.9` selects the smallest
+rank r such that the top r squared singular values account for at least 90% of the
+total. A pure uniform offset collapses to rank 1; a heterogeneous multi-directional
+batch effect occupies more dimensions. Changing `variance_threshold` adjusts rank
+without altering the anchor displacement data.
+
+```{r subspace-rank, eval = requireNamespace("kohonen", quietly = TRUE)}
+fit_sub_full <- somalign_fit_anchored(
+  query, reference,
+  anchor_old        = anchor_old,
+  anchor_new        = anchor_new,
+  correction        = "subspace",
+  variance_threshold = 1.0
+)
+cat("Rank at threshold = 1.0:", fit_sub_full$anchors$batch_subspace$rank, "\n")
+```
+
+`correction = "both"` applies the anchor cost bonus to the OT solve *and* restricts
+the resulting shifts to `V_batch`:
+
+```{r both-mode, eval = requireNamespace("kohonen", quietly = TRUE)}
+fit_both <- somalign_fit_anchored(
+  query, reference,
+  anchor_old = anchor_old,
+  anchor_new = anchor_new,
+  rho_anchor = 1.5,
+  correction = "both"
+)
+cat("Correction mode:", fit_both$anchors$correction, "\n")
+cat("Coverage:       ", round(fit_both$anchors$coverage_fraction, 3), "\n")
+cat("Rank:           ", fit_both$anchors$batch_subspace$rank, "\n")
+```
+
+`rho_anchor` has no effect under `correction = "subspace"` (there is no cost bonus
+to apply). The same tuning guidelines as `"cost_bonus"` apply under `"both"`. For a
+simple, uniform batch offset all three modes produce similar corrected positions;
+the difference becomes meaningful when anchor coverage is uneven or when the query
+carries populations not represented in the reference.
+
 ## When to use `somalign_fit_anchored()`
 
 `somalign_fit_anchored()` is appropriate when a set of samples — QC pools,
@@ -216,6 +286,12 @@ objective.
 If no remeasured samples are available, use `somalign_fit()` directly.
 Fabricated or imputed anchor pairs add no information and will misguide the
 transport.
+
+When query-only biology must be preserved, use `correction = "subspace"` or
+`"both"`. When the full-space shift is appropriate — the batch dominates and no
+signal-preservation is needed — the default `"cost_bonus"` is sufficient. See
+`vignette("two-pass", package = "somalign")` for the two-pass decomposition
+approach, which handles large global offsets without requiring remeasured anchors.
 
 ## Session info
 

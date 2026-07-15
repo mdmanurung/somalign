@@ -195,11 +195,23 @@ node-level artifacts, diagnostics, and hyperparameter tuning.
 
 `vignette("anchor-samples", package = "somalign")` covers
 `somalign_fit_anchored()`: supplying remeasured QC samples as anchor pairs,
-tuning `rho_anchor`, and inspecting anchor node coverage.
+tuning `rho_anchor`, inspecting anchor node coverage, and the
+signal-preserving `correction = "subspace"` mode that restricts node shifts
+to the batch subspace estimated from anchor displacements.
+
+`vignette("two-pass", package = "somalign")` covers `somalign_fit_two_pass()`:
+decomposing the batch correction into a global shift (first OT pass at a coarser
+epsilon) and a residual per-node correction (second pass). Useful when the batch
+offset is large relative to the local OT problem scale.
 
 `vignette("algorithm", package = "somalign")` walks through each pipeline
 stage — direct projection, OT correspondence, correction vectors, label
 transfer — and explains how they produce the output columns.
+
+For preprocessing, `somalign_normalize()` subtracts the per-marker mean
+deviation between query and reference in z-scored space, and
+`somalign_quantile_normalize()` scales raw values by their upper quantile.
+Both return a raw-unit matrix to pass as `data` to `somalign_query()`.
 
 For fitted objects, `somalign_diagnostics()` reports solver convergence, OT
 mass behaviour, node-level match fractions, and direct/corrected outside

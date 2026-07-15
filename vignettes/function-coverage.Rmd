@@ -88,6 +88,36 @@ stopifnot(identical(ref3$features, ref$features))
 cat("Nodes:", nrow(ref3$codebook), "\n")
 ```
 
+## `somalign_reference_from_som`
+
+Builds a reference from a `kohonen::supersom()` or `kohonen::xyf()` SOM that already
+has a label code layer. Requires `keep.data = TRUE` so that cell-level unit assignments
+and raw data are accessible for per-cell distance computation. With `labels = "codebook"`,
+the second code book populates `label_prob`, enabling `label_guided` alignment.
+
+```{r reference-from-supersom, eval = requireNamespace("kohonen", quietly = TRUE)}
+Y_old   <- model.matrix(~ labels_old - 1)
+colnames(Y_old) <- levels(factor(labels_old))
+old_scaled <- scale(old_data, center = ref$center, scale = ref$scale)
+
+ss_ref <- kohonen::supersom(
+  list(old_scaled, Y_old),
+  grid      = grid_small,
+  rlen      = 20,
+  keep.data = TRUE
+)
+ref_ss <- somalign_reference_from_som(
+  ss_ref,
+  center         = ref$center,
+  scale          = ref$scale,
+  codebook_space = "reference_scaled",
+  labels         = "codebook"
+)
+stopifnot(inherits(ref_ss, "somalign_reference"))
+stopifnot(!is.null(ref_ss$label_prob))
+cat("Nodes:", nrow(ref_ss$codebook), "  label_prob rows:", nrow(ref_ss$label_prob), "\n")
+```
+
 ## `somalign_query`
 
 Trains a query SOM on new-batch data and projects it against the reference.
@@ -96,6 +126,50 @@ Trains a query SOM on new-batch data and projects it against the reference.
 qry <- somalign_query(new_data, ref, grid = grid_small, rlen = 20)
 stopifnot(inherits(qry, "somalign_query"))
 qry
+```
+
+## `somalign_query_from_som`
+
+Builds a query object from a pre-trained `kohonen` SOM without re-computing
+nearest-code assignments. Reuses `som$unit.classif` directly, so `sample_distance`
+is set to NA; all downstream alignment functions still work.
+
+```{r query-from-som, eval = requireNamespace("kohonen", quietly = TRUE)}
+new_scaled <- scale(new_data, center = ref$center, scale = ref$scale)
+som_qry    <- kohonen::som(new_scaled, grid = grid_small, rlen = 20)
+
+qry_reuse <- somalign_query_from_som(
+  som_qry, data = new_data, reference = ref
+)
+stopifnot(inherits(qry_reuse, "somalign_query"))
+cat("Sample units range:", range(qry_reuse$sample_unit), "\n")
+cat("sample_distance NA:", all(is.na(qry_reuse$sample_distance)), "\n")
+```
+
+## `somalign_normalize`
+
+Pre-aligns query data to the reference mean (and optionally scale) in z-scored space.
+Returns a matrix in the original (raw) units, suitable as `data` for `somalign_query()`.
+
+```{r normalize, eval = requireNamespace("kohonen", quietly = TRUE)}
+new_normed <- somalign_normalize(new_data, reference = ref, method = "mean")
+stopifnot(is.matrix(new_normed))
+stopifnot(identical(dim(new_normed), dim(new_data)))
+cat("Max absolute shift removed:", round(max(abs(new_data - new_normed)), 4), "\n")
+```
+
+## `somalign_quantile_normalize`
+
+Divides each feature by its upper quantile in raw space, mapping the bulk signal
+to approximately [0, 1]. For features with very different dynamic ranges across
+batches.
+
+```{r quantile-normalize, eval = requireNamespace("kohonen", quietly = TRUE)}
+new_qnormed <- somalign_quantile_normalize(new_data, reference = ref, probs = 0.999)
+stopifnot(is.matrix(new_qnormed))
+stopifnot(identical(dim(new_qnormed), dim(new_data)))
+cat("Max value before:", round(max(new_data), 4), "\n")
+cat("Max value after: ", round(max(new_qnormed), 4), "\n")
 ```
 
 ## `somalign_fit`
@@ -140,6 +214,52 @@ fit_anc0 <- somalign_fit_anchored(
 )
 stopifnot(inherits(fit_anc0, "somalign_anchored_fit"))
 stopifnot(fit_anc0$anchors$rho_anchor == 0)
+```
+
+`correction = "subspace"` estimates batch directions from the anchor displacement
+SVD and restricts node shifts to that subspace, preserving orthogonal biology:
+
+```{r fit-anchored-subspace, eval = requireNamespace("kohonen", quietly = TRUE)}
+fit_sub <- somalign_fit_anchored(
+  qry, ref,
+  anchor_old = anchor_old,
+  anchor_new = anchor_new,
+  correction = "subspace"
+)
+stopifnot(inherits(fit_sub, "somalign_anchored_fit"))
+stopifnot(!is.null(fit_sub$anchors$batch_subspace))
+cat("Correction mode:    ", fit_sub$anchors$correction, "\n")
+cat("Batch subspace rank:", fit_sub$anchors$batch_subspace$rank, "\n")
+cat("Variance explained: ",
+    round(fit_sub$anchors$batch_subspace$variance_explained, 3), "\n")
+```
+
+## `somalign_fit_two_pass`
+
+Two-pass alignment: a first OT pass at `epsilon_global` estimates a mass-weighted
+global shift, subtracts it from the query codebook, then a second pass at
+`epsilon_local` captures residual per-node offsets. Exposes `$two_pass` in addition
+to the standard `somalign_fit` interface.
+
+```{r fit-two-pass, eval = requireNamespace("kohonen", quietly = TRUE)}
+fit2 <- somalign_fit_two_pass(qry, ref, epsilon_global = 0.3, epsilon_local = 0.1)
+stopifnot(inherits(fit2, "somalign_fit"))
+stopifnot(!is.null(fit2$two_pass))
+stopifnot(all(c("global_shift", "global_shift_norm",
+                "epsilon_global", "epsilon_local",
+                "batch_subspace") %in% names(fit2$two_pass)))
+cat("Global shift norm:  ", round(fit2$two_pass$global_shift_norm, 4), "\n")
+cat("Batch subspace rank:", fit2$two_pass$batch_subspace$rank, "\n")
+```
+
+`somalign_results()` and `somalign_diagnostics()` accept the two-pass fit unchanged:
+
+```{r fit-two-pass-downstream, eval = requireNamespace("kohonen", quietly = TRUE)}
+res2  <- somalign_results(fit2)
+diag2 <- somalign_diagnostics(fit2)
+stopifnot(is.data.frame(res2))
+stopifnot(all(c("solver", "ot", "nodes", "projection") %in% names(diag2)))
+cat("Converged:", diag2$solver$converged, "\n")
 ```
 
 ## `somalign_results`
