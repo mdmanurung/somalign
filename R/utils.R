@@ -374,9 +374,13 @@
   list(unit = unit, distance = distance)
 }
 
+# Squared Euclidean distance. Used only to build the OT cost matrix
+# (fit.R): squared cost makes the barycentric correction a Brenier optimal
+# transport map. Cell-to-node projection distances use .somalign_nearest_code,
+# which returns plain Euclidean distances for the distance-quantile thresholds.
 .somalign_pairwise_distance <- function(x, y) {
   d2 <- outer(rowSums(x * x), rowSums(y * y), "+") - 2 * tcrossprod(x, y)
-  sqrt(pmax(d2, 0))
+  pmax(d2, 0)
 }
 
 .somalign_normalize_masses <- function(x, n, what) {
