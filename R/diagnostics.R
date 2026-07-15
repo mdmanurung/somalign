@@ -30,6 +30,18 @@ somalign_diagnostics <- function(fit) {
 #' @param rho_ref Numeric vector of reference-side mass relaxation values.
 #' @param solver Solver passed to `somalign_fit()`. `"auto"` is accepted as a
 #'   compatibility alias for the internal pure-R solver.
+#' @param min_match_fraction Minimum match fraction threshold passed to each
+#'   `somalign_fit()` call. Default `0.05`.
+#' @param confidence_threshold Minimum label confidence for accepted label
+#'   transfer. Default `0.6`.
+#' @param correction_min_mass Minimum OT mass for a node shift to be applied.
+#'   Default `1e-8`.
+#' @param max_iter Maximum Sinkhorn iterations. Default `1000`.
+#' @param tol Sinkhorn convergence tolerance. Default `1e-7`.
+#' @param chunk_size Integer. Number of samples per projection chunk.
+#'   `NULL` processes all samples at once. Default `10000L`.
+#' @param diagonal_boost Non-negative scalar added to same-node OT costs to
+#'   discourage self-transport. Default `0`.
 #' @param parallel Logical. When `TRUE`, grid rows are evaluated in parallel
 #'   using [BiocParallel::bplapply()] with the registered
 #'   `BiocParallel` back-end (see [BiocParallel::register()]). Configure the
@@ -37,7 +49,6 @@ somalign_diagnostics <- function(fit) {
 #'   `BiocParallel::register(BiocParallel::MulticoreParam(workers = 4))`. When
 #'   `FALSE` (default) a sequential for-loop is used, which is fully
 #'   reproducible across platforms.
-#' @param ... Additional arguments passed to `somalign_fit()`.
 #'
 #' @return A data frame with one row per parameter combination.
 #' @examples

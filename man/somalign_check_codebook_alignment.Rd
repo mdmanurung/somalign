@@ -56,7 +56,22 @@ O(nodes\eqn{^2 \times} p) — milliseconds on a 900-node SOM — and is designed
 to surface distribution mismatches before any per-cell work begins.
 }
 \details{
+\strong{Range overlap (per feature):} Does the query codebook's value range
+for each marker intersect the reference codebook's range?  Zero overlap
+means every query node sits entirely outside the reference for that marker:
+a critical failure.  Less than 50\\% overlap is a warning.
 
+\strong{Mass-weighted centroid drift (per feature):} The mass-weighted mean
+of the query codebook minus that of the reference, expressed in units of the
+reference codebook standard deviation.  Drift > 3 SDs flags a global batch
+shift that the OT plan may not be able to absorb.
+
+\strong{Transport coverage (cost matrix preview):} Fraction of
+query-reference codebook pairs whose normalised squared distance falls within
+\eqn{3\varepsilon}.  Pairs outside this band contribute negligible weight to
+the Sinkhorn kernel.  If fewer than 1\\% of pairs are within
+\eqn{3\varepsilon}, the transport plan will be near-singular and most query
+mass will be destroyed.
 }
 \seealso{
 \code{\link[=somalign_fit]{somalign_fit()}}, \code{\link[=somalign_query]{somalign_query()}}

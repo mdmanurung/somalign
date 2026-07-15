@@ -35,6 +35,25 @@ somalign_sensitivity_grid(
 \item{solver}{Solver passed to \code{somalign_fit()}. \code{"auto"} is accepted as a
 compatibility alias for the internal pure-R solver.}
 
+\item{min_match_fraction}{Minimum match fraction threshold passed to each
+\code{somalign_fit()} call. Default \code{0.05}.}
+
+\item{confidence_threshold}{Minimum label confidence for accepted label
+transfer. Default \code{0.6}.}
+
+\item{correction_min_mass}{Minimum OT mass for a node shift to be applied.
+Default \code{1e-8}.}
+
+\item{max_iter}{Maximum Sinkhorn iterations. Default \code{1000}.}
+
+\item{tol}{Sinkhorn convergence tolerance. Default \code{1e-7}.}
+
+\item{chunk_size}{Integer. Number of samples per projection chunk.
+\code{NULL} processes all samples at once. Default \code{10000L}.}
+
+\item{diagonal_boost}{Non-negative scalar added to same-node OT costs to
+discourage self-transport. Default \code{0}.}
+
 \item{parallel}{Logical. When \code{TRUE}, grid rows are evaluated in parallel
 using \code{\link[BiocParallel:bplapply]{BiocParallel::bplapply()}} with the registered
 \code{BiocParallel} back-end (see \code{\link[BiocParallel:register]{BiocParallel::register()}}). Configure the
@@ -42,8 +61,6 @@ back-end before calling this function, e.g.
 \code{BiocParallel::register(BiocParallel::MulticoreParam(workers = 4))}. When
 \code{FALSE} (default) a sequential for-loop is used, which is fully
 reproducible across platforms.}
-
-\item{...}{Additional arguments passed to \code{somalign_fit()}.}
 }
 \value{
 A data frame with one row per parameter combination.
