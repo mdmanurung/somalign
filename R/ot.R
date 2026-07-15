@@ -168,6 +168,22 @@
       call. = FALSE
     )
   }
+  # A row that underflows entirely is flooded to a constant after flooring,
+  # which destroys the cost ordering for that query node. The aggregate check
+  # above can miss a single such row (e.g. 1/10000 entries), so flag it here.
+  zero_rows <- which(rowSums(k_raw) == 0)
+  if (length(zero_rows) > 0L) {
+    shown <- zero_rows[seq_len(min(10L, length(zero_rows)))]
+    warning(
+      sprintf(
+        "%d query node(s) have an all-underflow Sinkhorn kernel row (e.g. rows %s); ",
+        length(zero_rows), paste(shown, collapse = ", ")
+      ),
+      "their transport-cost ordering is lost after flooring. ",
+      "Use solver = \"log_domain\" to avoid this.",
+      call. = FALSE
+    )
+  }
   pmax(k_raw, tiny)
 }
 
