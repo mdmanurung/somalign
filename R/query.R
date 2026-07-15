@@ -36,6 +36,11 @@ somalign_query <- function(data,
                            alpha = c(0.05, 0.01),
                            features = NULL,
                            ...) {
+  .somalign_check_data_arg(data, what = "data")
+  .somalign_check_opt_char(features, what = "features")
+  .somalign_check_opt_grid(grid)
+  .somalign_check_pos_int(rlen, "rlen")
+  .somalign_check_numeric_vec(alpha, "alpha")
   .somalign_check_reference(reference)
   features <- .somalign_query_features(features, reference)
   data <- .somalign_prepare_feature_matrix(data, features, what = "query data")
@@ -180,6 +185,7 @@ somalign_query_from_som <- function(som,
                                     codebook = NULL,
                                     codebook_space = c("reference_scaled", "raw"),
                                     features = NULL) {
+  .somalign_check_query_from_som_args(data, features)
   .somalign_check_reference(reference)
   codebook_space <- match.arg(codebook_space)
   features <- .somalign_query_features(features, reference)
@@ -303,6 +309,8 @@ somalign_query_from_som <- function(som,
 somalign_normalize <- function(data, reference,
                                method = c("mean", "scale"),
                                features = NULL) {
+  .somalign_check_data_arg(data, what = "data")
+  .somalign_check_opt_char(features, what = "features")
   .somalign_check_reference(reference)
   method <- match.arg(method)
   if (is.null(features)) features <- reference$features
@@ -358,6 +366,8 @@ somalign_normalize <- function(data, reference,
 #' @export
 somalign_quantile_normalize <- function(data, reference, probs = 0.999,
                                         features = NULL) {
+  .somalign_check_data_arg(data, what = "data")
+  .somalign_check_opt_char(features, what = "features")
   .somalign_check_reference(reference)
 
   if (!is.numeric(probs) || length(probs) != 1L || !is.finite(probs) ||

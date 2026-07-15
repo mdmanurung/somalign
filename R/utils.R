@@ -12,6 +12,124 @@
   invisible(query)
 }
 
+# ---------------------------------------------------------------------------
+# Low-level scalar / type validators
+# ---------------------------------------------------------------------------
+
+.somalign_check_pos_scalar <- function(x, nm) {
+  if (!is.numeric(x) || length(x) != 1L || !is.finite(x) || x <= 0)
+    stop("`", nm, "` must be a single positive finite number.", call. = FALSE)
+  invisible(x)
+}
+
+.somalign_check_nonneg_scalar <- function(x, nm) {
+  if (!is.numeric(x) || length(x) != 1L || !is.finite(x) || x < 0)
+    stop("`", nm, "` must be a single non-negative finite number.", call. = FALSE)
+  invisible(x)
+}
+
+.somalign_check_prob_scalar <- function(x, nm) {
+  if (!is.numeric(x) || length(x) != 1L || !is.finite(x) || x < 0 || x > 1)
+    stop("`", nm, "` must be a single number in [0, 1].", call. = FALSE)
+  invisible(x)
+}
+
+.somalign_check_pos_int <- function(x, nm, allow_null = FALSE) {
+  if (allow_null && is.null(x)) return(invisible(x))
+  if (allow_null && length(x) == 1L && is.numeric(x) && is.infinite(x) && x > 0)
+    return(invisible(x))
+  if (!is.numeric(x) || length(x) != 1L || !is.finite(x) ||
+      x != round(x) || x < 1L)
+    stop("`", nm, "` must be a single positive integer.", call. = FALSE)
+  invisible(x)
+}
+
+.somalign_check_flag <- function(x, nm) {
+  if (!is.logical(x) || length(x) != 1L || is.na(x))
+    stop("`", nm, "` must be TRUE or FALSE.", call. = FALSE)
+  invisible(x)
+}
+
+.somalign_check_data_arg <- function(x, what = "data") {
+  if (!is.matrix(x) && !is.data.frame(x))
+    stop("`", what, "` must be a numeric matrix or data frame.", call. = FALSE)
+  invisible(x)
+}
+
+.somalign_check_opt_char <- function(x, what) {
+  if (!is.null(x) && (!is.character(x) || length(x) == 0L))
+    stop("`", what, "` must be a non-empty character vector or NULL.", call. = FALSE)
+  invisible(x)
+}
+
+.somalign_check_numeric_vec <- function(x, what) {
+  if (!is.numeric(x) || length(x) == 0L || !all(is.finite(x)))
+    stop("`", what, "` must be a finite numeric vector.", call. = FALSE)
+  invisible(x)
+}
+
+.somalign_check_opt_grid <- function(grid) {
+  if (!is.null(grid) && !inherits(grid, "somgrid"))
+    stop("`grid` must be a `kohonen::somgrid()` object or NULL.", call. = FALSE)
+  invisible(grid)
+}
+
+# ---------------------------------------------------------------------------
+# Bundle validators (one call per exported function)
+# ---------------------------------------------------------------------------
+
+# Shared OT tuning parameters for somalign_fit, somalign_fit_two_pass, and
+# somalign_fit_anchored. label_guided is optional (anchored fit omits it).
+.somalign_check_fit_params <- function(rho_query, rho_ref,
+                                       min_match_fraction, confidence_threshold,
+                                       correction_min_mass, max_iter, tol,
+                                       chunk_size, label_guided = NULL) {
+  .somalign_check_pos_scalar(rho_query, "rho_query")
+  .somalign_check_pos_scalar(rho_ref, "rho_ref")
+  .somalign_check_prob_scalar(min_match_fraction, "min_match_fraction")
+  .somalign_check_prob_scalar(confidence_threshold, "confidence_threshold")
+  .somalign_check_nonneg_scalar(correction_min_mass, "correction_min_mass")
+  .somalign_check_pos_int(max_iter, "max_iter")
+  .somalign_check_pos_scalar(tol, "tol")
+  .somalign_check_pos_int(chunk_size, "chunk_size", allow_null = TRUE)
+  if (!is.null(label_guided)) .somalign_check_flag(label_guided, "label_guided")
+  invisible(NULL)
+}
+
+.somalign_check_som_train_args <- function(data, labels, features,
+                                           grid, rlen, alpha,
+                                           data_what = "data") {
+  .somalign_check_data_arg(data, what = data_what)
+  .somalign_check_opt_char(labels,   what = "labels")
+  .somalign_check_opt_char(features, what = "features")
+  .somalign_check_opt_grid(grid)
+  .somalign_check_pos_int(rlen, "rlen")
+  .somalign_check_numeric_vec(alpha, "alpha")
+  invisible(NULL)
+}
+
+.somalign_check_reference_args <- function(data, labels, features,
+                                           quantile_probs) {
+  .somalign_check_data_arg(data, what = "data")
+  .somalign_check_opt_char(labels,   what = "labels")
+  .somalign_check_opt_char(features, what = "features")
+  .somalign_check_numeric_vec(quantile_probs, "quantile_probs")
+  invisible(NULL)
+}
+
+.somalign_check_reference_from_som_args <- function(quantile_probs,
+                                                    distance_chunk_size) {
+  .somalign_check_numeric_vec(quantile_probs, "quantile_probs")
+  .somalign_check_pos_int(distance_chunk_size, "distance_chunk_size")
+  invisible(NULL)
+}
+
+.somalign_check_query_from_som_args <- function(data, features) {
+  .somalign_check_data_arg(data, what = "data")
+  .somalign_check_opt_char(features, what = "features")
+  invisible(NULL)
+}
+
 .somalign_as_matrix <- function(x, what = "data") {
   if (is.data.frame(x)) {
     non_numeric <- !vapply(x, is.numeric, logical(1))

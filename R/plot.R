@@ -56,12 +56,28 @@ utils::globalVariables(c(
   tab
 }
 
+.somalign_check_scalar <- function(x, nm, lo = -Inf, hi = Inf) {
+  if (!is.numeric(x) || length(x) != 1L || !is.finite(x))
+    stop(sprintf("`%s` must be a single finite number.", nm), call. = FALSE)
+  if (x < lo || x > hi)
+    stop(sprintf("`%s` must be in [%g, %g].", nm, lo, hi), call. = FALSE)
+  invisible(x)
+}
+
 .somalign_dist_data <- function(query, reference, reference_data, features, downsample, seed) {
   feats <- if (is.null(features)) query$reference_features else {
     miss <- setdiff(features, query$reference_features)
     if (length(miss))
       stop("Unknown features: ", paste(miss, collapse = ", "), call. = FALSE)
     features
+  }
+  if (!is.null(reference_data)) {
+    if (!is.matrix(reference_data) && !is.data.frame(reference_data))
+      stop("`reference_data` must be a numeric matrix or data frame.", call. = FALSE)
+    miss_r <- setdiff(feats, colnames(reference_data))
+    if (length(miss_r))
+      stop("`reference_data` is missing columns: ", paste(miss_r, collapse = ", "),
+           call. = FALSE)
   }
   q_sub  <- .somalign_downsample_rows(query$scaled_data[, feats, drop = FALSE], downsample, seed)
   long_q <- .somalign_melt_long(q_sub)
@@ -141,6 +157,7 @@ somalign_plot_mass_balance <- function(fit) {
 somalign_plot_match_fraction <- function(fit, threshold = 0.05) {
   if (!inherits(fit, "somalign_fit"))
     stop("`fit` must be a somalign_fit object.", call. = FALSE)
+  .somalign_check_scalar(threshold, "threshold", lo = 0, hi = 1)
   nd <- .somalign_node_df(fit)
   ggplot2::ggplot(nd, ggplot2::aes(
     x = reorder(factor(query_node), match_fraction),
@@ -268,6 +285,8 @@ somalign_plot_outside_fraction <- function(fit) {
 somalign_plot_label_confusion <- function(fit, min_confidence = NULL) {
   if (!inherits(fit, "somalign_fit"))
     stop("`fit` must be a somalign_fit object.", call. = FALSE)
+  if (!is.null(min_confidence))
+    .somalign_check_scalar(min_confidence, "min_confidence", lo = 0, hi = 1)
   results <- somalign_results(fit)
   if (!is.null(min_confidence))
     results <- results[
@@ -318,7 +337,9 @@ somalign_plot_label_confusion <- function(fit, min_confidence = NULL) {
 somalign_worst_nodes <- function(fit, n = 10L) {
   if (!inherits(fit, "somalign_fit"))
     stop("`fit` must be a somalign_fit object.", call. = FALSE)
-  n  <- as.integer(n)
+  n <- as.integer(n)
+  if (is.na(n) || n < 1L)
+    stop("`n` must be a positive integer.", call. = FALSE)
   nd <- .somalign_node_df(fit)
   nd <- nd[order(nd$match_fraction), ]
   nd[seq_len(min(n, nrow(nd))), ]
@@ -353,6 +374,11 @@ somalign_plot_codebook_range <- function(check) {
   if (!inherits(check, "somalign_codebook_check"))
     stop("`check` must be a somalign_codebook_check object.", call. = FALSE)
   pf <- check$per_feature
+  required_cols <- c("feature", "ref_min", "ref_max", "query_min", "query_max", "flag")
+  miss_cols <- setdiff(required_cols, names(pf))
+  if (length(miss_cols))
+    stop("Malformed `check` object; per_feature missing: ",
+         paste(miss_cols, collapse = ", "), call. = FALSE)
   segs <- rbind(
     data.frame(feature = pf$feature, src = "Reference",
                xmin = pf$ref_min, xmax = pf$ref_max,
@@ -418,6 +444,13 @@ somalign_plot_marker_distributions <- function(query, reference = NULL,
     stop("`query` must be a somalign_query object.", call. = FALSE)
   if (!is.null(reference) && !inherits(reference, "somalign_reference"))
     stop("`reference` must be a somalign_reference object or NULL.", call. = FALSE)
+  if (!is.null(features) && !is.character(features))
+    stop("`features` must be a character vector or NULL.", call. = FALSE)
+  if (!is.numeric(downsample) || length(downsample) != 1L ||
+      is.na(downsample) || downsample < 1)
+    stop("`downsample` must be a single positive number.", call. = FALSE)
+  if (!is.numeric(seed) || length(seed) != 1L || is.na(seed))
+    stop("`seed` must be a single numeric scalar.", call. = FALSE)
   d <- .somalign_dist_data(query, reference, reference_data, features, downsample, seed)
   p <- ggplot2::ggplot(d$query, ggplot2::aes(x = value)) +
     ggplot2::geom_density(fill = "#4575b4", colour = "#4575b4", alpha = 0.5) +

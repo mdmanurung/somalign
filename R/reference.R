@@ -25,6 +25,7 @@ somalign_train_reference <- function(data,
                                      rlen = 100,
                                      alpha = c(0.05, 0.01),
                                      ...) {
+  .somalign_check_som_train_args(data, labels, features, grid, rlen, alpha)
   data <- .somalign_prepare_feature_matrix(data, features, what = "data")
   scaling <- .somalign_compute_scaling(data)
   scaled <- .somalign_scale_matrix(data, scaling$center, scaling$scale)
@@ -79,6 +80,7 @@ somalign_reference <- function(som_ref,
                                scale = NULL,
                                codebook_space = NULL,
                                quantile_probs = c(0.5, 0.9, 0.95, 0.99)) {
+  .somalign_check_reference_args(data, labels, features, quantile_probs)
   data <- .somalign_prepare_feature_matrix(data, features, what = "data")
   features <- colnames(data)
 
@@ -165,6 +167,8 @@ somalign_reference_from_nodes <- function(codebook,
                                           label_prob = NULL,
                                           distance_quantiles = NULL,
                                           global_distance_quantiles = NULL) {
+  .somalign_check_data_arg(codebook, what = "codebook")
+  .somalign_check_opt_char(features, what = "features")
   codebook <- .somalign_validate_node_codebook(codebook, features)
   center <- .somalign_named_numeric(center, features, "center")
   scale <- .somalign_named_numeric(scale, features, "scale")
@@ -327,6 +331,7 @@ somalign_reference_from_som <- function(som,
                                         labels = c("codebook", "none"),
                                         quantile_probs = c(0.5, 0.9, 0.95, 0.99),
                                         distance_chunk_size = 1e6L) {
+  .somalign_check_reference_from_som_args(quantile_probs, distance_chunk_size)
   labels <- match.arg(labels)
 
   # --- 1. X codebook and features -------------------------------------------

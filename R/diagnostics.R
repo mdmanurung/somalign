@@ -69,6 +69,14 @@ somalign_sensitivity_grid <- function(query,
                                       parallel = FALSE) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
+  .somalign_check_prob_scalar(min_match_fraction, "min_match_fraction")
+  .somalign_check_prob_scalar(confidence_threshold, "confidence_threshold")
+  .somalign_check_pos_scalar(correction_min_mass, "correction_min_mass")
+  .somalign_check_pos_int(max_iter, "max_iter")
+  .somalign_check_pos_scalar(tol, "tol")
+  .somalign_check_pos_int(chunk_size, "chunk_size", allow_null = TRUE)
+  .somalign_check_nonneg_scalar(diagonal_boost, "diagonal_boost")
+  .somalign_check_flag(parallel, "parallel")
   solver <- match.arg(solver)
   epsilon <- .somalign_validate_grid_vector(epsilon, "epsilon")
   rho_query <- .somalign_validate_grid_vector(rho_query, "rho_query")
@@ -195,6 +203,13 @@ somalign_som_stability <- function(query_data,
     stop("`som_seeds` must be a non-empty numeric vector.", call. = FALSE)
   }
   som_seeds <- as.integer(som_seeds)
+  .somalign_check_pos_scalar(epsilon, "epsilon")
+  .somalign_check_pos_scalar(rho_query, "rho_query")
+  .somalign_check_pos_scalar(rho_ref, "rho_ref")
+  .somalign_check_pos_int(rlen, "rlen")
+  if (!is.numeric(alpha) || length(alpha) != 2L || any(!is.finite(alpha)) || any(alpha <= 0))
+    stop("`alpha` must be a numeric vector of two positive finite values.", call. = FALSE)
+  .somalign_check_flag(parallel, "parallel")
 
   old_seed <- if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
     get(".Random.seed", envir = .GlobalEnv, inherits = FALSE) else NULL

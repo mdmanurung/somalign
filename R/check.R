@@ -62,9 +62,8 @@ somalign_check_codebook_alignment <- function(query_codebook,
                                               query_masses  = NULL,
                                               epsilon       = 0.1,
                                               stop_if_critical = TRUE) {
-  if (!inherits(reference, "somalign_reference")) {
-    stop("`reference` must be a somalign_reference object.", call. = FALSE)
-  }
+  .somalign_validate_check_args(query_codebook, reference, epsilon,
+                                stop_if_critical)
   query_codebook <- as.matrix(query_codebook)
   storage.mode(query_codebook) <- "double"
 
@@ -258,4 +257,30 @@ print.somalign_codebook_check <- function(x, ...) {
     print(show, row.names = FALSE)
   }
   invisible(x)
+}
+
+# Internal input-validation helper for somalign_check_codebook_alignment().
+# Not exported; do not add validation logic inside compute helpers.
+.somalign_validate_check_args <- function(query_codebook, reference,
+                                          epsilon, stop_if_critical) {
+  if (!inherits(reference, "somalign_reference")) {
+    stop("`reference` must be a somalign_reference object.", call. = FALSE)
+  }
+  if (is.null(colnames(query_codebook))) {
+    stop("`query_codebook` must have column names (one per feature).",
+         call. = FALSE)
+  }
+  if (!is.numeric(query_codebook) && !is.integer(query_codebook)) {
+    stop("`query_codebook` must be a numeric matrix.", call. = FALSE)
+  }
+  if (!is.numeric(epsilon) || length(epsilon) != 1L || !is.finite(epsilon) ||
+      epsilon <= 0) {
+    stop("`epsilon` must be a single finite positive number.", call. = FALSE)
+  }
+  if (!is.logical(stop_if_critical) || length(stop_if_critical) != 1L ||
+      is.na(stop_if_critical)) {
+    stop("`stop_if_critical` must be a scalar logical (TRUE or FALSE).",
+         call. = FALSE)
+  }
+  invisible(NULL)
 }

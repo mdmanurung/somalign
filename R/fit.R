@@ -89,6 +89,11 @@ somalign_fit <- function(query,
                          label_guided = FALSE) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
+  .somalign_check_pos_scalar(epsilon, "epsilon")
+  .somalign_check_nonneg_scalar(diagonal_boost, "diagonal_boost")
+  .somalign_check_fit_params(rho_query, rho_ref, min_match_fraction,
+                             confidence_threshold, correction_min_mass,
+                             max_iter, tol, chunk_size, label_guided)
   solver <- match.arg(solver, c("internal", "log_domain", "auto"))
 
   label_mask <- if (isTRUE(label_guided)) {
@@ -551,6 +556,11 @@ somalign_fit_two_pass <- function(query,
                                   label_guided = FALSE) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
+  .somalign_check_pos_scalar(epsilon_global, "epsilon_global")
+  .somalign_check_pos_scalar(epsilon_local, "epsilon_local")
+  .somalign_check_fit_params(rho_query, rho_ref, min_match_fraction,
+                             confidence_threshold, correction_min_mass,
+                             max_iter, tol, chunk_size, label_guided)
   solver <- match.arg(solver, c("internal", "log_domain", "auto"))
 
   label_mask <- if (isTRUE(label_guided)) {

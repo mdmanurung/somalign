@@ -130,34 +130,25 @@ somalign_fit_anchored <- function(query,
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   solver <- match.arg(solver, c("internal", "log_domain", "auto"))
-
   if (!is.numeric(rho_anchor) || length(rho_anchor) != 1L ||
       !is.finite(rho_anchor) || rho_anchor < 0) {
     stop("`rho_anchor` must be a non-negative finite scalar.", call. = FALSE)
   }
-  if (rho_anchor == 0) {
-    message("`rho_anchor = 0`: anchor pairs have no effect. Use `somalign_fit()` for equivalent results.")
-    anchors_scaled <- .somalign_validate_anchors(anchor_old, anchor_new, reference)
-    n_anc <- nrow(anchors_scaled$anchor_old_scaled)
-    transport <- .somalign_align_transport(
-      query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol
-    )
-    fit <- .somalign_finish_fit(
-      query, reference, transport,
-      min_match_fraction, confidence_threshold, correction_min_mass,
-      chunk_size, epsilon, rho_query, rho_ref,
-      anchors = list(
-        n_anchors         = n_anc,
-        rho_anchor        = 0,
-        nodes_covered     = 0L,
-        coverage_fraction = 0
-      )
-    )
-    class(fit) <- c("somalign_anchored_fit", "somalign_fit")
-    return(fit)
-  }
+  .somalign_check_pos_scalar(epsilon, "epsilon")
+  .somalign_check_fit_params(rho_query, rho_ref, min_match_fraction,
+                             confidence_threshold, correction_min_mass,
+                             max_iter, tol, chunk_size)
 
   anchors_scaled <- .somalign_validate_anchors(anchor_old, anchor_new, reference)
+
+  if (rho_anchor == 0) {
+    return(.somalign_anchored_fit_zero_rho(
+      query, reference, anchors_scaled, epsilon, rho_query, rho_ref,
+      solver, min_match_fraction, confidence_threshold,
+      correction_min_mass, chunk_size, max_iter, tol
+    ))
+  }
+
   cost_bonus <- .somalign_anchor_cost_bonus(
     anchors_scaled$anchor_old_scaled,
     anchors_scaled$anchor_new_scaled,
@@ -166,12 +157,10 @@ somalign_fit_anchored <- function(query,
     rho_anchor,
     chunk_size
   )
-
   transport <- .somalign_align_transport(
     query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol,
     cost_bonus = cost_bonus$bonus
   )
-
   fit <- .somalign_finish_fit(
     query, reference, transport,
     min_match_fraction, confidence_threshold, correction_min_mass,
@@ -181,6 +170,32 @@ somalign_fit_anchored <- function(query,
       rho_anchor        = rho_anchor,
       nodes_covered     = cost_bonus$nodes_covered,
       coverage_fraction = cost_bonus$coverage_fraction
+    )
+  )
+  class(fit) <- c("somalign_anchored_fit", "somalign_fit")
+  fit
+}
+
+.somalign_anchored_fit_zero_rho <- function(query, reference, anchors_scaled,
+                                             epsilon, rho_query, rho_ref, solver,
+                                             min_match_fraction,
+                                             confidence_threshold,
+                                             correction_min_mass, chunk_size,
+                                             max_iter, tol) {
+  message("`rho_anchor = 0`: anchor pairs have no effect. Use `somalign_fit()` for equivalent results.")
+  n_anc <- nrow(anchors_scaled$anchor_old_scaled)
+  transport <- .somalign_align_transport(
+    query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol
+  )
+  fit <- .somalign_finish_fit(
+    query, reference, transport,
+    min_match_fraction, confidence_threshold, correction_min_mass,
+    chunk_size, epsilon, rho_query, rho_ref,
+    anchors = list(
+      n_anchors         = n_anc,
+      rho_anchor        = 0,
+      nodes_covered     = 0L,
+      coverage_fraction = 0
     )
   )
   class(fit) <- c("somalign_anchored_fit", "somalign_fit")
