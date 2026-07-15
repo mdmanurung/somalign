@@ -3,6 +3,10 @@ url: https://mdmanurung.github.io/somalign
 template:
   bootstrap: 5
 
+figures:
+  dev: grDevices::png
+  dpi: 96
+
 home:
   title: somalign
   description: Align query SOMs to fixed kohonen reference SOMs
@@ -19,31 +23,55 @@ navbar:
         href: articles/somalign.html
       - text: "Advanced workflow: existing SOMs"
         href: articles/pretrained-old-and-new-soms.html
-      - text: "Anchoring samples"
+      - text: "Anchor-regularized alignment"
         href: articles/anchor-samples.html
+      - text: "Two-pass global and local alignment"
+        href: articles/two-pass.html
       - text: Algorithm and interpretation
         href: articles/algorithm.html
+      - text: API smoke test
+        href: articles/function-coverage.html
     github:
       icon: fab fa-github fa-lg
       href: https://github.com/mdmanurung/somalign
 
 reference:
-- title: Training and building inputs
+- title: Building reference and query objects
   contents:
   - somalign_train_reference
   - somalign_reference
   - somalign_reference_from_nodes
+  - somalign_reference_from_som
   - somalign_query
-- title: Fitting and results
+  - somalign_query_from_som
+- title: Preprocessing
+  contents:
+  - somalign_normalize
+  - somalign_quantile_normalize
+- title: Fitting
   contents:
   - somalign_fit
   - somalign_fit_anchored
+  - somalign_fit_two_pass
+- title: Results
+  contents:
   - somalign_results
 - title: Diagnostics and sensitivity
   contents:
   - somalign_diagnostics
   - somalign_sensitivity_grid
   - somalign_som_stability
+  - somalign_worst_nodes
+  - somalign_check_codebook_alignment
+- title: Plots
+  contents:
+  - somalign_plot_codebook_range
+  - somalign_plot_correction
+  - somalign_plot_label_confusion
+  - somalign_plot_marker_distributions
+  - somalign_plot_mass_balance
+  - somalign_plot_match_fraction
+  - somalign_plot_outside_fraction
 - title: Print methods
   contents:
   - print.somalign_anchored_fit
@@ -57,6 +85,8 @@ articles:
   - somalign
   - pretrained-old-and-new-soms
   - anchor-samples
+  - two-pass
+  - function-coverage
   - algorithm
 
 news:
