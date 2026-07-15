@@ -80,6 +80,57 @@
   invisible(x)
 }
 
+# feature_weights is NULL (unweighted cost, default), "anchor" (resolved
+# downstream from anchor displacements; only valid where anchors exist), or
+# an explicit non-negative numeric vector with one entry per feature.
+.somalign_check_feature_weights <- function(fw, features) {
+  if (is.null(fw) || identical(fw, "anchor")) return(invisible(fw))
+  if (!is.numeric(fw) || !all(is.finite(fw)) || any(fw < 0))
+    stop("`feature_weights` must be NULL, \"anchor\", or a non-negative numeric vector.",
+         call. = FALSE)
+  if (length(fw) != length(features))
+    stop("`feature_weights` must have one entry per feature (", length(features), " expected).",
+         call. = FALSE)
+  if (all(fw == 0))
+    stop("`feature_weights` must not be all zeros.", call. = FALSE)
+  if (!is.null(names(fw))) {
+    missing <- setdiff(features, names(fw))
+    if (length(missing) > 0)
+      stop("`feature_weights` is missing names: ", paste(missing, collapse = ", "),
+           call. = FALSE)
+    fw <- fw[features]
+  } else {
+    names(fw) <- features
+  }
+  invisible(fw)
+}
+
+# Per-marker weights from anchor displacements D (n_anchors x p, scaled):
+# high-variance (batch-driven) markers get low weight (cheap to transport),
+# stable markers get high weight. `floor` is a ridge term preventing infinite
+# weight for zero-variance markers; in reference-scaled space codebook
+# entries are O(1), so the default 1e-2 caps the max/min weight ratio at 100.
+# Mean-normalised so the median of the weighted cost stays comparable to the
+# unweighted case (epsilon calibrated without weights remains approximately
+# valid).
+.somalign_anchor_feature_weights <- function(D, floor = 1e-2) {
+  if (nrow(D) == 1L) {
+    warning("Only 1 anchor pair: feature weights cannot be estimated from variance; ",
+            "using equal weights (equivalent to Euclidean cost). ",
+            "Consider supplying explicit `feature_weights`.", call. = FALSE)
+  }
+  v <- apply(D, 2, stats::var)
+  v[is.na(v) | v < 0] <- 0
+  w <- 1 / (v + floor)
+  w / mean(w)
+}
+
+# Column-scale a codebook by sqrt(weights): squared Euclidean distance on the
+# result equals sum_f w_f (q_f - r_f)^2, the diagonal Mahalanobis cost.
+.somalign_weighted_codebook <- function(codebook, weights) {
+  sweep(codebook, 2, sqrt(weights), "*")
+}
+
 # Compute a low-rank batch subspace via variance-threshold SVD.
 # M: n_obs × p matrix (displacement vectors); weights: optional length-n_obs mass weights.
 # Returns list(V = p × r, rank = r, variance_explained = cumvar[r]).

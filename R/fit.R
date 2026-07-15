@@ -62,6 +62,16 @@
 #' @param anneal_factor Positive scalar < 1, or `NULL` (default). When not
 #'   `NULL`, overrides the auto-computed per-stage cooling ratio. Ignored when
 #'   `solver != "annealing"`.
+#' @param feature_weights Either `NULL` (default, squared-Euclidean cost) or a
+#'   named non-negative numeric vector with one entry per feature (explicit
+#'   diagonal Mahalanobis weights on the OT cost). Weights are applied as
+#'   `sqrt(w_f)` per-column scaling of both codebooks before the squared
+#'   Euclidean distance is computed, yielding cost
+#'   \eqn{\sum_f w_f (q_{if} - r_{jf})^2}. The resolved vector is stored in
+#'   `fit$diagnostics$cost_metric$feature_weights`. Projection and threshold
+#'   distances (`somalign_results()`) are unaffected -- weighting applies only
+#'   to the OT cost. See [somalign_fit_anchored()] for `"anchor"`, which
+#'   auto-estimates weights from anchor displacements.
 #'
 #' @details
 #' The transport plan row sums will not equal `query$node_masses` exactly -- this
@@ -106,7 +116,8 @@ somalign_fit <- function(query,
                          label_guided = FALSE,
                          anneal_start = 10,
                          anneal_stages = 10L,
-                         anneal_factor = NULL) {
+                         anneal_factor = NULL,
+                         feature_weights = NULL) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   .somalign_check_pos_scalar(epsilon, "epsilon")
@@ -117,28 +128,39 @@ somalign_fit <- function(query,
   solver <- match.arg(solver, c("internal", "log_domain", "auto", "annealing"))
   if (identical(solver, "annealing"))
     .somalign_check_anneal_params(anneal_start, anneal_factor, anneal_stages)
-
-  label_mask <- if (isTRUE(label_guided)) {
-    if (is.null(query$label_prob))
-      stop("label_guided = TRUE but query$label_prob is NULL.", call. = FALSE)
-    if (is.null(reference$label_prob))
-      stop("label_guided = TRUE but reference$label_prob is NULL.", call. = FALSE)
-    .somalign_build_label_mask(query$label_prob, reference$label_prob)
-  } else {
-    NULL
-  }
+  feature_weights <- .somalign_resolve_plain_feature_weights(
+    feature_weights, colnames(query$codebook)
+  )
+  label_mask <- .somalign_resolve_label_mask(query, reference, label_guided)
 
   transport <- .somalign_align_transport(
     query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol,
     diagonal_boost = diagonal_boost, label_mask = label_mask,
     anneal_start = anneal_start, anneal_factor = anneal_factor,
-    anneal_stages = anneal_stages
+    anneal_stages = anneal_stages, feature_weights = feature_weights
   )
   .somalign_finish_fit(
     query, reference, transport,
     min_match_fraction, confidence_threshold, correction_min_mass,
-    chunk_size, epsilon, rho_query, rho_ref
+    chunk_size, epsilon, rho_query, rho_ref, feature_weights = feature_weights
   )
+}
+
+.somalign_resolve_label_mask <- function(query, reference, label_guided) {
+  if (!isTRUE(label_guided)) return(NULL)
+  if (is.null(query$label_prob))
+    stop("label_guided = TRUE but query$label_prob is NULL.", call. = FALSE)
+  if (is.null(reference$label_prob))
+    stop("label_guided = TRUE but reference$label_prob is NULL.", call. = FALSE)
+  .somalign_build_label_mask(query$label_prob, reference$label_prob)
+}
+
+.somalign_resolve_plain_feature_weights <- function(feature_weights, features) {
+  .somalign_check_feature_weights(feature_weights, features)
+  if (identical(feature_weights, "anchor"))
+    stop("`feature_weights = \"anchor\"` requires anchor data; use somalign_fit_anchored().",
+         call. = FALSE)
+  feature_weights
 }
 
 .somalign_finish_fit <- function(query, reference, transport,
@@ -147,7 +169,8 @@ somalign_fit <- function(query,
                                  epsilon, rho_query, rho_ref,
                                  anchors = NULL,
                                  direct_cache = NULL,
-                                 shift_transform = NULL) {
+                                 shift_transform = NULL,
+                                 feature_weights = NULL) {
   label_transfer <- .somalign_transfer_labels(
     correspondence = transport$correspondence,
     label_prob = reference$label_prob,
@@ -172,7 +195,8 @@ somalign_fit <- function(query,
   projection <- .somalign_project_pair(query, reference, node_shifts, chunk_size,
                                        direct_cache = direct_cache)
   diagnostics <- .somalign_build_diagnostics(
-    transport, query, reference, node_shifts, projection, epsilon, rho_query, rho_ref
+    transport, query, reference, node_shifts, projection, epsilon, rho_query, rho_ref,
+    feature_weights = feature_weights
   )
   .somalign_fit_warnings(diagnostics)
   .somalign_new_fit(
@@ -233,8 +257,15 @@ somalign_fit <- function(query,
                                       label_mask = NULL,
                                       anneal_start = 10,
                                       anneal_factor = NULL,
-                                      anneal_stages = 10L) {
-  cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
+                                      anneal_stages = 10L,
+                                      feature_weights = NULL) {
+  if (!is.null(feature_weights)) {
+    qcb <- .somalign_weighted_codebook(query$codebook, feature_weights)
+    rcb <- .somalign_weighted_codebook(reference$codebook, feature_weights)
+    cost <- .somalign_pairwise_distance(qcb, rcb)
+  } else {
+    cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
+  }
   prepared <- .somalign_prepare_cost(cost, diagonal_boost, cost_bonus, label_mask)
   cost_normalized <- prepared$cost_normalized
   cost_scale <- prepared$cost_scale
@@ -333,7 +364,7 @@ somalign_fit <- function(query,
 
 .somalign_build_diagnostics <- function(transport, query, reference, node_shifts,
                                         projection, epsilon, rho_query,
-                                        rho_ref) {
+                                        rho_ref, feature_weights = NULL) {
   ot <- transport$ot
   plan <- transport$plan
   row_mass <- transport$row_mass
@@ -379,7 +410,8 @@ somalign_fit <- function(query,
     projection = list(
       outside_direct_fraction = mean(direct$outside),
       outside_corrected_fraction = mean(corrected$outside)
-    )
+    ),
+    cost_metric = list(feature_weights = feature_weights)
   )
 }
 
@@ -664,15 +696,7 @@ somalign_fit_two_pass <- function(query,
   if (identical(solver, "annealing"))
     .somalign_check_anneal_params(anneal_start, anneal_factor, anneal_stages)
 
-  label_mask <- if (isTRUE(label_guided)) {
-    if (is.null(query$label_prob))
-      stop("label_guided = TRUE but query$label_prob is NULL.", call. = FALSE)
-    if (is.null(reference$label_prob))
-      stop("label_guided = TRUE but reference$label_prob is NULL.", call. = FALSE)
-    .somalign_build_label_mask(query$label_prob, reference$label_prob)
-  } else {
-    NULL
-  }
+  label_mask <- .somalign_resolve_label_mask(query, reference, label_guided)
 
   t1 <- .somalign_align_transport(query, reference, epsilon_global, rho_query,
                                    rho_ref, solver, max_iter, tol,

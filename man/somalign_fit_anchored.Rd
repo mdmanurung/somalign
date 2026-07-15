@@ -24,7 +24,8 @@ somalign_fit_anchored(
   variance_threshold = 0.9,
   anneal_start = 10,
   anneal_stages = 10L,
-  anneal_factor = NULL
+  anneal_factor = NULL,
+  feature_weights = NULL
 )
 }
 \arguments{
@@ -83,6 +84,21 @@ fraction for selecting the rank of the batch subspace. Default \code{0.9}
 
 \item{anneal_start, anneal_stages, anneal_factor}{Annealing-schedule tuning
 parameters, used only when \code{solver = "annealing"}. See \code{\link[=somalign_fit]{somalign_fit()}}.}
+
+\item{feature_weights}{Either \code{NULL} (default, squared-Euclidean cost), a
+named non-negative numeric vector of explicit per-feature weights (see
+\code{\link[=somalign_fit]{somalign_fit()}}), or the string \code{"anchor"} -- auto-estimates weights
+from the anchor displacement matrix \code{D} via
+\eqn{w_f = 1 / (\mathrm{var}(D_{\cdot f}) + \delta)}, mean-normalised.
+Markers that vary most across the batch (large \code{var(D[, f])}, i.e.
+batch-driven) get low weight and are cheap to transport; markers stable
+across the batch get high weight and are expensive to transport,
+preserving biology. The resolved vector is stored in
+\code{fit$anchors$feature_weights} and
+\code{fit$diagnostics$cost_metric$feature_weights}. Composes independently
+with \code{correction}: the weights reshape the cost geometry, while
+\code{rho_anchor}/\code{correction} bias routing -- both act on the same
+underlying transport problem without conflict.}
 }
 \value{
 A \code{somalign_anchored_fit} object (also inherits \code{somalign_fit}).

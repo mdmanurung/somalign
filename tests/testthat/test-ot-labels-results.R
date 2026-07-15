@@ -15,7 +15,8 @@ test_that("internal OT solver returns finite coupling and diagnostics", {
   expect_true(all(is.finite(fit$transport_plan)))
   expect_true(all(fit$transport_plan >= 0))
   expect_equal(dim(fit$correspondence), c(2L, 3L))
-  expect_named(somalign_diagnostics(fit), c("solver", "ot", "nodes", "projection"))
+  expect_named(somalign_diagnostics(fit),
+               c("solver", "ot", "nodes", "projection", "cost_metric"))
 })
 
 test_that("solver selection is pure R and keeps auto as a compatibility alias", {

@@ -47,6 +47,20 @@
 #'   `"both"`.
 #' @param anneal_start,anneal_stages,anneal_factor Annealing-schedule tuning
 #'   parameters, used only when `solver = "annealing"`. See [somalign_fit()].
+#' @param feature_weights Either `NULL` (default, squared-Euclidean cost), a
+#'   named non-negative numeric vector of explicit per-feature weights (see
+#'   [somalign_fit()]), or the string `"anchor"` -- auto-estimates weights
+#'   from the anchor displacement matrix `D` via
+#'   \eqn{w_f = 1 / (\mathrm{var}(D_{\cdot f}) + \delta)}, mean-normalised.
+#'   Markers that vary most across the batch (large `var(D[, f])`, i.e.
+#'   batch-driven) get low weight and are cheap to transport; markers stable
+#'   across the batch get high weight and are expensive to transport,
+#'   preserving biology. The resolved vector is stored in
+#'   `fit$anchors$feature_weights` and
+#'   `fit$diagnostics$cost_metric$feature_weights`. Composes independently
+#'   with `correction`: the weights reshape the cost geometry, while
+#'   `rho_anchor`/`correction` bias routing -- both act on the same
+#'   underlying transport problem without conflict.
 #'
 #' @details
 #' **Correction modes.** Three strategies are available via the `correction`
@@ -176,7 +190,8 @@ somalign_fit_anchored <- function(query,
                                    variance_threshold = 0.9,
                                    anneal_start = 10,
                                    anneal_stages = 10L,
-                                   anneal_factor = NULL) {
+                                   anneal_factor = NULL,
+                                   feature_weights = NULL) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   solver <- match.arg(solver, c("internal", "log_domain", "auto", "annealing"))
@@ -192,12 +207,13 @@ somalign_fit_anchored <- function(query,
   .somalign_check_unit_scalar(variance_threshold, "variance_threshold")
   if (identical(solver, "annealing"))
     .somalign_check_anneal_params(anneal_start, anneal_factor, anneal_stages)
+  .somalign_check_feature_weights(feature_weights, colnames(query$codebook))
   anchors_scaled <- .somalign_validate_anchors(anchor_old, anchor_new, reference)
   .somalign_anchored_dispatch(
     query, reference, anchors_scaled, rho_anchor, epsilon, rho_query, rho_ref,
     solver, min_match_fraction, confidence_threshold, correction_min_mass,
     chunk_size, max_iter, tol, correction, variance_threshold,
-    anneal_start, anneal_factor, anneal_stages
+    anneal_start, anneal_factor, anneal_stages, feature_weights
   )
 }
 
@@ -208,7 +224,8 @@ somalign_fit_anchored <- function(query,
                                          chunk_size, max_iter, tol,
                                          correction, variance_threshold,
                                          anneal_start = 10, anneal_factor = NULL,
-                                         anneal_stages = 10L) {
+                                         anneal_stages = 10L,
+                                         feature_weights = NULL) {
   use_bonus    <- correction %in% c("cost_bonus", "both") && rho_anchor > 0
   use_subspace <- correction %in% c("subspace", "both")
   if (rho_anchor == 0 && correction %in% c("cost_bonus", "both")) {
@@ -242,16 +259,21 @@ somalign_fit_anchored <- function(query,
     V <- batch_sub$V
     function(s) s %*% V %*% t(V)
   } else { NULL }
+  fw <- if (identical(feature_weights, "anchor")) {
+    .somalign_anchor_feature_weights(d_scaled)
+  } else {
+    feature_weights
+  }
   transport <- .somalign_align_transport(
     query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol,
     cost_bonus = cb$bonus,
     anneal_start = anneal_start, anneal_factor = anneal_factor,
-    anneal_stages = anneal_stages
+    anneal_stages = anneal_stages, feature_weights = fw
   )
   fit <- .somalign_finish_fit(
     query, reference, transport, min_match_fraction, confidence_threshold,
     correction_min_mass, chunk_size, epsilon, rho_query, rho_ref,
-    shift_transform = shift_fn,
+    shift_transform = shift_fn, feature_weights = fw,
     anchors = list(
       n_anchors         = nrow(anchors_scaled$anchor_old_scaled),
       rho_anchor        = rho_anchor,
@@ -260,7 +282,8 @@ somalign_fit_anchored <- function(query,
       coverage_fraction = cb$coverage_fraction,
       batch_subspace    = batch_sub,
       variance_threshold = variance_threshold,
-      displacements     = d_scaled
+      displacements     = d_scaled,
+      feature_weights   = fw
     )
   )
   class(fit) <- c("somalign_anchored_fit", "somalign_fit")

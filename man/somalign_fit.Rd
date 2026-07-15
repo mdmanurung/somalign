@@ -21,7 +21,8 @@ somalign_fit(
   label_guided = FALSE,
   anneal_start = 10,
   anneal_stages = 10L,
-  anneal_factor = NULL
+  anneal_factor = NULL,
+  feature_weights = NULL
 )
 }
 \arguments{
@@ -103,6 +104,17 @@ solve. Ignored when \code{solver != "annealing"}.}
 \item{anneal_factor}{Positive scalar < 1, or \code{NULL} (default). When not
 \code{NULL}, overrides the auto-computed per-stage cooling ratio. Ignored when
 \code{solver != "annealing"}.}
+
+\item{feature_weights}{Either \code{NULL} (default, squared-Euclidean cost) or a
+named non-negative numeric vector with one entry per feature (explicit
+diagonal Mahalanobis weights on the OT cost). Weights are applied as
+\code{sqrt(w_f)} per-column scaling of both codebooks before the squared
+Euclidean distance is computed, yielding cost
+\eqn{\sum_f w_f (q_{if} - r_{jf})^2}. The resolved vector is stored in
+\code{fit$diagnostics$cost_metric$feature_weights}. Projection and threshold
+distances (\code{somalign_results()}) are unaffected -- weighting applies only
+to the OT cost. See \code{\link[=somalign_fit_anchored]{somalign_fit_anchored()}} for \code{"anchor"}, which
+auto-estimates weights from anchor displacements.}
 }
 \value{
 A \code{somalign_fit} object.
