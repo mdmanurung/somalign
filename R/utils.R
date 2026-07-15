@@ -101,6 +101,21 @@
   list(V = sv$v[, seq_len(r), drop = FALSE], rank = r, variance_explained = cumvar[[r]])
 }
 
+# Only validated when solver = "annealing"; ignored (and unvalidated)
+# otherwise, since the args are inert for every other solver.
+.somalign_check_anneal_params <- function(anneal_start, anneal_factor, anneal_stages) {
+  if (!is.numeric(anneal_start) || length(anneal_start) != 1L ||
+      !is.finite(anneal_start) || anneal_start < 1)
+    stop("`anneal_start` must be >= 1.", call. = FALSE)
+  if (!is.null(anneal_factor) &&
+      (!is.numeric(anneal_factor) || length(anneal_factor) != 1L ||
+       !is.finite(anneal_factor) || anneal_factor <= 0 || anneal_factor >= 1))
+    stop("`anneal_factor` must be NULL or a single number in (0, 1) ",
+         "(a per-stage cooling ratio).", call. = FALSE)
+  .somalign_check_pos_int(anneal_stages, "anneal_stages")
+  invisible(NULL)
+}
+
 # ---------------------------------------------------------------------------
 # Bundle validators (one call per exported function)
 # ---------------------------------------------------------------------------

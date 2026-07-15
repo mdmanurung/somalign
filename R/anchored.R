@@ -45,6 +45,8 @@
 #'   fraction for selecting the rank of the batch subspace. Default `0.9`
 #'   (CellANOVA convention). Only used when `correction` is `"subspace"` or
 #'   `"both"`.
+#' @param anneal_start,anneal_stages,anneal_factor Annealing-schedule tuning
+#'   parameters, used only when `solver = "annealing"`. See [somalign_fit()].
 #'
 #' @details
 #' **Correction modes.** Three strategies are available via the `correction`
@@ -120,14 +122,19 @@
 #'   \item{`batch_subspace`}{For `"subspace"` and `"both"` modes: a list with
 #'     `V` (p × rank matrix), `rank` (integer), and `variance_explained`
 #'     (cumulative variance at the selected rank). `NULL` for `"cost_bonus"`.}
+#'   \item{`displacements`}{The scaled anchor displacement matrix
+#'     \eqn{D = X_{\text{old,scaled}} - X_{\text{new,scaled}}}
+#'     (n_anchors × p), always stored regardless of `correction` mode. Used by
+#'     [somalign_subspace_sensitivity()] and [somalign_exclusion_test()].}
 #' }
 #'
 #' @return A `somalign_anchored_fit` object (also inherits `somalign_fit`).
 #' @note At small `epsilon` with high anchor coverage the anchor bonus zeros out
 #'   many entries of the normalised cost matrix, which sharpens the Sinkhorn
 #'   kernel and can drive the remaining entries toward numerical underflow. If
-#'   the solver warns about kernel underflow, pass `solver = "log_domain"`, which
-#'   works in log-potential space and avoids the issue.
+#'   the solver warns about kernel underflow, pass `solver = "log_domain"` or
+#'   `solver = "annealing"`, both of which work in log-potential space and
+#'   avoid the issue.
 #' @seealso [somalign_fit()] for the unanchored variant.
 #' @examples
 #' set.seed(1)
@@ -158,7 +165,7 @@ somalign_fit_anchored <- function(query,
                                    epsilon = 0.1,
                                    rho_query = 1,
                                    rho_ref = 1,
-                                   solver = c("internal", "log_domain", "auto"),
+                                   solver = c("internal", "log_domain", "auto", "annealing"),
                                    min_match_fraction = 0.05,
                                    confidence_threshold = 0.6,
                                    correction_min_mass = 1e-8,
@@ -166,10 +173,13 @@ somalign_fit_anchored <- function(query,
                                    tol = 1e-7,
                                    chunk_size = 10000L,
                                    correction = c("cost_bonus", "subspace", "both"),
-                                   variance_threshold = 0.9) {
+                                   variance_threshold = 0.9,
+                                   anneal_start = 10,
+                                   anneal_stages = 10L,
+                                   anneal_factor = NULL) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
-  solver <- match.arg(solver, c("internal", "log_domain", "auto"))
+  solver <- match.arg(solver, c("internal", "log_domain", "auto", "annealing"))
   correction <- match.arg(correction, c("cost_bonus", "subspace", "both"))
   if (!is.numeric(rho_anchor) || length(rho_anchor) != 1L ||
       !is.finite(rho_anchor) || rho_anchor < 0) {
@@ -180,11 +190,14 @@ somalign_fit_anchored <- function(query,
                              confidence_threshold, correction_min_mass,
                              max_iter, tol, chunk_size)
   .somalign_check_unit_scalar(variance_threshold, "variance_threshold")
+  if (identical(solver, "annealing"))
+    .somalign_check_anneal_params(anneal_start, anneal_factor, anneal_stages)
   anchors_scaled <- .somalign_validate_anchors(anchor_old, anchor_new, reference)
   .somalign_anchored_dispatch(
     query, reference, anchors_scaled, rho_anchor, epsilon, rho_query, rho_ref,
     solver, min_match_fraction, confidence_threshold, correction_min_mass,
-    chunk_size, max_iter, tol, correction, variance_threshold
+    chunk_size, max_iter, tol, correction, variance_threshold,
+    anneal_start, anneal_factor, anneal_stages
   )
 }
 
@@ -193,7 +206,9 @@ somalign_fit_anchored <- function(query,
                                          solver, min_match_fraction,
                                          confidence_threshold, correction_min_mass,
                                          chunk_size, max_iter, tol,
-                                         correction, variance_threshold) {
+                                         correction, variance_threshold,
+                                         anneal_start = 10, anneal_factor = NULL,
+                                         anneal_stages = 10L) {
   use_bonus    <- correction %in% c("cost_bonus", "both") && rho_anchor > 0
   use_subspace <- correction %in% c("subspace", "both")
   if (rho_anchor == 0 && correction %in% c("cost_bonus", "both")) {
@@ -214,10 +229,14 @@ somalign_fit_anchored <- function(query,
     list(bonus = NULL, nodes_covered = cov$nodes_covered,
          coverage_fraction = cov$coverage_fraction)
   }
+  # Scaled anchor displacements: always computed and stored (regardless of
+  # correction mode) so downstream diagnostics (somalign_subspace_sensitivity,
+  # somalign_exclusion_test) can reuse them without re-deriving from raw
+  # anchors. The batch subspace itself is only estimated when actually needed
+  # for correction.
+  d_scaled <- anchors_scaled$anchor_old_scaled - anchors_scaled$anchor_new_scaled
   batch_sub <- if (use_subspace) {
-    .somalign_batch_subspace(anchors_scaled$anchor_old_scaled,
-                             anchors_scaled$anchor_new_scaled,
-                             variance_threshold)
+    .somalign_subspace_svd(d_scaled, variance_threshold)
   } else { NULL }
   shift_fn <- if (use_subspace) {
     V <- batch_sub$V
@@ -225,7 +244,9 @@ somalign_fit_anchored <- function(query,
   } else { NULL }
   transport <- .somalign_align_transport(
     query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol,
-    cost_bonus = cb$bonus
+    cost_bonus = cb$bonus,
+    anneal_start = anneal_start, anneal_factor = anneal_factor,
+    anneal_stages = anneal_stages
   )
   fit <- .somalign_finish_fit(
     query, reference, transport, min_match_fraction, confidence_threshold,
@@ -237,16 +258,13 @@ somalign_fit_anchored <- function(query,
       correction        = correction,
       nodes_covered     = cb$nodes_covered,
       coverage_fraction = cb$coverage_fraction,
-      batch_subspace    = batch_sub
+      batch_subspace    = batch_sub,
+      variance_threshold = variance_threshold,
+      displacements     = d_scaled
     )
   )
   class(fit) <- c("somalign_anchored_fit", "somalign_fit")
   fit
-}
-
-.somalign_batch_subspace <- function(anchor_old_scaled, anchor_new_scaled,
-                                      variance_threshold) {
-  .somalign_subspace_svd(anchor_old_scaled - anchor_new_scaled, variance_threshold)
 }
 
 .somalign_validate_anchors <- function(anchor_old, anchor_new, reference) {
@@ -331,4 +349,178 @@ somalign_fit_anchored <- function(query,
   )$unit
   nodes_covered <- length(unique(query_units))
   list(nodes_covered = nodes_covered, coverage_fraction = nodes_covered / M)
+}
+
+# ---------------------------------------------------------------------------
+# Anchor exclusion-restriction test (Sargan-Hansen analog)
+# ---------------------------------------------------------------------------
+
+# R = D (I_p - V V^T): projection of each row of D onto the orthogonal
+# complement of span(V). Avoids materialising the p x p identity matrix.
+.somalign_orthogonal_residual <- function(D, V) {
+  D - D %*% V %*% t(V)
+}
+
+# Column-independent permutation null for the exclusion test: shuffle each
+# COLUMN (feature) of the orthogonal residual R_obs independently across
+# anchor rows. This preserves each feature's own marginal distribution (and
+# hence the residual's total variance / trace) but destroys any cross-feature
+# correlation -- i.e., any consistent multi-feature *direction* shared across
+# anchors. The leading singular value is large only when R_obs's rows point
+# in a coherent, shared direction (a structured, biology-like signal); if
+# R_obs is unstructured per-feature noise, permuting each column
+# independently barely changes the singular-value spectrum.
+#
+# NOTE ON A REJECTED ALTERNATIVE: permuting *rows* of R (or of D) is a
+# mathematical no-op for this purpose. For any orthogonal row transform P
+# (a row permutation matrix or a diagonal +-1 sign-flip matrix is orthogonal),
+# (PR)^T (PR) = R^T P^T P R = R^T R, so every singular value of R is EXACTLY
+# invariant under row permutation or row sign-flipping. A null built that way
+# would silently have zero power. Per-column permutation is not an orthogonal
+# row transform (it does not act as a single matrix multiplication on R from
+# the left) and genuinely alters R^T R by decorrelating features, which is
+# exactly what a valid null for "is there a coherent cross-feature direction"
+# requires.
+.somalign_permutation_null <- function(R_obs, n_perm) {
+  n <- nrow(R_obs)
+  p <- ncol(R_obs)
+  sv_null <- numeric(n_perm)
+  for (b in seq_len(n_perm)) {
+    r_perm <- R_obs
+    for (j in seq_len(p)) r_perm[, j] <- R_obs[sample.int(n), j]
+    sv_null[b] <- svd(r_perm, nu = 0L, nv = 0L)$d[1L]
+  }
+  sv_null
+}
+
+#' Anchor exclusion-restriction test
+#'
+#' Permutation test of whether the anchor displacement matrix carries
+#' *coherent, structured* signal orthogonal to the estimated batch subspace --
+#' an overidentification-style check of the instrumental-variable assumption
+#' underlying [somalign_fit_anchored()]'s `correction = "subspace"` mode:
+#' anchors should isolate the batch direction, not biology.
+#'
+#' @param fit A `somalign_anchored_fit` object from
+#'   `somalign_fit_anchored(..., correction = "subspace")` or `"both"`.
+#' @param n_perm Positive integer. Number of permutation replicates. Default `999L`.
+#' @param seed Integer or `NULL`. RNG seed for reproducibility (restored on
+#'   exit; does not leak into the caller's session). Default `1L`; `NULL`
+#'   disables seeding.
+#'
+#' @details
+#' The statistic is the leading singular value of the orthogonal residual
+#' \eqn{R = D (I - V V^\top)}, where \eqn{D} is the scaled anchor displacement
+#' matrix (`fit$anchors$displacements`) and \eqn{V} is the estimated batch
+#' subspace (`fit$anchors$batch_subspace$V`). The null distribution is
+#' generated by permuting each feature (column) of \eqn{R} independently
+#' across anchors, which preserves each feature's own variance but destroys
+#' any coherent cross-feature direction. A small p-value means \eqn{R}'s
+#' features move together more than chance recombination would produce --
+#' i.e., the anchors carry a real, structured direction that `correction =
+#' "subspace"` is *not* removing (a batch-direction violation, or biology
+#' leaking through the anchors). A large p-value supports the assumption that
+#' anchors capture only batch structure.
+#'
+#' Row permutation of \eqn{R} or \eqn{D} would *not* work here: row
+#' permutation is an orthogonal transformation and leaves every singular
+#' value of a matrix exactly invariant, so it cannot detect anything.
+#' Column-wise permutation is required because it is not an orthogonal row
+#' transform and genuinely decorrelates features.
+#'
+#' The test has no power when `variance_threshold = 1` (V spans the full
+#' feature space, so R is identically zero), and low power when
+#' `n_anchors < 3 * rank`, or when the true structure is fully absorbed into
+#' \eqn{V} (inspect `fit$anchors$batch_subspace$rank` and
+#' `variance_explained`).
+#'
+#' @return A list of class `somalign_exclusion_test` with `sv_observed`,
+#'   `sv_null`, `p_value`, `null_quantiles`, `relative_stat`, `rank_used`,
+#'   `n_anchors`, `n_features`, `verdict` (`"pass"` if `p > 0.1`, `"warn"` if
+#'   in `[0.05, 0.1]`, `"fail"` if `< 0.05`), and `feature_residual_norm`
+#'   (per-feature `||R[, j]||`, identifying which markers drive a violation).
+#' @seealso [somalign_fit_anchored()]
+#' @examples
+#' set.seed(1)
+#' p <- 3L
+#' mat <- rbind(
+#'   matrix(rnorm(20 * p, mean = -2), ncol = p),
+#'   matrix(rnorm(20 * p, mean =  2), ncol = p)
+#' )
+#' colnames(mat) <- paste0("F", seq_len(p))
+#' ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                                 rlen = 5)
+#' shifted <- mat + 0.5
+#' qry <- somalign_query(shifted, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'                       rlen = 5)
+#' anc_idx <- 1:10
+#' fit <- somalign_fit_anchored(qry, ref,
+#'                               anchor_old = mat[anc_idx, , drop = FALSE],
+#'                               anchor_new = shifted[anc_idx, , drop = FALSE],
+#'                               rho_anchor = 1, correction = "subspace")
+#' somalign_exclusion_test(fit, n_perm = 199L)
+#' @export
+somalign_exclusion_test <- function(fit, n_perm = 999L, seed = 1L) {
+  .somalign_check_exclusion_test_args(fit, n_perm, seed)
+  bs <- fit$anchors$batch_subspace
+  D <- fit$anchors$displacements
+  V <- bs$V
+  n <- nrow(D)
+  r <- bs$rank
+  if (n < r + 2L) {
+    warning(sprintf(
+      "n_anchors (%d) < rank + 2 (%d): the exclusion test has essentially no power. ",
+      n, r + 2L), "Recommend >= 3 * rank anchor pairs.", call. = FALSE)
+  }
+
+  r_obs <- .somalign_orthogonal_residual(D, V)
+  sv_obs <- svd(r_obs, nu = 0L, nv = 0L)$d[1L]
+  sv_null <- .somalign_seeded_permutation_null(r_obs, n_perm, seed)
+
+  p_value <- mean(sv_null >= sv_obs)
+  nq <- stats::quantile(sv_null, probs = c(0.025, 0.5, 0.975), names = TRUE)
+  relative_stat <- if (nq[["50%"]] > 0) sv_obs / nq[["50%"]] else NA_real_
+  feature_residual_norm <- sqrt(colSums(r_obs^2))
+  names(feature_residual_norm) <- colnames(D)
+  verdict <- if (p_value > 0.10) "pass" else if (p_value >= 0.05) "warn" else "fail"
+
+  structure(
+    list(sv_observed = sv_obs, sv_null = sv_null, p_value = p_value,
+         null_quantiles = nq, relative_stat = relative_stat,
+         rank_used = r, n_anchors = n, n_features = ncol(D),
+         verdict = verdict, feature_residual_norm = feature_residual_norm),
+    class = "somalign_exclusion_test"
+  )
+}
+
+.somalign_check_exclusion_test_args <- function(fit, n_perm, seed) {
+  if (!inherits(fit, "somalign_anchored_fit"))
+    stop("`fit` must be a somalign_anchored_fit object.", call. = FALSE)
+  if (!fit$anchors$correction %in% c("subspace", "both"))
+    stop("`somalign_exclusion_test` requires a fit with correction = 'subspace' or 'both'.",
+         call. = FALSE)
+  if (is.null(fit$anchors$batch_subspace))
+    stop("No batch subspace found in `fit$anchors$batch_subspace`.", call. = FALSE)
+  if (is.null(fit$anchors$displacements))
+    stop("`fit$anchors$displacements` is NULL. Refit with a version of somalign ",
+         "that stores anchor displacement matrices.", call. = FALSE)
+  .somalign_check_pos_int(n_perm, "n_perm")
+  if (!is.null(seed)) .somalign_check_pos_int(seed, "seed")
+  invisible(NULL)
+}
+
+# Runs the permutation null with a seed that is local to this call: the
+# caller's global RNG state is saved before seeding and restored on exit, so
+# somalign_exclusion_test() does not leak RNG state into the session.
+.somalign_seeded_permutation_null <- function(r_obs, n_perm, seed) {
+  old_seed <- if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
+    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE) else NULL
+  on.exit({
+    if (!is.null(old_seed))
+      assign(".Random.seed", old_seed, envir = .GlobalEnv)
+    else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
+      rm(".Random.seed", envir = .GlobalEnv)
+  }, add = TRUE)
+  if (!is.null(seed)) set.seed(seed)
+  .somalign_permutation_null(r_obs, n_perm)
 }

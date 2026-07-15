@@ -13,7 +13,7 @@ somalign_fit_anchored(
   epsilon = 0.1,
   rho_query = 1,
   rho_ref = 1,
-  solver = c("internal", "log_domain", "auto"),
+  solver = c("internal", "log_domain", "auto", "annealing"),
   min_match_fraction = 0.05,
   confidence_threshold = 0.6,
   correction_min_mass = 1e-08,
@@ -21,7 +21,10 @@ somalign_fit_anchored(
   tol = 1e-07,
   chunk_size = 10000L,
   correction = c("cost_bonus", "subspace", "both"),
-  variance_threshold = 0.9
+  variance_threshold = 0.9,
+  anneal_start = 10,
+  anneal_stages = 10L,
+  anneal_factor = NULL
 )
 }
 \arguments{
@@ -77,6 +80,9 @@ Has no effect when \code{correction = "subspace"}.}
 fraction for selecting the rank of the batch subspace. Default \code{0.9}
 (CellANOVA convention). Only used when \code{correction} is \code{"subspace"} or
 \code{"both"}.}
+
+\item{anneal_start, anneal_stages, anneal_factor}{Annealing-schedule tuning
+parameters, used only when \code{solver = "annealing"}. See \code{\link[=somalign_fit]{somalign_fit()}}.}
 }
 \value{
 A \code{somalign_anchored_fit} object (also inherits \code{somalign_fit}).
@@ -162,14 +168,19 @@ work unchanged. An additional \verb{$anchors} list element is attached:
 \item{\code{batch_subspace}}{For \code{"subspace"} and \code{"both"} modes: a list with
 \code{V} (p × rank matrix), \code{rank} (integer), and \code{variance_explained}
 (cumulative variance at the selected rank). \code{NULL} for \code{"cost_bonus"}.}
+\item{\code{displacements}}{The scaled anchor displacement matrix
+\eqn{D = X_{\text{old,scaled}} - X_{\text{new,scaled}}}
+(n_anchors × p), always stored regardless of \code{correction} mode. Used by
+\code{\link[=somalign_subspace_sensitivity]{somalign_subspace_sensitivity()}} and \code{\link[=somalign_exclusion_test]{somalign_exclusion_test()}}.}
 }
 }
 \note{
 At small \code{epsilon} with high anchor coverage the anchor bonus zeros out
 many entries of the normalised cost matrix, which sharpens the Sinkhorn
 kernel and can drive the remaining entries toward numerical underflow. If
-the solver warns about kernel underflow, pass \code{solver = "log_domain"}, which
-works in log-potential space and avoids the issue.
+the solver warns about kernel underflow, pass \code{solver = "log_domain"} or
+\code{solver = "annealing"}, both of which work in log-potential space and
+avoid the issue.
 }
 \examples{
 set.seed(1)
