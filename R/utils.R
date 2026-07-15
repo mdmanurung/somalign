@@ -444,7 +444,11 @@
     column <- colnames(q)[ncol(q)]
   }
   thresholds <- q[units, column]
-  missing <- !is.finite(thresholds)
+  # Only genuinely absent thresholds (NA) fall back to the global quantile.
+  # An explicit Inf means "no finite threshold" (never flag this node) and must
+  # be preserved: distance > Inf is FALSE, so such cells are never marked
+  # outside the reference. `is.na(Inf)` is FALSE, so Inf survives here.
+  missing <- is.na(thresholds)
   if (any(missing)) {
     global <- reference$global_distance_quantiles
     fallback <- if (!is.null(global) && column %in% names(global)) global[[column]] else NA_real_

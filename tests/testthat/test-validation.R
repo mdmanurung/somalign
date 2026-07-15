@@ -84,3 +84,23 @@ test_that("existing reference SOM codebook coordinate system must be explicit", 
 
   expect_equal(raw_ref$codebook, scaled_ref$codebook, tolerance = 1e-12)
 })
+
+test_that(".somalign_thresholds preserves Inf thresholds (SOMALIGN-001)", {
+  # An explicit Inf threshold means "never flag this node" and must survive the
+  # missing-value fallback. is.na(Inf) is FALSE, so only genuine NA falls back.
+  reference <- list(
+    distance_quantiles = matrix(
+      c(1, 2,
+        1.5, Inf),
+      nrow = 2, byrow = TRUE,
+      dimnames = list(NULL, c("50%", "95%"))
+    ),
+    global_distance_quantiles = c(`50%` = 1.5, `95%` = 2.5)
+  )
+  thr <- somalign:::.somalign_thresholds(reference, units = c(1L, 2L),
+                                         column = "95%")
+  # Node 1 keeps its finite threshold; node 2's Inf is preserved (not 2.5).
+  expect_equal(thr, c(2, Inf))
+  # distance > Inf is always FALSE: a cell at node 2 is never flagged outside.
+  expect_false(1e6 > thr[2])
+})
