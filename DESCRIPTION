@@ -24,6 +24,7 @@ Suggests:
     BiocParallel,
     BiocStyle,
     DiagrammeR,
+    ggplot2,
     knitr,
     pkgdown,
     rmarkdown,
