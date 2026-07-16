@@ -12,7 +12,8 @@ somalign_reference_from_nodes(
   node_masses = NULL,
   label_prob = NULL,
   distance_quantiles = NULL,
-  global_distance_quantiles = NULL
+  global_distance_quantiles = NULL,
+  node_var = NULL
 )
 }
 \arguments{
@@ -32,6 +33,11 @@ somalign_reference_from_nodes(
 
 \item{global_distance_quantiles}{Optional global reference distance
 quantiles.}
+
+\item{node_var}{Optional \verb{n_nodes x p} matrix of per-node per-marker
+variances (reference-scaled space). Supply when deserialising a
+previously computed reference. \code{NULL} (default) disables surprisal-based
+outside-reference columns in \code{\link[=somalign_results]{somalign_results()}}.}
 }
 \value{
 A \code{somalign_reference} object.

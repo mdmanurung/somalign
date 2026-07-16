@@ -11,6 +11,7 @@ somalign_train_reference(
   grid = NULL,
   rlen = 100,
   alpha = c(0.05, 0.01),
+  compute_node_var = TRUE,
   ...
 )
 }
@@ -26,6 +27,12 @@ somalign_train_reference(
 \item{rlen}{Number of SOM training iterations passed to \code{\link[kohonen:som]{kohonen::som()}}.}
 
 \item{alpha}{Learning-rate schedule passed to \code{\link[kohonen:som]{kohonen::som()}}.}
+
+\item{compute_node_var}{Logical; if \code{TRUE} (default) per-node per-marker
+variances are computed from the reference cells assigned to each node
+and stored as \code{reference$node_var}. Set \code{FALSE} to skip (reduces memory
+by one \verb{n_nodes x p} matrix; disables surprisal-based outside-reference
+detection in \code{\link[=somalign_results]{somalign_results()}}).}
 
 \item{...}{Additional arguments passed to \code{\link[kohonen:som]{kohonen::som()}}.}
 }

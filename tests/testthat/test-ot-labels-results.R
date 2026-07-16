@@ -117,6 +117,50 @@ test_that("results keep direct projection as primary and corrected projection au
   expect_true(all(is.finite(results$correction_norm)))
 })
 
+test_that("somalign_results exposes second-best label and margin for triage", {
+  ref <- tiny_reference()
+  query <- matrix(c(-1, 0, 1, 0), ncol = 2, byrow = TRUE)
+  colnames(query) <- ref$features
+  query_obj <- somalign_query(
+    query,
+    ref,
+    som_query = make_som(rbind(c(-1, 0), c(0, 0), c(1, 0)))
+  )
+  fit <- somalign_fit(
+    query_obj,
+    ref,
+    solver = "internal",
+    epsilon = 0.05,
+    min_match_fraction = 0.99,
+    confidence_threshold = 0.8
+  )
+  results <- somalign_results(fit)
+
+  expect_true(all(c(
+    "transferred_label_second",
+    "transferred_label_second_confidence",
+    "transferred_label_margin"
+  ) %in% names(results)))
+
+  query_unit <- fit$query$sample_unit
+  expect_equal(results$transferred_label_second, fit$label_transfer$second_label[query_unit])
+  expect_equal(results$transferred_label_second_confidence, fit$label_transfer$second_confidence[query_unit])
+
+  has_second <- !is.na(results$transferred_label_second_confidence)
+  expect_equal(
+    results$transferred_label_margin[has_second],
+    fit$label_transfer$confidence[query_unit][has_second] -
+      results$transferred_label_second_confidence[has_second]
+  )
+  no_second <- !has_second & !is.na(fit$label_transfer$confidence[query_unit])
+  if (any(no_second)) {
+    expect_equal(
+      results$transferred_label_margin[no_second],
+      fit$label_transfer$confidence[query_unit][no_second]
+    )
+  }
+})
+
 test_that("somalign_results errors when data has wrong row count", {
   ref <- tiny_reference()
   query <- matrix(c(-1.1, 0, 1.5, 0), ncol = 2, byrow = TRUE)

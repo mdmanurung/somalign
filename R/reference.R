@@ -6,6 +6,11 @@
 #' @param grid Optional `kohonen::somgrid()` object.
 #' @param rlen Number of SOM training iterations passed to [kohonen::som()].
 #' @param alpha Learning-rate schedule passed to [kohonen::som()].
+#' @param compute_node_var Logical; if `TRUE` (default) per-node per-marker
+#'   variances are computed from the reference cells assigned to each node
+#'   and stored as `reference$node_var`. Set `FALSE` to skip (reduces memory
+#'   by one `n_nodes x p` matrix; disables surprisal-based outside-reference
+#'   detection in [somalign_results()]).
 #' @param ... Additional arguments passed to [kohonen::som()].
 #'
 #' @return A `somalign_reference` object.
@@ -24,6 +29,7 @@ somalign_train_reference <- function(data,
                                      grid = NULL,
                                      rlen = 100,
                                      alpha = c(0.05, 0.01),
+                                     compute_node_var = TRUE,
                                      ...) {
   .somalign_check_som_train_args(data, labels, features, grid, rlen, alpha)
   data <- .somalign_prepare_feature_matrix(data, features, what = "data")
@@ -40,7 +46,8 @@ somalign_train_reference <- function(data,
     features = colnames(data),
     center = scaling$center,
     scale = scaling$scale,
-    codebook_space = "reference_scaled"
+    codebook_space = "reference_scaled",
+    compute_node_var = compute_node_var
   )
 }
 
@@ -61,6 +68,9 @@ somalign_train_reference <- function(data,
 #'   with `center` and `scale`; use `"raw"` when the SOM was trained on raw
 #'   feature values and should be transformed into reference-scaled space.
 #' @param quantile_probs Distance quantiles used for outside-reference flags.
+#' @param compute_node_var Logical; if `TRUE` (default) per-node per-marker
+#'   variances are computed from `data` and stored as `reference$node_var`.
+#'   See [somalign_train_reference()].
 #'
 #' @return A `somalign_reference` object.
 #' @examples
@@ -79,17 +89,14 @@ somalign_reference <- function(som_ref,
                                center = NULL,
                                scale = NULL,
                                codebook_space = NULL,
-                               quantile_probs = c(0.5, 0.9, 0.95, 0.99)) {
+                               quantile_probs = c(0.5, 0.9, 0.95, 0.99),
+                               compute_node_var = TRUE) {
   .somalign_check_reference_args(data, labels, features, quantile_probs)
   data <- .somalign_prepare_feature_matrix(data, features, what = "data")
   features <- colnames(data)
-
-  resolved <- .somalign_resolve_center_scale(center, scale, data)
-  center <- resolved$center
-  scale <- resolved$scale
-  center <- .somalign_named_numeric(center, features, "center")
-  scale <- .somalign_named_numeric(scale, features, "scale")
-  .somalign_validate_scale(scale)
+  cs <- .somalign_resolve_and_validate_center_scale(center, scale, data, features)
+  center <- cs$center
+  scale <- cs$scale
 
   codebook <- .somalign_get_codebook(som_ref, features = features, what = "som_ref")
   codebook_space <- .somalign_validate_codebook_space(codebook_space)
@@ -102,6 +109,8 @@ somalign_reference <- function(som_ref,
   node_masses <- .somalign_node_masses(projected$unit, n_nodes)
   label_prob <- .somalign_label_probabilities(labels, projected$unit, n_nodes)
   quantiles <- .somalign_distance_quantiles(projected$distance, projected$unit, n_nodes, quantile_probs)
+  node_var <- if (isTRUE(compute_node_var))
+    .somalign_node_var(scaled_data, projected$unit, n_nodes) else NULL
 
   structure(
     list(
@@ -116,7 +125,8 @@ somalign_reference <- function(som_ref,
       global_distance_quantiles = quantiles$global,
       reference_units = projected$unit,
       reference_distances = projected$distance,
-      n_samples = nrow(data)
+      n_samples = nrow(data),
+      node_var = node_var
     ),
     class = "somalign_reference"
   )
@@ -135,6 +145,16 @@ somalign_reference <- function(som_ref,
   list(center = center, scale = scale)
 }
 
+# Resolves defaults, applies names, and validates in one call -- used where
+# the caller only needs the final (center, scale) pair.
+.somalign_resolve_and_validate_center_scale <- function(center, scale, data, features) {
+  resolved <- .somalign_resolve_center_scale(center, scale, data)
+  center <- .somalign_named_numeric(resolved$center, features, "center")
+  scale <- .somalign_named_numeric(resolved$scale, features, "scale")
+  .somalign_validate_scale(scale)
+  list(center = center, scale = scale)
+}
+
 #' Build a reference object from saved node-level artifacts
 #'
 #' @param codebook Reference node codebook matrix.
@@ -146,6 +166,10 @@ somalign_reference <- function(som_ref,
 #' @param distance_quantiles Optional node-by-quantile distance matrix.
 #' @param global_distance_quantiles Optional global reference distance
 #'   quantiles.
+#' @param node_var Optional `n_nodes x p` matrix of per-node per-marker
+#'   variances (reference-scaled space). Supply when deserialising a
+#'   previously computed reference. `NULL` (default) disables surprisal-based
+#'   outside-reference columns in [somalign_results()].
 #'
 #' @return A `somalign_reference` object.
 #' @examples
@@ -166,7 +190,8 @@ somalign_reference_from_nodes <- function(codebook,
                                           node_masses = NULL,
                                           label_prob = NULL,
                                           distance_quantiles = NULL,
-                                          global_distance_quantiles = NULL) {
+                                          global_distance_quantiles = NULL,
+                                          node_var = NULL) {
   .somalign_check_data_arg(codebook, what = "codebook")
   .somalign_check_opt_char(features, what = "features")
   codebook <- .somalign_validate_node_codebook(codebook, features)
@@ -178,6 +203,7 @@ somalign_reference_from_nodes <- function(codebook,
   node_masses <- .somalign_normalize_masses(node_masses, n_nodes, "node_masses")
   label_prob <- .somalign_normalize_label_prob(label_prob, n_nodes)
   distance_quantiles <- .somalign_prepare_distance_quantiles(distance_quantiles, n_nodes)
+  node_var <- .somalign_prepare_node_var(node_var, n_nodes, features)
 
   .somalign_warn_from_nodes(label_prob, distance_quantiles)
   global_distance_quantiles <- .somalign_resolve_global_quantiles(
@@ -198,7 +224,8 @@ somalign_reference_from_nodes <- function(codebook,
       global_distance_quantiles = global_distance_quantiles,
       reference_units = NULL,
       reference_distances = NULL,
-      n_samples = NA_integer_
+      n_samples = NA_integer_,
+      node_var = node_var
     ),
     class = "somalign_reference"
   )
@@ -296,6 +323,10 @@ somalign_reference_from_nodes <- function(codebook,
 #' @param distance_chunk_size Number of cells to process per chunk when
 #'   computing X-space cell-to-node distances.  Reduce if memory is tight;
 #'   increase for faster throughput.  Default 1e6.
+#' @param compute_node_var Logical; if \code{TRUE} (default) per-node
+#'   per-marker variances are computed from the embedded SOM training data
+#'   and stored as \code{reference$node_var}. See
+#'   \code{\link{somalign_train_reference}}.
 #'
 #' @return A \code{somalign_reference} object, identical in structure to the
 #'   output of \code{\link{somalign_reference}} but built without reprojecting
@@ -330,7 +361,8 @@ somalign_reference_from_som <- function(som,
                                         codebook_space,
                                         labels = c("codebook", "none"),
                                         quantile_probs = c(0.5, 0.9, 0.95, 0.99),
-                                        distance_chunk_size = 1e6L) {
+                                        distance_chunk_size = 1e6L,
+                                        compute_node_var = TRUE) {
   .somalign_check_reference_from_som_args(quantile_probs, distance_chunk_size)
   labels <- match.arg(labels)
 
@@ -407,6 +439,11 @@ somalign_reference_from_som <- function(som,
 
   quantiles <- .somalign_distance_quantiles(d, unit, n_nodes, quantile_probs)
 
+  # node_var must be computed here, before som_ref$data is stripped below (the
+  # X matrix used for it is only available while the SOM's embedded training
+  # data is still present).
+  node_var <- if (isTRUE(compute_node_var)) .somalign_node_var(X, unit, n_nodes) else NULL
+
   # --- 6. Delegate validation/normalisation to somalign_reference_from_nodes ---
   ref <- somalign_reference_from_nodes(
     codebook               = codebook,
@@ -416,7 +453,8 @@ somalign_reference_from_som <- function(som,
     node_masses            = node_masses,
     label_prob             = label_prob,
     distance_quantiles     = quantiles$node,
-    global_distance_quantiles = quantiles$global
+    global_distance_quantiles = quantiles$global,
+    node_var               = node_var
   )
 
   # --- 7. Enrich with per-cell fields (mirrors somalign_reference output) ---

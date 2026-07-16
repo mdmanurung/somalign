@@ -2,6 +2,29 @@
 
 ## New features
 
+* `somalign_reference()`, `somalign_train_reference()`, and
+  `somalign_reference_from_som()` now compute and store `reference$node_var`
+  (per-node per-marker variance in reference-scaled space) by default
+  (`compute_node_var = TRUE`; set `FALSE` to opt out).
+  `somalign_reference_from_nodes()` accepts a pre-computed `node_var` matrix
+  directly. `somalign_results()` uses it to add a calibrated chi-squared
+  alternative to the distance-quantile `outside_reference_distance` flag:
+  `outside_reference_surprisal`, `outside_reference_pvalue`, and
+  `outside_reference_top_marker` (the single worst-contributing marker per
+  cell -- useful for pinpointing marker-specific batch artifacts). An
+  optional `outside_pvalue_threshold` argument adds a boolean
+  `outside_reference_pvalue_flag` column. `NA` when the reference lacks
+  `node_var`.
+
+* `somalign_results()` now exposes `transferred_label_second`,
+  `transferred_label_second_confidence`, and `transferred_label_margin`
+  (top confidence minus second confidence, from the same query node's
+  label transfer). `transferred_label` is an argmax over label transport
+  probabilities and can be brittle when two labels receive close mass;
+  the margin lets callers triage low-confidence label transfers
+  (e.g. cells on nodes where the top and runner-up label are nearly tied)
+  without re-deriving them from `fit$label_transfer`.
+
 * `somalign_query_from_som()` — zero-reprojection query constructor that reuses
   `som$unit.classif` directly for per-cell node assignments, bypassing the
   O(N × nodes) nearest-code search that `somalign_query()` performs.  Accepts

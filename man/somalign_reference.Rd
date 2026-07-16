@@ -12,7 +12,8 @@ somalign_reference(
   center = NULL,
   scale = NULL,
   codebook_space = NULL,
-  quantile_probs = c(0.5, 0.9, 0.95, 0.99)
+  quantile_probs = c(0.5, 0.9, 0.95, 0.99),
+  compute_node_var = TRUE
 )
 }
 \arguments{
@@ -38,6 +39,10 @@ with \code{center} and \code{scale}; use \code{"raw"} when the SOM was trained o
 feature values and should be transformed into reference-scaled space.}
 
 \item{quantile_probs}{Distance quantiles used for outside-reference flags.}
+
+\item{compute_node_var}{Logical; if \code{TRUE} (default) per-node per-marker
+variances are computed from \code{data} and stored as \code{reference$node_var}.
+See \code{\link[=somalign_train_reference]{somalign_train_reference()}}.}
 }
 \value{
 A \code{somalign_reference} object.

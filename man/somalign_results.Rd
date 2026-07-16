@@ -4,20 +4,47 @@
 \alias{somalign_results}
 \title{Return per-sample somalign results}
 \usage{
-somalign_results(fit, data = NULL)
+somalign_results(fit, data = NULL, outside_pvalue_threshold = NULL)
 }
 \arguments{
 \item{fit}{A \code{somalign_fit} object.}
 
 \item{data}{Optional data frame to append after result columns.}
+
+\item{outside_pvalue_threshold}{Optional numeric in [0, 1]. When
+supplied, adds a boolean \code{outside_reference_pvalue_flag} column,
+\code{TRUE} when \code{outside_reference_pvalue < outside_pvalue_threshold}.
+\code{NULL} (default) omits the column.}
 }
 \value{
-A data frame with direct and corrected projection columns.
+A data frame with direct and corrected projection columns, plus
+\code{transferred_label_second}, \code{transferred_label_second_confidence}, and
+\code{transferred_label_margin} for triaging low-margin label transfers, and
+\code{outside_reference_surprisal}, \code{outside_reference_pvalue}, and
+\code{outside_reference_top_marker}: a calibrated chi-squared alternative to
+\code{outside_reference_distance} that weights per-marker deviations from a
+query cell's assigned reference node by that node's own per-marker
+variance (\code{reference$node_var}). \code{NA} when the reference was built
+without \code{node_var} (e.g. \code{compute_node_var = FALSE}, or a reference
+built before this feature). The chi-squared calibration assumes a
+diagonal-Gaussian node model; it is anti-conservative for heavy-tailed
+(e.g. lognormal) marker distributions, but remains a useful \emph{relative}
+ranking of anomalous cells regardless.
 }
 \description{
 Direct reference projection columns are canonical. Corrected projection
 columns are auxiliary and should be used for visualisation, annotation, and
 triage rather than feature-level differential testing.
+}
+\details{
+\code{transferred_label} is the query node's top label transfer choice, an
+argmax over \code{correspondence \%*\% reference$label_prob}. When two labels
+receive close probability mass, this argmax can be brittle: a cell can
+land on a node whose true dominant population is clean, yet still get the
+runner-up label because it narrowly lost the top spot. \code{transferred_label_second}
+and \code{transferred_label_margin} (top confidence minus second confidence,
+from the same query node) expose this directly, so close calls can be
+triaged downstream instead of silently trusted at face value.
 }
 \examples{
 set.seed(1)

@@ -494,6 +494,88 @@
   list(node = out, global = global)
 }
 
+# Per-node per-marker within-node variance in reference-scaled space, for the
+# chi-squared surprisal score in somalign_results(). Nodes with 0-1 assigned
+# cells (var() would return NA/NaN) fall back to the global (all-cell)
+# per-marker variance -- the most conservative estimate available. Floored at
+# var_floor to keep the surprisal score finite for near-degenerate nodes.
+.somalign_node_var <- function(scaled_data, units, n_nodes, var_floor = 1e-8) {
+  p <- ncol(scaled_data)
+  feat_names <- colnames(scaled_data)
+  global_var <- pmax(apply(scaled_data, 2L, stats::var), var_floor)
+  split_idx <- split(seq_len(nrow(scaled_data)), factor(units, levels = seq_len(n_nodes)))
+  node_rows <- lapply(split_idx, function(idx) {
+    if (length(idx) < 2L) {
+      global_var
+    } else {
+      pmax(apply(scaled_data[idx, , drop = FALSE], 2L, stats::var), var_floor)
+    }
+  })
+  out <- matrix(unlist(node_rows, use.names = FALSE), nrow = n_nodes, ncol = p, byrow = TRUE)
+  colnames(out) <- feat_names
+  out
+}
+
+# Validates a user-supplied node_var matrix for somalign_reference_from_nodes.
+.somalign_prepare_node_var <- function(node_var, n_nodes, features) {
+  if (is.null(node_var)) return(NULL)
+  node_var <- as.matrix(node_var)
+  storage.mode(node_var) <- "double"
+  if (nrow(node_var) != n_nodes)
+    stop("`node_var` must have one row per reference node.", call. = FALSE)
+  if (!is.null(features) && !is.null(colnames(node_var))) {
+    node_var <- node_var[, features, drop = FALSE]
+  }
+  if (any(!is.finite(node_var)) || any(node_var < 0))
+    stop("`node_var` must contain non-negative finite values.", call. = FALSE)
+  node_var
+}
+
+# Core (unchunked) chi-squared surprisal computation: per-cell sum of squared
+# z-scores against its assigned reference node's diagonal-Gaussian model.
+# Vectorised; no loop over cells.
+.somalign_node_surprisal_core <- function(scaled_data, units, codebook, node_var) {
+  resid <- scaled_data - codebook[units, , drop = FALSE]
+  var_k <- node_var[units, , drop = FALSE]
+  z2 <- resid^2 / var_k
+  surprisal <- rowSums(z2)
+  pvalue <- stats::pchisq(surprisal, df = ncol(scaled_data), lower.tail = FALSE)
+  top_marker <- colnames(scaled_data)[max.col(z2, ties.method = "first")]
+  list(surprisal = surprisal, pvalue = pvalue, top_marker = top_marker)
+}
+
+# Chunked driver: processes chunk_size rows at a time so peak memory matches
+# the existing projection chunking, not a full N x p x 3 allocation. Degrades
+# gracefully to NA columns (with a one-time message) when the reference has
+# no node_var (old reference objects, or compute_node_var = FALSE).
+.somalign_node_surprisal_chunked <- function(scaled_data, units, reference,
+                                             chunk_size = 10000L) {
+  node_var <- reference$node_var
+  n <- nrow(scaled_data)
+  if (is.null(node_var)) {
+    message(
+      "somalign_results: `reference$node_var` is absent (reference built ",
+      "with `compute_node_var = FALSE`, via `somalign_reference_from_nodes()` ",
+      "without `node_var`, or with a pre-0.99.2 somalign). Surprisal columns will be NA."
+    )
+    return(list(surprisal = rep(NA_real_, n), pvalue = rep(NA_real_, n),
+                top_marker = rep(NA_character_, n)))
+  }
+  codebook <- reference$codebook
+  surprisal <- numeric(n)
+  pvalue <- numeric(n)
+  top_marker <- character(n)
+  for (s in seq(1L, n, by = chunk_size)) {
+    idx <- s:min(s + chunk_size - 1L, n)
+    res <- .somalign_node_surprisal_core(scaled_data[idx, , drop = FALSE], units[idx],
+                                         codebook, node_var)
+    surprisal[idx] <- res$surprisal
+    pvalue[idx] <- res$pvalue
+    top_marker[idx] <- res$top_marker
+  }
+  list(surprisal = surprisal, pvalue = pvalue, top_marker = top_marker)
+}
+
 .somalign_thresholds <- function(reference, units, column = "95%") {
   q <- reference$distance_quantiles
   if (is.null(q) || ncol(q) == 0) {
