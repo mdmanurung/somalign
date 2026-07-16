@@ -36,21 +36,69 @@ print.somalign_query <- function(x, ...) {
 
 #' Print a somalign_fit object
 #'
+#' Leads with the label-transfer result -- the primary product of a fit --
+#' followed by the transport/solver line. Use [summary.somalign_fit()] for the
+#' full label breakdown.
+#'
 #' @param x A \code{somalign_fit} object.
 #' @param ... Ignored.
 #'
 #' @return \code{x}, invisibly.
 #' @export
 print.somalign_fit <- function(x, ...) {
+  cat("<somalign_fit>\n")
+  .somalign_print_label_headline(x)
   cat(
-    "<somalign_fit>\n",
-    "  solver: ", x$diagnostics$solver$used, "\n",
-    "  query nodes: ", nrow(x$query$codebook), "\n",
-    "  reference nodes: ", nrow(x$reference$codebook), "\n",
-    "  transport mass: ", signif(x$diagnostics$ot$transport_mass, 4), "\n",
+    "  solver: ", x$diagnostics$solver$used,
+    "  |  query nodes: ", nrow(x$query$codebook),
+    "  |  reference nodes: ", nrow(x$reference$codebook),
+    "  |  transport mass: ", signif(x$diagnostics$ot$transport_mass, 4), "\n",
     sep = ""
   )
   invisible(x)
+}
+
+# Shared one-line label-transfer headline for the fit print methods.
+.somalign_print_label_headline <- function(x) {
+  s <- .somalign_label_summary(x)
+  if (!isTRUE(s$enabled)) {
+    cat("  label transfer: disabled (reference has no labels)\n")
+    return(invisible(NULL))
+  }
+  cat(sprintf(
+    "  label transfer: %.1f%% of cells accepted across %d class(es); median confidence %.2f, median margin %.2f\n",
+    100 * s$accepted_fraction, s$n_classes, s$median_confidence, s$median_margin
+  ))
+  invisible(NULL)
+}
+
+#' Summarise a somalign_fit's label transfer
+#'
+#' @param object A \code{somalign_fit} object.
+#' @param ... Ignored.
+#'
+#' @return \code{object}, invisibly. Prints the accepted-cell fraction, class
+#'   distribution, and confidence/margin summary.
+#' @export
+summary.somalign_fit <- function(object, ...) {
+  cat("<somalign_fit> label-transfer summary\n")
+  s <- .somalign_label_summary(object)
+  if (!isTRUE(s$enabled)) {
+    cat("  label transfer disabled (reference has no labels).\n")
+    return(invisible(object))
+  }
+  cat(sprintf("  cells: %d  |  accepted: %d (%.1f%%)  |  classes: %d\n",
+              s$n_cells, s$n_accepted, 100 * s$accepted_fraction, s$n_classes))
+  cat(sprintf("  confidence quartiles (accepted): %.2f / %.2f / %.2f\n",
+              s$confidence_quartiles[[1]], s$confidence_quartiles[[2]],
+              s$confidence_quartiles[[3]]))
+  cat(sprintf("  median margin (accepted): %.2f\n", s$median_margin))
+  cat("  accepted class distribution:\n")
+  cd <- s$class_distribution
+  for (i in seq_along(cd)) {
+    cat(sprintf("    %-20s %d\n", names(cd)[i], cd[[i]]))
+  }
+  invisible(object)
 }
 
 #' Print a somalign_anchored_fit object
@@ -61,14 +109,16 @@ print.somalign_fit <- function(x, ...) {
 #' @return \code{x}, invisibly.
 #' @export
 print.somalign_anchored_fit <- function(x, ...) {
+  cat("<somalign_anchored_fit>\n")
+  .somalign_print_label_headline(x)
   cat(
-    "<somalign_anchored_fit>\n",
-    "  solver: ", x$diagnostics$solver$used, "\n",
-    "  query nodes: ", nrow(x$query$codebook), "\n",
-    "  reference nodes: ", nrow(x$reference$codebook), "\n",
-    "  transport mass: ", signif(x$diagnostics$ot$transport_mass, 4), "\n",
+    "  solver: ", x$diagnostics$solver$used,
+    "  |  query nodes: ", nrow(x$query$codebook),
+    "  |  reference nodes: ", nrow(x$reference$codebook),
+    "  |  transport mass: ", signif(x$diagnostics$ot$transport_mass, 4), "\n",
     "  anchors: ", x$anchors$n_anchors,
-    " (", round(100 * x$anchors$coverage_fraction, 1), "% node coverage)\n",
+    " (", round(100 * x$anchors$coverage_fraction, 1), "% node coverage) ",
+    "-- correction is a diagnostic, not a corrected-expression product\n",
     sep = ""
   )
   invisible(x)

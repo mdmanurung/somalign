@@ -4,7 +4,12 @@
 \alias{somalign_results}
 \title{Return per-sample somalign results}
 \usage{
-somalign_results(fit, data = NULL, outside_pvalue_threshold = NULL)
+somalign_results(
+  fit,
+  data = NULL,
+  outside_pvalue_threshold = NULL,
+  include_correction = TRUE
+)
 }
 \arguments{
 \item{fit}{A \code{somalign_fit} object.}
@@ -15,6 +20,14 @@ somalign_results(fit, data = NULL, outside_pvalue_threshold = NULL)
 supplied, adds a boolean \code{outside_reference_pvalue_flag} column,
 \code{TRUE} when \code{outside_reference_pvalue < outside_pvalue_threshold}.
 \code{NULL} (default) omits the column.}
+
+\item{include_correction}{Logical. When \code{FALSE}, drops the auxiliary
+correction columns (\code{corrected_som_unit}, \code{corrected_som_distance},
+\code{corrected_som_distance_threshold}, \code{corrected_outside_reference_distance},
+\code{correction_norm}) for a label-transfer-focused result. The corrected
+coordinates are a diagnostic, not a batch-corrected expression product;
+see the package's topology audit for why they can over-merge populations.
+Default \code{TRUE} (unchanged behaviour).}
 }
 \value{
 A data frame with direct and corrected projection columns, plus

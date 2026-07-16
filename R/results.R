@@ -19,6 +19,13 @@
 #'   supplied, adds a boolean `outside_reference_pvalue_flag` column,
 #'   `TRUE` when `outside_reference_pvalue < outside_pvalue_threshold`.
 #'   `NULL` (default) omits the column.
+#' @param include_correction Logical. When `FALSE`, drops the auxiliary
+#'   correction columns (`corrected_som_unit`, `corrected_som_distance`,
+#'   `corrected_som_distance_threshold`, `corrected_outside_reference_distance`,
+#'   `correction_norm`) for a label-transfer-focused result. The corrected
+#'   coordinates are a diagnostic, not a batch-corrected expression product;
+#'   see the package's topology audit for why they can over-merge populations.
+#'   Default `TRUE` (unchanged behaviour).
 #'
 #' @return A data frame with direct and corrected projection columns, plus
 #'   `transferred_label_second`, `transferred_label_second_confidence`, and
@@ -44,17 +51,26 @@
 #' fit <- somalign_fit(qry, ref)
 #' somalign_results(fit)
 #' @export
-somalign_results <- function(fit, data = NULL, outside_pvalue_threshold = NULL) {
+somalign_results <- function(fit, data = NULL, outside_pvalue_threshold = NULL,
+                             include_correction = TRUE) {
   if (!inherits(fit, "somalign_fit")) {
     stop("`fit` must be a somalign_fit object.", call. = FALSE)
   }
   if (!is.null(outside_pvalue_threshold))
     .somalign_check_prob_scalar(outside_pvalue_threshold, "outside_pvalue_threshold")
+  .somalign_check_flag(include_correction, "include_correction")
 
   direct <- fit$projection$direct
   li <- .somalign_results_label_info(fit, direct)
   surpr <- .somalign_node_surprisal_chunked(fit$query$scaled_data, direct$unit, fit$reference)
   out <- .somalign_results_df(fit, direct, li, surpr)
+
+  if (!include_correction) {
+    correction_cols <- c("corrected_som_unit", "corrected_som_distance",
+                         "corrected_som_distance_threshold",
+                         "corrected_outside_reference_distance", "correction_norm")
+    out <- out[, setdiff(names(out), correction_cols), drop = FALSE]
+  }
 
   if (!is.null(outside_pvalue_threshold)) {
     out$outside_reference_pvalue_flag <-
@@ -69,6 +85,37 @@ somalign_results <- function(fit, data = NULL, outside_pvalue_threshold = NULL) 
     out <- cbind(out, data)
   }
   out
+}
+
+# Cell-level label-transfer summary: the headline product of a fit. Maps the
+# node-level fit$label_transfer decisions to query cells via sample_unit and
+# summarises acceptance, confidence, margin, and the accepted class mix. Used
+# by print()/summary() and available as a lightweight accessor. Returns a list
+# with `enabled = FALSE` when the reference carried no labels.
+.somalign_label_summary <- function(fit) {
+  lp <- fit$reference$label_prob
+  if (is.null(lp) || ncol(lp) == 0L) return(list(enabled = FALSE))
+  lt <- fit$label_transfer
+  unit <- fit$query$sample_unit
+  accepted <- lt$accepted[unit]
+  accepted[is.na(accepted)] <- FALSE
+  conf <- lt$confidence[unit]
+  second <- lt$second_confidence[unit]
+  margin <- conf - ifelse(is.na(second), 0, second)
+  labels <- lt$label[unit]
+  labels[!accepted] <- NA_character_
+  n_cells <- length(unit)
+  list(
+    enabled = TRUE,
+    n_cells = n_cells,
+    accepted_fraction = mean(accepted),
+    n_accepted = sum(accepted),
+    n_classes = length(unique(stats::na.omit(labels))),
+    class_distribution = sort(table(labels), decreasing = TRUE),
+    median_confidence = stats::median(conf[accepted], na.rm = TRUE),
+    median_margin = stats::median(margin[accepted], na.rm = TRUE),
+    confidence_quartiles = stats::quantile(conf[accepted], c(0.25, 0.5, 0.75), na.rm = TRUE)
+  )
 }
 
 .somalign_results_label_info <- function(fit, direct) {

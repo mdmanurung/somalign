@@ -15,5 +15,7 @@
 \code{x}, invisibly.
 }
 \description{
-Print a somalign_fit object
+Leads with the label-transfer result -- the primary product of a fit --
+followed by the transport/solver line. Use \code{\link[=summary.somalign_fit]{summary.somalign_fit()}} for the
+full label breakdown.
 }

@@ -206,3 +206,63 @@ test_that("nodes below mass threshold receive zero correction", {
   expect_true(all(fit$diagnostics$nodes$correction_allowed == FALSE))
   expect_true(all(fit$projection$correction_norm == 0))
 })
+
+## --------------------------------------------------------------------------
+## Labels-first rescope (item 1): summary, print headline, include_correction
+## --------------------------------------------------------------------------
+
+test_that(".somalign_label_summary reports accepted fraction and class mix", {
+  ref <- tiny_reference()
+  query_obj <- somalign_query(
+    matrix(c(-1.1, 0, 1.05, 0), ncol = 2, byrow = TRUE,
+           dimnames = list(NULL, ref$features)),
+    ref, som_query = make_som(rbind(c(-1, 0), c(1, 0)))
+  )
+  fit <- somalign_fit(query_obj, ref)
+  s <- somalign:::.somalign_label_summary(fit)
+  expect_true(s$enabled)
+  expect_gte(s$accepted_fraction, 0)
+  expect_lte(s$accepted_fraction, 1)
+  expect_equal(s$n_cells, nrow(query_obj$scaled_data))
+  expect_true(s$n_classes >= 1)
+})
+
+test_that(".somalign_label_summary reports disabled when reference has no labels", {
+  fx <- make_anchored_fixture()
+  fit <- somalign_fit(fx$qry, fx$ref)
+  s <- somalign:::.somalign_label_summary(fit)
+  expect_false(s$enabled)
+})
+
+test_that("summary.somalign_fit returns the fit invisibly", {
+  ref <- tiny_reference()
+  query_obj <- somalign_query(
+    matrix(c(-1.1, 0, 1.05, 0), ncol = 2, byrow = TRUE,
+           dimnames = list(NULL, ref$features)),
+    ref, som_query = make_som(rbind(c(-1, 0), c(1, 0)))
+  )
+  fit <- somalign_fit(query_obj, ref)
+  out <- withVisible(summary(fit))
+  expect_false(out$visible)
+  expect_identical(out$value, fit)
+})
+
+test_that("somalign_results(include_correction = FALSE) drops correction columns", {
+  ref <- tiny_reference()
+  query_obj <- somalign_query(
+    matrix(c(-1.1, 0, 1.05, 0), ncol = 2, byrow = TRUE,
+           dimnames = list(NULL, ref$features)),
+    ref, som_query = make_som(rbind(c(-1, 0), c(1, 0)))
+  )
+  fit <- somalign_fit(query_obj, ref)
+  full <- somalign_results(fit)
+  lean <- somalign_results(fit, include_correction = FALSE)
+  correction_cols <- c("corrected_som_unit", "corrected_som_distance",
+                       "corrected_som_distance_threshold",
+                       "corrected_outside_reference_distance", "correction_norm")
+  expect_true(all(correction_cols %in% names(full)))
+  expect_false(any(correction_cols %in% names(lean)))
+  # label columns preserved
+  expect_true(all(c("transferred_label", "transferred_label_confidence",
+                    "transferred_label_margin") %in% names(lean)))
+})
