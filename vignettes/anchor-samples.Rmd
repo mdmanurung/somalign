@@ -14,13 +14,13 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 > **Scope.** Anchor regularisation shapes the *correction* (the per-node
 > shift), which `somalign` treats as a diagnostic rather than a product. The
 > anchor machinery still helps label transfer indirectly, because the anchor
-> cost bonus also biases the transport plan that labels are read from -- but the
+> cost bonus also biases the transport plan that labels are read from, but the
 > corrected coordinates it produces can over-merge populations (see
 > `somalign_topology_audit()`) and are not a batch-corrected expression matrix.
 
 In many longitudinal and multi-site studies, a small set of quality-control
-samples -- control cell lines, reference bead populations, or proficiency
-panel specimens -- gets run alongside every batch. When those same samples
+samples (control cell lines, reference bead populations, or proficiency
+panel specimens) gets run alongside every batch. When those same samples
 appear in both the old batch (from which the reference SOM was trained) and
 the new batch (from which the query SOM was trained), they carry direct
 information about the per-node batch displacement: wherever an anchor sample
@@ -34,7 +34,7 @@ trained on new-batch data, so projecting the old-batch anchor onto it
 identifies which query node that anchor occupied before the batch shift;
 projecting the new-batch anchor onto the reference SOM identifies the
 corresponding reference node after the shift.) This produces a node-pair
-count matrix -- how many anchor pairs link query node *k* to reference node
+count matrix: how many anchor pairs link query node *k* to reference node
 *l*. Pairs with anchor support get reduced transport cost, so the OT plan
 preferentially routes mass through those node combinations. Uncovered nodes
 remain unaffected; their cost is identical to the standard
@@ -65,7 +65,7 @@ reference <- somalign_train_reference(
 reference
 ```
 
-The new batch carries a modest uniform batch offset -- realistic for
+The new batch carries a modest uniform batch offset, realistic for
 reagent lot changes or inter-instrument calibration drift.
 
 ```{r new-batch, eval = requireNamespace("kohonen", quietly = TRUE)}
@@ -82,8 +82,8 @@ query
 
 ## Identifying anchor samples
 
-Suppose 25 samples from a quality-control pool -- the same biological
-material measured under both batch conditions -- are spread across both
+Suppose 25 samples from a quality-control pool (the same biological
+material measured under both batch conditions) are spread across both
 phenotypic populations.
 
 ```{r anchors, eval = requireNamespace("kohonen", quietly = TRUE)}
@@ -179,14 +179,14 @@ cat("Transport mass:  ", round(diag$ot$transport_mass, 4), "\n")
 cost. At `rho_anchor = 0`, the bonus vanishes and the result is identical
 to `somalign_fit()`. As `rho_anchor` grows, anchor-supported pairs become
 progressively cheaper. Once the bonus exceeds the normalized cost for a
-pair, that pair's effective cost is clamped to zero -- the plan then spreads
+pair, that pair's effective cost is clamped to zero. The plan then spreads
 mass among all zero-cost pairs according to entropic regularization rather
 than differential anchor support, so very large values do not continue to
 concentrate mass.
 
 A practical upper bound is `rho_anchor * max_A / n_anchors <= 1`, where
 `max_A` is the highest anchor count for any single node pair. Values in
-the range 0.5--2 are a reasonable starting point. When coverage is sparse
+the range 0.5 to 2 are a reasonable starting point. When coverage is sparse
 (< 30% of nodes) or anchor pairs are unevenly distributed, a smaller value
 avoids over-weighting a few node pairs.
 
@@ -214,16 +214,16 @@ direction consistent with your biological expectations.
 ## Signal-preserving correction
 
 The default `correction = "cost_bonus"` applies the OT-derived shift across all
-features. For most reagent- or calibration-driven batch effects this is correct —
+features. For most reagent- or calibration-driven batch effects this is correct:
 the displacement is genuinely technical and should be removed. The assumption breaks
-when the new batch contains populations or activation states absent from the reference:
-a full-space shift pushes those cells toward reference coordinates and erases their
+when the new batch contains populations or activation states absent from the reference,
+because a full-space shift pushes those cells toward reference coordinates and erases their
 distinguishing biology.
 
 Because each anchor pair links *the same biological unit* measured in both batches,
 the row vector `anchor_old - anchor_new` is a direct observation of the batch
 displacement with no biological contribution. SVD of the n_anchors × p displacement
-matrix isolates the true batch directions — call this `V_batch`. Restricting node
+matrix isolates the true batch directions; call this `V_batch`. Restricting node
 shifts to `V_batch` corrects only the batch component; biology orthogonal to
 `V_batch` is preserved.
 
@@ -283,8 +283,8 @@ carries populations not represented in the reference.
 
 ## When to use `somalign_fit_anchored()`
 
-`somalign_fit_anchored()` is appropriate when a set of samples — QC pools,
-reference standards, proficiency panels — was physically run in both the old and
+`somalign_fit_anchored()` is appropriate when a set of samples (QC pools,
+reference standards, proficiency panels) was physically run in both the old and
 new batches, providing ground-truth node-pair correspondences. Anchor pairs need
 not cover the full codebook; even sparse coverage meaningfully constrains the OT
 plan for the covered node pairs, while uncovered nodes fall back to the standard
@@ -295,8 +295,8 @@ Fabricated or imputed anchor pairs add no information and will misguide the
 transport.
 
 When query-only biology must be preserved, use `correction = "subspace"` or
-`"both"`. When the full-space shift is appropriate — the batch dominates and no
-signal-preservation is needed — the default `"cost_bonus"` is sufficient. See
+`"both"`. When the full-space shift is appropriate (the batch dominates and no
+signal-preservation is needed), the default `"cost_bonus"` is sufficient. See
 `vignette("two-pass", package = "somalign")` for the two-pass decomposition
 approach, which handles large global offsets without requiring remeasured anchors.
 

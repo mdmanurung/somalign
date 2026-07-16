@@ -1,8 +1,8 @@
 ---
-title: "API smoke test — all public functions"
+title: "API smoke test: all public functions"
 output: BiocStyle::html_document
 vignette: >
-  %\VignetteIndexEntry{API smoke test — all public functions}
+  %\VignetteIndexEntry{API smoke test: all public functions}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -13,7 +13,7 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 
 This vignette exercises every public function in the package so that build-time
 vignette rendering catches breaking changes or silent regressions. It is not a
-tutorial — see the other vignettes for annotated workflows. Each section calls
+tutorial (see the other vignettes for annotated workflows). Each section calls
 the function, checks the return type, and prints a key field to confirm the
 object was constructed correctly.
 
@@ -332,16 +332,78 @@ stopifnot("som_seed" %in% names(stab))
 stab[, c("som_seed", "transport_mass", "converged")]
 ```
 
-## Print methods
+## `somalign_label_metrics`
 
-All four main classes have print methods that should return the object
-invisibly.
+Scores predicted labels against ground truth: accuracy, macro-F1, multiclass
+MCC, per-class statistics, and the confusion matrix.
+
+```{r label-metrics}
+truth <- rep(c("A", "B"), each = 10)
+pred  <- truth; pred[1] <- "B"
+somalign_label_metrics(pred, truth)
+```
+
+## `somalign_calibration`
+
+Bins predictions by a confidence score and compares mean confidence to
+empirical accuracy, returning the expected calibration error and Brier score.
+
+```{r calibration}
+somalign_calibration(runif(50), runif(50) < 0.5)
+```
+
+## `somalign_cross_validate`
+
+Held-out k-fold cross-validation of label transfer.
+
+```{r cross-validate, eval = requireNamespace("kohonen", quietly = TRUE)}
+cv <- somalign_cross_validate(
+  old_data, labels_old, grid = grid_small, k = 2, rlen = 15
+)
+stopifnot(inherits(cv, "somalign_cross_validation"))
+cv
+```
+
+## `somalign_tune`
+
+Selects transport-plan parameters by cross-validated label accuracy.
+
+```{r tune, eval = requireNamespace("kohonen", quietly = TRUE)}
+tuned <- somalign_tune(
+  old_data, labels_old, grid = grid_small,
+  param_grid = data.frame(epsilon = c(0.1, 0.2)), k = 2, rlen = 15
+)
+stopifnot(inherits(tuned, "somalign_tune"))
+tuned$grid
+```
+
+## `somalign_anchor_benefit`
+
+Quantifies the label-transfer lift from anchor samples across a `rho_anchor`
+grid.
+
+```{r anchor-benefit, eval = requireNamespace("kohonen", quietly = TRUE)}
+anc_i <- c(1:10, 31:40)
+ab <- somalign_anchor_benefit(
+  qry, ref, labels_old[seq_len(nrow(new_data))],
+  anchor_old = old_data[anc_i, ], anchor_new = new_data[anc_i, ],
+  rho_grid = c(0, 1)
+)
+stopifnot(inherits(ab, "somalign_anchor_benefit"))
+ab$grid
+```
+
+## Print and summary methods
+
+The main classes have print methods that return the object invisibly;
+`summary()` on a fit reports the label-transfer breakdown.
 
 ```{r print-methods, eval = requireNamespace("kohonen", quietly = TRUE)}
 invisible(print(ref))
 invisible(print(qry))
 invisible(print(fit))
 invisible(print(fit_anc))
+invisible(summary(fit))
 ```
 
 ## Session info

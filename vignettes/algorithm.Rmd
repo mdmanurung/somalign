@@ -27,8 +27,8 @@ transport backend to configure. Direct projection is always computed first and
 is the primary result; the OT-derived columns are auxiliary.
 
 > **Correction vectors are a diagnostic, not a product.** The barycentric
-> correction (stages 3--4 below) can over-merge distinct populations at larger
-> epsilon -- a conditional-expectation contraction that
+> correction (stages 3 and 4 below) can over-merge distinct populations at larger
+> epsilon: a conditional-expectation contraction that
 > `somalign_topology_audit()` quantifies. Use the corrected coordinates for
 > triage and visualisation, not as a batch-corrected expression matrix. Label
 > transfer (stage 5) is computed from the transport correspondence and never
@@ -99,12 +99,12 @@ P <- P_raw * query$mass            # scale rows by node mass
 match_frac <- rowSums(P) / query$mass
 ```
 
-## Stage 0 — Training both SOMs
+## Stage 0: Training both SOMs
 
 The reference SOM is trained on labelled old data after z-score normalisation
 with the old-data mean $\mu$ and standard deviation $\sigma$. The query SOM
-must be trained on new data transformed with those same reference parameters —
-not new-data z-scores — so that both codebooks lie in the same feature
+must be trained on new data transformed with those same reference parameters
+(not new-data z-scores), so that both codebooks lie in the same feature
 coordinate system.
 
 ```{r stage0, echo = FALSE, fig.height = 3.5}
@@ -142,7 +142,7 @@ mtext("(unlabelled)", side = 1, line = 0, cex = 0.7, col = "grey40")
 
 ***
 
-## Stage 1 — Direct projection (primary result)
+## Stage 1: Direct projection (primary result)
 
 Every new sample $x_s$ is assigned to its nearest reference node by Euclidean
 distance:
@@ -201,13 +201,13 @@ legend("bottomright",
 
 ***
 
-## Stage 2 — OT on codebooks
+## Stage 2: OT on codebooks
 
 Transport is solved once on the **codebooks** ($M$ query nodes × $K$ reference
 nodes), not on individual samples, keeping the problem dimensionality
 independent of sample count.
 
-### 2a — Cost matrix
+### 2a: Cost matrix
 
 ```{r stage2a, echo = FALSE, fig.height = 3.2}
 par(mar = c(4, 4.5, 3.5, 1))
@@ -244,7 +244,7 @@ legend("right",
        cex = 0.65, bty = "n")
 ```
 
-### 2b — OT objective
+### 2b: OT objective
 
 The transport plan $P$ minimises:
 
@@ -263,7 +263,7 @@ routes only a small fraction of its mass rather than forcing an artificial
 match. The plan is found by the internal pure-R Sinkhorn scaling
 implementation.
 
-### 2c — Transport plan
+### 2c: Transport plan
 
 ```{r stage2c, echo = FALSE, fig.height = 5.5}
 par(mar = c(4, 2, 3, 2))
@@ -316,7 +316,7 @@ Label transfer is rejected for low-match nodes.
 
 ***
 
-## Stage 3 — Correction vectors
+## Stage 3: Correction vectors
 
 For each query node $i$ the OT plan defines a weighted mean displacement toward
 its matched reference nodes:
@@ -369,13 +369,13 @@ text(cx + delta_x + 0.22, cy + delta_y + 0.12,
 ```
 
 A small $\|\Delta_i\|$ means the query node sits close to its matched reference
-positions. A large value indicates a systematic offset — potentially a batch
-effect or a true population shift — and is worth examining before accepting
+positions. A large value indicates a systematic offset (potentially a batch
+effect or a true population shift) and is worth examining before accepting
 the corrected projection.
 
 ***
 
-## Stage 4 — Corrected projection (auxiliary)
+## Stage 4: Corrected projection (auxiliary)
 
 Every sample in query node $i$ is shifted by the same $\Delta_i$ and re-projected:
 
@@ -445,7 +445,7 @@ triage, not as replacement assignments.
 
 ***
 
-## Stage 5 — Label transfer (auxiliary)
+## Stage 5: Label transfer (auxiliary)
 
 For each query node $i$, the reference node with the highest transported mass
 in row $P[i, \cdot]$ is identified as the dominant match, and its label is
@@ -505,11 +505,11 @@ reference codebook vectors:
 
 $$\hat{C}_i = \frac{\sum_j P_{ij}\,C_{\text{ref},j}}{\sum_j P_{ij}}$$
 
-This is a **conditional mean**, so the corrected positions always lie inside
+This barycenter is a **conditional mean**, so the corrected positions always lie inside
 the convex hull of the reference codebook. Two consequences follow. First,
 variance shrinks: query nodes that genuinely sit near the periphery of a
 reference cluster will be pulled inward. Second, dense reference regions
-attract mass — if the reference has one very large T-cell cluster and one
+attract mass. For example, if the reference has one very large T-cell cluster and one
 small NK cluster, even a predominantly NK query node will have its correction
 vector biased toward the T-cell centroid. Contraction grows as `epsilon`
 increases, because a larger entropic penalty spreads each transport row $P[i,
@@ -547,7 +547,7 @@ before interpreting them as novel populations.
 ## Output columns
 
 Direct projection columns are the primary result. OT-derived columns are
-auxiliary — they should always be read alongside the direct assignment and the
+auxiliary and should always be read alongside the direct assignment and the
 `somalign_diagnostics()` output.
 
 | Column | Stage | Purpose |

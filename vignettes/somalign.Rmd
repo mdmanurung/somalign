@@ -16,7 +16,7 @@ codebook-level unbalanced entropic optimal transport. The example below trains
 a reference SOM on labelled old samples, then projects a shifted query dataset
 into that reference.
 
-**The primary product is label transfer** -- carrying reference labels (and a
+**The primary product is label transfer**, which carries reference labels (and a
 per-cell confidence and margin) onto the query via the transport plan. The
 *corrected coordinates* (`corrected_som_*`, `correction_norm`) are a secondary,
 diagnostic output: they are useful for triage and visualisation, but the
@@ -79,6 +79,10 @@ The user-facing workflow is built around a small set of exported functions:
   per query sample.
 - Inspect fit quality with `somalign_diagnostics()` and tune OT parameters with
   `somalign_sensitivity_grid()`.
+- Validate the transferred labels and tune for accuracy with
+  `somalign_cross_validate()`, `somalign_label_metrics()`,
+  `somalign_calibration()`, and `somalign_tune()`. See the "Validating and
+  tuning label transfer" vignette.
 
 ## What to look at first
 
@@ -215,8 +219,8 @@ epsilon) and a residual per-node correction (second pass). Useful when the batch
 offset is large relative to the local OT problem scale.
 
 `vignette("algorithm", package = "somalign")` walks through each pipeline
-stage — direct projection, OT correspondence, correction vectors, label
-transfer — and explains how they produce the output columns.
+stage (direct projection, OT correspondence, correction vectors, label
+transfer) and explains how they produce the output columns.
 
 For preprocessing, `somalign_normalize()` subtracts the per-marker mean
 deviation between query and reference in z-scored space, and

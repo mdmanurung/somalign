@@ -1,0 +1,146 @@
+---
+title: "Validating and tuning label transfer"
+output: BiocStyle::html_document
+vignette: >
+  %\VignetteIndexEntry{Validating and tuning label transfer}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+The product of a `somalign` fit is a transferred label and a confidence for
+every query cell. This vignette covers how to check that those labels are
+correct and that the confidence is honest, and how to choose transport
+parameters that maximise label accuracy rather than an unsupervised proxy. The
+corrected coordinates are a separate, diagnostic output and are not used here;
+see the algorithm vignette for why they can over-merge populations.
+
+## Scoring labels against a known truth
+
+`somalign_label_metrics()` scores predicted labels against ground truth. It
+reports overall accuracy, macro-averaged F1, the multiclass Matthews
+correlation coefficient (Gorodkin's \eqn{R_K}), per-class precision, recall and
+F1, and the confusion matrix. Metrics are computed on the accepted predictions;
+`coverage` records what fraction of cells that is.
+
+```{r metrics}
+library(somalign)
+
+truth <- rep(c("Tcell", "Bcell", "Mono"), each = 20)
+pred  <- truth
+pred[c(1, 25, 45)] <- c("Bcell", "Tcell", "Tcell")   # three errors of 60
+
+m <- somalign_label_metrics(pred, truth)
+m
+m$per_class
+```
+
+The `accepted` argument marks which predictions to score; cells that are not
+accepted count as abstentions and are reported through `coverage` and
+`accuracy_all` rather than as errors.
+
+## Is the confidence honest?
+
+A confidence of 0.8 should mean the label is right about 80% of the time.
+`somalign_calibration()` bins predictions by their confidence and compares the
+mean confidence in each bin to the empirical accuracy there, summarising the
+gap as the expected calibration error (ECE) and the Brier score.
+
+```{r calibration}
+set.seed(1)
+score   <- runif(500)
+correct <- runif(500) < score          # calibrated by construction
+somalign_calibration(score, correct)
+```
+
+A well-calibrated model has mean confidence close to accuracy in every bin, so
+its ECE is near zero. A model that reports 0.99 on cells it gets right only half
+the time has an ECE near 0.49.
+
+## Held-out cross-validation
+
+The functions above need ground-truth labels, which a real query batch does not
+carry. `somalign_cross_validate()` supplies them by construction: it splits the
+labelled reference into folds, trains a reference on each training split,
+projects the held-out split, and transfers labels back. Every held-out cell has
+a real label, so the pooled score estimates how well transfer generalises to
+cells the reference never saw.
+
+```{r crossval, eval = requireNamespace("kohonen", quietly = TRUE)}
+set.seed(1)
+x <- rbind(
+  matrix(rnorm(300 * 3, -3, 0.5), ncol = 3),
+  matrix(rnorm(300 * 3,  3, 0.5), ncol = 3)
+)
+colnames(x) <- paste0("m", seq_len(3))
+lab <- rep(c("low", "high"), each = 300)
+
+cv <- somalign_cross_validate(
+  x, lab, grid = kohonen::somgrid(3, 3, "hexagonal"), k = 3, rlen = 20
+)
+cv
+cv$per_fold
+```
+
+## Tuning the transport plan for accuracy
+
+`somalign_select_epsilon()` picks a regularisation strength from the plan
+geometry alone, without reference to labels. When labelled data is available,
+`somalign_tune()` selects transport parameters by cross-validated label
+accuracy instead. It sweeps a parameter grid, runs the same held-out
+cross-validation at each point, and reports every metric so the operating point
+can be chosen deliberately.
+
+```{r tune, eval = requireNamespace("kohonen", quietly = TRUE)}
+tuned <- somalign_tune(
+  x, lab, grid = kohonen::somgrid(3, 3, "hexagonal"),
+  param_grid = data.frame(epsilon = c(0.05, 0.1, 0.2)),
+  k = 3, rlen = 20, metric = "mcc"
+)
+tuned$grid
+```
+
+The default objective is the multiclass MCC. Read it alongside `coverage`:
+MCC and accuracy are scored on accepted cells only, so a large `epsilon` can
+raise them by abstaining on hard cells. `macro_f1` falls when rare classes are
+abstained away, which makes it a more coverage-robust target for imbalanced
+data.
+
+## When do anchor samples help?
+
+Anchors are quality-control samples run in both batches. Through
+`somalign_fit_anchored()` they bias the transport plan toward
+anchor-supported node pairs. `somalign_anchor_benefit()` quantifies how much
+they improve label transfer by sweeping the anchor strength `rho_anchor`
+against a known query label; `rho_anchor = 0` is the no-anchor baseline.
+
+```{r anchor, eval = requireNamespace("kohonen", quietly = TRUE)}
+set.seed(1)
+shift <- 2
+ref_x <- rbind(matrix(rnorm(120 * 3, -3, 0.5), ncol = 3),
+               matrix(rnorm(120 * 3,  3, 0.5), ncol = 3))
+colnames(ref_x) <- paste0("m", seq_len(3))
+ref_lab <- rep(c("low", "high"), each = 120)
+ref <- somalign_train_reference(ref_x, labels = ref_lab,
+                                grid = kohonen::somgrid(3, 3, "hexagonal"), rlen = 20)
+
+qry_x <- ref_x + shift
+qry <- somalign_query(qry_x, ref, grid = kohonen::somgrid(3, 3, "hexagonal"), rlen = 20)
+
+anc_idx <- c(1:30, 121:150)
+ab <- somalign_anchor_benefit(
+  qry, ref, ref_lab,
+  anchor_old = ref_x[anc_idx, ],
+  anchor_new = ref_x[anc_idx, ] + shift,
+  rho_grid = c(0, 1, 10, 100)
+)
+ab$grid
+```
+
+Anchors help only when the batch effect is population-specific and severe
+enough that the plain plan mis-maps lineages, and then only at `rho_anchor`
+well above 1. For mild or global batch shifts the plain plan already succeeds,
+so the anchor lift is near zero.

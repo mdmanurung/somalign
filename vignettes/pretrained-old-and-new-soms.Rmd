@@ -19,12 +19,11 @@ everything from scratch.
 
 ## Coordinate-space requirements
 
-The single constraint that ties the whole approach together is that both the
-reference and query codebooks must live in the same feature coordinate system:
-z-scored with the **old/reference** data's mean and standard deviation. When
+Both the reference and query codebooks must live in the same feature coordinate
+system, z-scored with the **old/reference** data's mean and standard deviation. When
 the reference SOM was trained on old data scaled to $\mu_\text{ref}$ and
 $\sigma_\text{ref}$, the query SOM must be trained on new samples transformed
-by those same parameters — not by new-data z-scores, and not in raw units.
+by those same parameters, not by new-data z-scores and not in raw units.
 
 ```{r, eval = FALSE}
 new_scaled_for_som <- sweep(
@@ -161,7 +160,7 @@ head(results[, c(
 
 ## Quality control and tuning
 
-Before acting on label transfer or corrected node assignments, inspect the
+Before using label transfer or corrected node assignments, inspect the
 solver and OT diagnostics:
 
 ```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
@@ -177,9 +176,9 @@ diagnostics$ot$max_row_mass_error   # query-side marginal deviation
 diagnostics$projection              # direct/corrected outside fractions
 ```
 
-`diagnostics$ot$match_fraction` is the most actionable single number: a
+`diagnostics$ot$match_fraction` is the most informative single number: a
 query node with low match fraction transported little mass to any reference
-node, which typically means a novel population, a codebook-space mismatch, or
+node, which typically indicates a novel population, a codebook-space mismatch, or
 both. Labels transferred from such nodes should be treated as provisional.
 `diagnostics$ot$match_mass_ratio` stores the unclipped transported-mass ratio;
 values above 1 can occur in unbalanced OT and are not errors.
@@ -224,7 +223,7 @@ into downstream analyses.
 
 ## Before relying on results
 
-Feature names and order must match exactly — `somalign_query()` reorders
+Feature names and order must match exactly: `somalign_query()` reorders
 columns to `reference$features` and will error if any are missing. Both
 codebooks must live in the same feature space; the query SOM must be trained
 with `reference$center` and `reference$scale` unless you supply a raw saved SOM
