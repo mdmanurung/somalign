@@ -40,6 +40,21 @@
 #'   diagonal-Gaussian node model; it is anti-conservative for heavy-tailed
 #'   (e.g. lognormal) marker distributions, but remains a useful *relative*
 #'   ranking of anomalous cells regardless.
+#'
+#' @section Cross-batch composition and abundance:
+#' For comparing cell-type composition or abundance across batches, use the
+#' **direct** projection columns (`old_som_unit`, `old_som_label`), not the
+#' corrected ones. The barycentric correction can over-merge distinct
+#' populations (see [somalign_topology_audit()]) and does not improve, and can
+#' worsen, the cross-batch reproducibility of composition. Quantify abundance
+#' **compositionally** rather than on raw frequencies: apply a centred
+#' log-ratio (CLR) transform to per-sample cluster counts (for example with the
+#' `crumblr` package, which also supplies count-based precision weights for
+#' downstream differential-abundance models). Raw proportions are dominated by
+#' the largest clusters and understate the reproducibility of rarer ones; the
+#' CLR profile is the reproducible quantity. Absolute per-cluster proportions
+#' and node-level frequencies remain approximate and should not be treated as
+#' precise.
 #' @examples
 #' set.seed(1)
 #' mat <- matrix(rnorm(20), nrow = 10, ncol = 2,

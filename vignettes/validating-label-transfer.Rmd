@@ -144,3 +144,23 @@ Anchors help only when the batch effect is population-specific and severe
 enough that the plain plan mis-maps lineages, and then only at `rho_anchor`
 well above 1. For mild or global batch shifts the plain plan already succeeds,
 so the anchor lift is near zero.
+
+## Quantifying abundance across batches
+
+Label transfer gives each cell a cluster; comparing cluster abundance across
+batches is a separate, compositional problem. Cluster frequencies sum to one,
+so correlating raw proportions is dominated by the few largest clusters and
+understates how well rarer clusters are recovered. Quantify abundance with a
+centred log-ratio (CLR) transform of per-sample cluster counts instead. The
+`crumblr` package computes the CLR together with count-based precision weights
+suitable for differential-abundance models:
+
+```{r, eval = FALSE}
+library(crumblr)
+counts <- table(sample_id, transferred_label)   # samples x clusters, integer
+cobj <- crumblr(as.matrix(counts))               # CLR in cobj$E, weights in cobj$weights
+```
+
+Use the direct projection (`old_som_unit`) for composition, not the corrected
+one; the CLR abundance profile is reproducible across batches, whereas absolute
+per-cluster proportions are only approximate.

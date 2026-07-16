@@ -132,6 +132,30 @@ accepted only when transported mass and label confidence both clear their
 thresholds. Check `transferred_label_accepted` before using any transferred label
 downstream.
 
+## Cross-batch composition and abundance
+
+When the goal is to compare cell-type composition across batches, two choices
+improve cross-batch reproducibility. First, use the direct projection
+(`old_som_unit`, `old_som_label`) rather than the corrected columns: the
+barycentric correction can over-merge populations (see
+`somalign_topology_audit()`) and does not improve reproducibility of
+composition. Second, quantify abundance compositionally. Cluster frequencies
+sum to one, so a raw-frequency comparison is dominated by the largest clusters
+and understates how well rarer ones are recovered. A centred log-ratio (CLR)
+transform of per-sample cluster counts, as implemented in the `crumblr`
+package, maps the composition to log-ratio space and downweights low-count
+clusters, and is the transform used by downstream differential-abundance
+models:
+
+```{r, eval = FALSE}
+# counts: a samples-by-cluster integer matrix (e.g. table(sample, transferred_label))
+library(crumblr)
+cobj <- crumblr(counts)      # CLR values in cobj$E, precision weights in cobj$weights
+```
+
+Absolute per-cluster proportions and node-level frequencies remain approximate;
+the CLR profile is the reproducible quantity.
+
 ## Diagnostic plots
 
 The package ships a set of `somalign_plot_*()` functions covering both
