@@ -367,6 +367,25 @@
   out
 }
 
+# Derive the per-query-node correspondence quantities from a raw transport
+# plan and the query node masses: the row-normalised correspondence, the
+# transported row/column mass, the match-mass ratio (transported vs available
+# node mass), and the match fraction (ratio clamped to <= 1). Shared by
+# .somalign_align_transport() (the interactive fit path, which additionally
+# emits a match_mass_ratio > 1 message) and .somalign_sweep_topology_row()
+# (the silent epsilon-sweep diagnostic) so the two never drift.
+.somalign_plan_to_correspondence <- function(plan, node_masses) {
+  row_mass <- rowSums(plan)
+  match_mass_ratio <- ifelse(node_masses > 0, row_mass / node_masses, 0)
+  list(
+    correspondence = .somalign_row_normalize(plan),
+    row_mass = row_mass,
+    col_mass = colSums(plan),
+    match_mass_ratio = match_mass_ratio,
+    match_fraction = pmin(match_mass_ratio, 1)
+  )
+}
+
 # Mutual information I(query node; reference node) from the raw (possibly
 # unnormalized) transport plan, plus per-query-node conditional entropy
 # H(ref | query = i) -- both in bits (log2) -- and the plan's expected cost

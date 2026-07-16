@@ -303,29 +303,15 @@ somalign_fit <- function(query,
     anneal_stages = anneal_stages
   )
   plan <- ot$plan
-  correspondence <- .somalign_row_normalize(plan)
-  row_mass <- rowSums(plan)
-  col_mass <- colSums(plan)
-  match_mass_ratio <- ifelse(query$node_masses > 0, row_mass / query$node_masses, 0)
-  match_fraction <- pmin(match_mass_ratio, 1)
-  n_over <- sum(match_mass_ratio > 1)
+  cc <- .somalign_plan_to_correspondence(plan, query$node_masses)
+  n_over <- sum(cc$match_mass_ratio > 1)
   if (n_over > 0) {
     message(sprintf(
       "somalign_fit: %d query node(s) have match_mass_ratio > 1 (max %.2f); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.",
-      n_over, max(match_mass_ratio)
+      n_over, max(cc$match_mass_ratio)
     ))
   }
-  list(
-    cost = cost,
-    cost_scale = cost_scale,
-    ot = ot,
-    plan = plan,
-    correspondence = correspondence,
-    row_mass = row_mass,
-    col_mass = col_mass,
-    match_mass_ratio = match_mass_ratio,
-    match_fraction = match_fraction
-  )
+  c(list(cost = cost, cost_scale = cost_scale, ot = ot, plan = plan), cc)
 }
 
 # Cheap OT-only sweep primitive shared by somalign_epsilon_sweep() and
