@@ -471,3 +471,135 @@ print.somalign_tune <- function(x, ...) {
               b$accuracy, b$macro_f1, b$mcc, 100 * b$coverage, b$ece))
   invisible(x)
 }
+
+# ---------------------------------------------------------------------------
+# Anchor benefit
+# ---------------------------------------------------------------------------
+
+# Transfer labels for one cost-bonus setting via the OT-only path (no per-cell
+# projection or node shifts -- labels don't need them) and score them against
+# ground truth on the eval subset.
+.somalign_anchor_eval <- function(query, reference, cost_bonus, eval_mask,
+                                  query_labels, min_match_fraction, confidence_threshold,
+                                  epsilon, rho_query, rho_ref, solver, max_iter, tol, n_bins) {
+  r <- .somalign_ot_sweep_one(
+    query, reference, epsilon = epsilon, rho_query = rho_query, rho_ref = rho_ref,
+    solver = solver, max_iter = max_iter, tol = tol, cost_bonus = cost_bonus
+  )
+  cc <- .somalign_plan_to_correspondence(r$plan, query$node_masses)
+  lt <- .somalign_transfer_labels(cc$correspondence, reference$label_prob,
+                                  cc$match_fraction, min_match_fraction, confidence_threshold)
+  unit <- query$sample_unit
+  accepted <- lt$accepted[unit]
+  predicted <- ifelse(accepted, lt$label[unit], NA_character_)[eval_mask]
+  confidence <- ifelse(accepted, lt$confidence[unit], NA_real_)[eval_mask]
+  accepted <- accepted[eval_mask]
+  truth <- query_labels[eval_mask]
+  m <- somalign_label_metrics(predicted, truth, accepted)
+  ece <- tryCatch(somalign_calibration(confidence, predicted == truth, n_bins = n_bins)$ece,
+                  error = function(e) NA_real_)
+  data.frame(accuracy = m$accuracy, macro_f1 = m$macro_f1, mcc = m$mcc,
+             coverage = m$coverage, ece = ece)
+}
+
+#' Quantify the label-transfer benefit of anchor (repeat) samples
+#'
+#' Measures how much anchor samples -- QC/repeat specimens run in both the
+#' reference and query batches -- improve label transfer, by sweeping the anchor
+#' cost-bonus strength `rho_anchor` and scoring the transferred labels against a
+#' *known* query label. `rho_anchor = 0` is the exact no-anchor baseline
+#' (plain [somalign_fit()]); positive values bias the transport plan toward
+#' anchor-supported node pairs, exactly as `somalign_fit_anchored(correction =
+#' "cost_bonus")`. Anchors influence labels only through this cost bonus, so
+#' this single sweep captures their entire label-transfer effect (the
+#' `"subspace"` correction leaves labels identical to `rho_anchor = 0`).
+#'
+#' This is a *validation* tool: it needs ground-truth query labels (e.g. an
+#' independently gated held-out batch), which production label transfer does
+#' not have. It reuses the fixed reference/query SOMs and a single anchor count
+#' matrix across the sweep, recomputing only the OT solve, so it is cheap.
+#'
+#' @param query A `somalign_query` object.
+#' @param reference A labelled `somalign_reference` object.
+#' @param query_labels Character ground-truth labels, one per query cell.
+#' @param anchor_old,anchor_new Paired anchor cell matrices (repeat samples in
+#'   the reference and query batches respectively), same number of rows.
+#' @param rho_grid Non-negative anchor strengths to sweep. Default
+#'   `c(0, 0.5, 1, 2, 5)`; include `0` for the no-anchor baseline.
+#' @param metric Objective for `best`/`lift`: `"mcc"` (default), `"macro_f1"`,
+#'   or `"accuracy"` (all maximised).
+#' @param eval_mask Optional logical vector, one per query cell, selecting the
+#'   cells to score (e.g. exclude the anchor samples for a clean held-out
+#'   measure). Default `NULL` scores all cells.
+#' @param epsilon,rho_query,rho_ref,solver,max_iter,tol OT settings.
+#' @param min_match_fraction,confidence_threshold Label-acceptance gates.
+#' @param chunk_size Anchor-projection chunk size.
+#' @param n_bins Calibration bins for the `ece` column.
+#'
+#' @return A list of class `somalign_anchor_benefit` with `grid` (one row per
+#'   `rho_anchor`: accuracy, macro_f1, mcc, coverage, ece), `baseline` (the
+#'   `rho_anchor = 0` row), `best`, `lift` (best minus baseline on `metric`),
+#'   and `metric`.
+#' @seealso [somalign_fit_anchored()], [somalign_cross_validate()]
+#' @export
+somalign_anchor_benefit <- function(query, reference, query_labels,
+                                    anchor_old, anchor_new,
+                                    rho_grid = c(0, 0.5, 1, 2, 5),
+                                    metric = c("mcc", "macro_f1", "accuracy"),
+                                    eval_mask = NULL, epsilon = 0.1,
+                                    rho_query = 1, rho_ref = 1,
+                                    min_match_fraction = 0.05,
+                                    confidence_threshold = 0.6, solver = "internal",
+                                    max_iter = 1000, tol = 1e-7,
+                                    chunk_size = 10000L, n_bins = 10L) {
+  metric <- match.arg(metric)
+  if (is.null(reference$label_prob) || ncol(reference$label_prob) == 0L)
+    stop("`reference` must carry labels for anchor-benefit evaluation.", call. = FALSE)
+  n_q <- nrow(query$scaled_data)
+  query_labels <- as.character(query_labels)
+  if (length(query_labels) != n_q)
+    stop("`query_labels` must have one entry per query cell.", call. = FALSE)
+  if (is.null(eval_mask)) {
+    eval_mask <- rep(TRUE, n_q)
+  } else {
+    eval_mask <- as.logical(eval_mask)
+    if (length(eval_mask) != n_q)
+      stop("`eval_mask` must have one entry per query cell.", call. = FALSE)
+  }
+  if (any(rho_grid < 0)) stop("`rho_grid` values must be non-negative.", call. = FALSE)
+
+  anc <- .somalign_validate_anchors(anchor_old, anchor_new, reference)
+  base_bonus <- .somalign_anchor_cost_bonus(
+    anc$anchor_old_scaled, anc$anchor_new_scaled,
+    query$codebook, reference$codebook, rho_anchor = 1, chunk_size = chunk_size
+  )$bonus
+
+  rows <- lapply(rho_grid, function(rho) {
+    cb <- if (rho > 0) rho * base_bonus else NULL
+    cbind(rho_anchor = rho,
+          .somalign_anchor_eval(query, reference, cb, eval_mask, query_labels,
+                                min_match_fraction, confidence_threshold, epsilon,
+                                rho_query, rho_ref, solver, max_iter, tol, n_bins))
+  })
+  grid_tbl <- do.call(rbind, rows)
+  baseline <- grid_tbl[grid_tbl$rho_anchor == 0, , drop = FALSE]
+  best <- grid_tbl[which.max(grid_tbl[[metric]]), , drop = FALSE]
+  lift <- if (nrow(baseline) > 0) best[[metric]] - baseline[[metric]][1] else NA_real_
+  structure(list(grid = grid_tbl, baseline = baseline, best = best,
+                 lift = lift, metric = metric),
+            class = "somalign_anchor_benefit")
+}
+
+#' @method print somalign_anchor_benefit
+#' @export
+print.somalign_anchor_benefit <- function(x, ...) {
+  cat(sprintf("<somalign_anchor_benefit> objective = %s over %d rho value(s)\n",
+              x$metric, nrow(x$grid)))
+  if (nrow(x$baseline) > 0)
+    cat(sprintf("  baseline (rho=0): %s = %.4f  coverage = %.1f%%\n",
+                x$metric, x$baseline[[x$metric]][1], 100 * x$baseline$coverage[1]))
+  cat(sprintf("  best: rho=%.3g  %s = %.4f  (lift %+.4f)  coverage = %.1f%%  ECE = %.4f\n",
+              x$best$rho_anchor, x$metric, x$best[[x$metric]], x$lift,
+              100 * x$best$coverage, x$best$ece))
+  invisible(x)
+}
