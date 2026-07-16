@@ -61,6 +61,12 @@
 #'   with `correction`: the weights reshape the cost geometry, while
 #'   `rho_anchor`/`correction` bias routing -- both act on the same
 #'   underlying transport problem without conflict.
+#' @param laplacian_lambda Non-negative scalar. Graph-Laplacian smoothing of
+#'   the node-shift field; see [somalign_fit()]. When `correction` is
+#'   `"subspace"` or `"both"`, smoothing is applied *before* the subspace
+#'   projection (smooth in full marker space, then restrict to the batch
+#'   subspace `V`) so the Laplacian neighbor structure is respected. Default
+#'   `0` (no smoothing).
 #'
 #' @details
 #' **Correction modes.** Three strategies are available via the `correction`
@@ -191,7 +197,8 @@ somalign_fit_anchored <- function(query,
                                    anneal_start = 10,
                                    anneal_stages = 10L,
                                    anneal_factor = NULL,
-                                   feature_weights = NULL) {
+                                   feature_weights = NULL,
+                                   laplacian_lambda = 0) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   solver <- match.arg(solver, c("internal", "log_domain", "auto", "annealing"))
@@ -208,12 +215,13 @@ somalign_fit_anchored <- function(query,
   if (identical(solver, "annealing"))
     .somalign_check_anneal_params(anneal_start, anneal_factor, anneal_stages)
   .somalign_check_feature_weights(feature_weights, colnames(query$codebook))
+  .somalign_check_nonneg_scalar(laplacian_lambda, "laplacian_lambda")
   anchors_scaled <- .somalign_validate_anchors(anchor_old, anchor_new, reference)
   .somalign_anchored_dispatch(
     query, reference, anchors_scaled, rho_anchor, epsilon, rho_query, rho_ref,
     solver, min_match_fraction, confidence_threshold, correction_min_mass,
     chunk_size, max_iter, tol, correction, variance_threshold,
-    anneal_start, anneal_factor, anneal_stages, feature_weights
+    anneal_start, anneal_factor, anneal_stages, feature_weights, laplacian_lambda
   )
 }
 
@@ -225,7 +233,8 @@ somalign_fit_anchored <- function(query,
                                          correction, variance_threshold,
                                          anneal_start = 10, anneal_factor = NULL,
                                          anneal_stages = 10L,
-                                         feature_weights = NULL) {
+                                         feature_weights = NULL,
+                                         laplacian_lambda = 0) {
   use_bonus    <- correction %in% c("cost_bonus", "both") && rho_anchor > 0
   use_subspace <- correction %in% c("subspace", "both")
   if (rho_anchor == 0 && correction %in% c("cost_bonus", "both")) {
@@ -259,6 +268,8 @@ somalign_fit_anchored <- function(query,
     V <- batch_sub$V
     function(s) s %*% V %*% t(V)
   } else { NULL }
+  shift_fn_lap <- .somalign_make_laplacian_transform(query, laplacian_lambda)
+  shift_fn <- .somalign_compose_shift_transforms(shift_fn_lap, shift_fn)
   fw <- if (identical(feature_weights, "anchor")) {
     .somalign_anchor_feature_weights(d_scaled)
   } else {

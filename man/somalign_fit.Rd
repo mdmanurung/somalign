@@ -22,7 +22,8 @@ somalign_fit(
   anneal_start = 10,
   anneal_stages = 10L,
   anneal_factor = NULL,
-  feature_weights = NULL
+  feature_weights = NULL,
+  laplacian_lambda = 0
 )
 }
 \arguments{
@@ -115,6 +116,22 @@ Euclidean distance is computed, yielding cost
 distances (\code{somalign_results()}) are unaffected -- weighting applies only
 to the OT cost. See \code{\link[=somalign_fit_anchored]{somalign_fit_anchored()}} for \code{"anchor"}, which
 auto-estimates weights from anchor displacements.}
+
+\item{laplacian_lambda}{Non-negative scalar. Graph-Laplacian regularisation
+strength for the node-shift field. When greater than zero, the M x p raw
+node shifts are smoothed by solving \eqn{(W + \lambda L)\,s^* = W\,s},
+where \eqn{W = \mathrm{diag}(\text{node\_masses})} (with
+\code{correction_allowed == FALSE} nodes zeroed out) and \eqn{L} is the graph
+Laplacian of the query SOM's hexagonal or rectangular neighbor graph.
+This penalises squared differences between adjacent-node shifts,
+producing a spatially coherent correction field instead of one where
+neighboring nodes can receive wildly different shifts from finite-sample
+OT noise. Default \code{0} (no smoothing, exact current behaviour). A natural
+starting range is \code{0.1}--\code{1.0} (same cost/squared-distance scale as
+\code{epsilon}); larger values increasingly collapse the field toward its
+mass-weighted mean. Requires the query SOM to carry 2-D grid coordinates
+(\code{query$som_query$grid$pts}, present for any \code{kohonen::som()}- or
+\code{kohonen::supersom()}-trained SOM); errors otherwise.}
 }
 \value{
 A \code{somalign_fit} object.

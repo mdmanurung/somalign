@@ -72,6 +72,21 @@
 #'   distances (`somalign_results()`) are unaffected -- weighting applies only
 #'   to the OT cost. See [somalign_fit_anchored()] for `"anchor"`, which
 #'   auto-estimates weights from anchor displacements.
+#' @param laplacian_lambda Non-negative scalar. Graph-Laplacian regularisation
+#'   strength for the node-shift field. When greater than zero, the M x p raw
+#'   node shifts are smoothed by solving \eqn{(W + \lambda L)\,s^* = W\,s},
+#'   where \eqn{W = \mathrm{diag}(\text{node\_masses})} (with
+#'   `correction_allowed == FALSE` nodes zeroed out) and \eqn{L} is the graph
+#'   Laplacian of the query SOM's hexagonal or rectangular neighbor graph.
+#'   This penalises squared differences between adjacent-node shifts,
+#'   producing a spatially coherent correction field instead of one where
+#'   neighboring nodes can receive wildly different shifts from finite-sample
+#'   OT noise. Default `0` (no smoothing, exact current behaviour). A natural
+#'   starting range is `0.1`--`1.0` (same cost/squared-distance scale as
+#'   `epsilon`); larger values increasingly collapse the field toward its
+#'   mass-weighted mean. Requires the query SOM to carry 2-D grid coordinates
+#'   (`query$som_query$grid$pts`, present for any `kohonen::som()`- or
+#'   `kohonen::supersom()`-trained SOM); errors otherwise.
 #'
 #' @details
 #' The transport plan row sums will not equal `query$node_masses` exactly -- this
@@ -117,7 +132,8 @@ somalign_fit <- function(query,
                          anneal_start = 10,
                          anneal_stages = 10L,
                          anneal_factor = NULL,
-                         feature_weights = NULL) {
+                         feature_weights = NULL,
+                         laplacian_lambda = 0) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   .somalign_check_pos_scalar(epsilon, "epsilon")
@@ -131,7 +147,9 @@ somalign_fit <- function(query,
   feature_weights <- .somalign_resolve_plain_feature_weights(
     feature_weights, colnames(query$codebook)
   )
+  .somalign_check_nonneg_scalar(laplacian_lambda, "laplacian_lambda")
   label_mask <- .somalign_resolve_label_mask(query, reference, label_guided)
+  shift_transform <- .somalign_make_laplacian_transform(query, laplacian_lambda)
 
   transport <- .somalign_align_transport(
     query, reference, epsilon, rho_query, rho_ref, solver, max_iter, tol,
@@ -142,7 +160,8 @@ somalign_fit <- function(query,
   .somalign_finish_fit(
     query, reference, transport,
     min_match_fraction, confidence_threshold, correction_min_mass,
-    chunk_size, epsilon, rho_query, rho_ref, feature_weights = feature_weights
+    chunk_size, epsilon, rho_query, rho_ref, feature_weights = feature_weights,
+    shift_transform = shift_transform
   )
 }
 
@@ -574,6 +593,77 @@ somalign_fit <- function(query,
     query_codebook[strong, , drop = FALSE]
   attr(shifts, "correction_allowed") <- strong
   shifts
+}
+
+# Graph Laplacian L = D - A of a SOM's node neighbor graph, from 2-D grid
+# coordinates. Two nodes are neighbors when their coordinate distance is 1
+# (kohonen's unit lattice spacing, for both hexagonal and rectangular
+# topologies); 1.01^2 absorbs floating-point rounding.
+.somalign_som_laplacian <- function(grid) {
+  if (is.null(grid) || is.null(grid$pts) || !is.matrix(grid$pts) || ncol(grid$pts) < 2L) {
+    stop(
+      "`laplacian_lambda > 0` requires the query SOM to have a kohonen grid ",
+      "with 2-D node coordinates (grid$pts). Use a SOM trained with ",
+      "kohonen::som() or kohonen::supersom().",
+      call. = FALSE
+    )
+  }
+  pts <- grid$pts
+  d2 <- outer(pts[, 1L], pts[, 1L], "-")^2 + outer(pts[, 2L], pts[, 2L], "-")^2
+  A <- (d2 > 0) & (d2 <= 1.01^2)
+  storage.mode(A) <- "double"
+  diag(rowSums(A)) - A
+}
+
+# Laplacian-regularised (Tikhonov) smoothing of node shifts: solves
+# (W + lambda * L) x = W * shifts per feature column in one Cholesky
+# factorisation, W = diag(node_masses) with correction_allowed == FALSE nodes
+# zeroed out (they contribute no data term and are pulled toward their
+# allowed neighbors' average). Disallowed-node rows of the *output* are then
+# zeroed explicitly: .somalign_project_pair() applies node_shifts to every
+# cell regardless of correction_allowed, so a disallowed node must keep an
+# exact zero shift (matching current behavior) rather than receive an
+# interpolated neighbor-average correction.
+.somalign_smooth_shifts <- function(shifts, L, lambda, node_masses, correction_allowed) {
+  m <- nrow(shifts)
+  w <- node_masses
+  if (!is.null(correction_allowed)) w[!correction_allowed] <- 0
+  a_sys <- diag(w, nrow = m) + lambda * L
+  a_sys <- a_sys + diag(m) * (.Machine$double.eps * max(abs(diag(a_sys))))
+  rhs <- w * shifts
+  ch <- tryCatch(chol(a_sys), error = function(e) NULL)
+  out <- if (!is.null(ch)) chol2inv(ch) %*% rhs else solve(a_sys, rhs)
+  if (!is.null(correction_allowed)) out[!correction_allowed, ] <- 0
+  dimnames(out) <- dimnames(shifts)
+  out
+}
+
+# Builds the shift_transform closure for laplacian_lambda > 0, or NULL
+# (no-op) when lambda == 0 -- keeps somalign_fit()'s exported body short.
+.somalign_make_laplacian_transform <- function(query, laplacian_lambda) {
+  if (laplacian_lambda == 0) return(NULL)
+  L <- .somalign_som_laplacian(query$som_query$grid)
+  masses <- query$node_masses
+  function(s) {
+    ca <- attr(s, "correction_allowed")
+    .somalign_smooth_shifts(s, L, laplacian_lambda, masses, correction_allowed = ca)
+  }
+}
+
+# Composes an (optional) Laplacian smoother with an (optional) subspace
+# projector as smooth -> project: the Laplacian operates over the full
+# marker-space neighbor structure, and only then is the result restricted to
+# the batch subspace V. Reversing the order would smooth an already
+# rank-reduced field, which does not respect the marker-space geometry the
+# Laplacian is defined over. Returns NULL when both inputs are NULL.
+.somalign_compose_shift_transforms <- function(shift_fn_lap, shift_fn_sub) {
+  if (!is.null(shift_fn_lap) && !is.null(shift_fn_sub)) {
+    function(s) shift_fn_sub(shift_fn_lap(s))
+  } else if (!is.null(shift_fn_lap)) {
+    shift_fn_lap
+  } else {
+    shift_fn_sub
+  }
 }
 
 .somalign_project_samples <- function(scaled_data, reference, chunk_size = 10000L) {

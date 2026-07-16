@@ -25,7 +25,8 @@ somalign_fit_anchored(
   anneal_start = 10,
   anneal_stages = 10L,
   anneal_factor = NULL,
-  feature_weights = NULL
+  feature_weights = NULL,
+  laplacian_lambda = 0
 )
 }
 \arguments{
@@ -99,6 +100,13 @@ preserving biology. The resolved vector is stored in
 with \code{correction}: the weights reshape the cost geometry, while
 \code{rho_anchor}/\code{correction} bias routing -- both act on the same
 underlying transport problem without conflict.}
+
+\item{laplacian_lambda}{Non-negative scalar. Graph-Laplacian smoothing of
+the node-shift field; see \code{\link[=somalign_fit]{somalign_fit()}}. When \code{correction} is
+\code{"subspace"} or \code{"both"}, smoothing is applied \emph{before} the subspace
+projection (smooth in full marker space, then restrict to the batch
+subspace \code{V}) so the Laplacian neighbor structure is respected. Default
+\code{0} (no smoothing).}
 }
 \value{
 A \code{somalign_anchored_fit} object (also inherits \code{somalign_fit}).
