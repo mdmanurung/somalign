@@ -294,3 +294,173 @@ print.somalign_cross_validation <- function(x, ...) {
               x$calibration$ece, x$calibration$brier))
   invisible(x)
 }
+
+# ---------------------------------------------------------------------------
+# Supervised plan tuning
+# ---------------------------------------------------------------------------
+
+.somalign_get <- function(x, name, default) if (is.null(x[[name]])) default else x[[name]]
+
+# Normalise a param grid into a list of named-list combinations. Accepts a
+# data frame (each row -> combo of its scalar columns) or a list of named
+# lists (used as-is). Every combo must specify `epsilon`.
+.somalign_normalize_param_grid <- function(param_grid) {
+  if (is.data.frame(param_grid)) {
+    combos <- lapply(seq_len(nrow(param_grid)), function(i) as.list(param_grid[i, , drop = FALSE]))
+  } else if (is.list(param_grid)) {
+    combos <- param_grid
+  } else {
+    stop("`param_grid` must be a data frame or a list of named lists.", call. = FALSE)
+  }
+  if (!all(vapply(combos, function(p) "epsilon" %in% names(p), logical(1))))
+    stop("Every parameter combination must specify `epsilon`.", call. = FALSE)
+  combos
+}
+
+# Evaluate one parameter combination on a pre-built (query, reference) fold:
+# OT-only solve + label transfer (no per-cell projection or node shifts),
+# returning per-test-cell predicted label, acceptance, and confidence.
+.somalign_tune_labels <- function(qry, ref, params, min_match_fraction,
+                                  confidence_threshold, solver, max_iter, tol) {
+  r <- .somalign_ot_sweep_one(
+    qry, ref, epsilon = params$epsilon,
+    rho_query = .somalign_get(params, "rho_query", 1),
+    rho_ref = .somalign_get(params, "rho_ref", 1),
+    solver = solver, max_iter = max_iter, tol = tol,
+    diagonal_boost = .somalign_get(params, "diagonal_boost", 0),
+    feature_weights = params$feature_weights
+  )
+  cc <- .somalign_plan_to_correspondence(r$plan, qry$node_masses)
+  lt <- .somalign_transfer_labels(cc$correspondence, ref$label_prob,
+                                  cc$match_fraction, min_match_fraction,
+                                  confidence_threshold)
+  unit <- qry$sample_unit
+  accepted <- lt$accepted[unit]
+  list(predicted = ifelse(accepted, lt$label[unit], NA_character_),
+       accepted = accepted,
+       confidence = ifelse(accepted, lt$confidence[unit], NA_real_))
+}
+
+# Score one combo's pooled cross-fold predictions into a one-row summary.
+.somalign_tune_row <- function(params, preds, n_bins) {
+  pdf <- do.call(rbind, preds)
+  m <- somalign_label_metrics(pdf$predicted, pdf$truth, pdf$accepted)
+  correct <- pdf$predicted == pdf$truth
+  ece <- tryCatch(somalign_calibration(pdf$confidence, correct, n_bins = n_bins)$ece,
+                  error = function(e) NA_real_)
+  data.frame(
+    epsilon = params$epsilon,
+    rho_query = .somalign_get(params, "rho_query", 1),
+    rho_ref = .somalign_get(params, "rho_ref", 1),
+    diagonal_boost = .somalign_get(params, "diagonal_boost", 0),
+    feature_weights = if (is.null(params$feature_weights)) "none" else "custom",
+    accuracy = m$accuracy, macro_f1 = m$macro_f1, mcc = m$mcc,
+    coverage = m$coverage, ece = ece, stringsAsFactors = FALSE
+  )
+}
+
+#' Tune transport-plan knobs against label-transfer accuracy
+#'
+#' The supervised counterpart to [somalign_select_epsilon()]: instead of an
+#' unsupervised plan-geometry criterion, it selects transport-plan parameters
+#' by cross-validated label-transfer performance. For each parameter
+#' combination it runs stratified k-fold CV (reusing pre-trained SOMs per fold
+#' for efficiency -- plan knobs change only the OT solve, not the SOMs) and
+#' scores pooled held-out predictions with [somalign_label_metrics()].
+#'
+#' Tunable knobs are those that shape the transport plan without needing
+#' anchors or query labels: `epsilon`, `rho_query`, `rho_ref`,
+#' `diagonal_boost`, and `feature_weights` (a numeric per-feature vector).
+#' `label_guided` and `rho_anchor` are out of scope here (they require a
+#' labelled query SOM or anchor pairs, respectively).
+#'
+#' @param data Numeric cell-by-feature matrix.
+#' @param labels Character vector of per-cell labels.
+#' @param grid A `kohonen::somgrid`.
+#' @param param_grid A data frame (one row per combination of the scalar knobs
+#'   `epsilon`, `rho_query`, `rho_ref`, `diagonal_boost`) or a list of named
+#'   lists (which may additionally carry `feature_weights`). Each must specify
+#'   `epsilon`.
+#' @param k Folds. Default `5L`.
+#' @param metric Objective to optimise: `"mcc"` (default), `"macro_f1"`,
+#'   `"accuracy"` (all maximised) or `"ece"` (minimised).
+#' @param stratify,rlen,seed As in [somalign_cross_validate()].
+#' @param min_match_fraction,confidence_threshold Label-acceptance gates,
+#'   matching [somalign_fit()] defaults.
+#' @param solver,max_iter,tol OT solver settings.
+#' @param n_bins Calibration bins for the `ece` column. Default `10L`.
+#'
+#' @return A list of class `somalign_tune` with `best` (the winning combo as a
+#'   one-row data frame), `best_params` (named list), `grid` (all combinations
+#'   with their CV metrics), and `metric`.
+#' @examples
+#' \donttest{
+#' if (requireNamespace("kohonen", quietly = TRUE)) {
+#'   set.seed(1)
+#'   x <- rbind(matrix(rnorm(200, -2), ncol = 2), matrix(rnorm(200, 2), ncol = 2))
+#'   colnames(x) <- c("f1", "f2")
+#'   lab <- rep(c("low", "high"), each = 100)
+#'   tuned <- somalign_tune(x, lab, grid = kohonen::somgrid(2, 2, "hexagonal"),
+#'     param_grid = data.frame(epsilon = c(0.05, 0.1, 0.2)), k = 3)
+#'   tuned$best_params$epsilon
+#' }
+#' }
+#' @export
+somalign_tune <- function(data, labels, grid, param_grid, k = 5L,
+                          metric = c("mcc", "macro_f1", "accuracy", "ece"),
+                          stratify = TRUE, rlen = 20L,
+                          min_match_fraction = 0.05, confidence_threshold = 0.6,
+                          solver = "internal", max_iter = 1000, tol = 1e-7,
+                          n_bins = 10L, seed = 1L) {
+  metric <- match.arg(metric)
+  data <- as.matrix(data)
+  labels <- as.character(labels)
+  if (nrow(data) != length(labels))
+    stop("`labels` must have one entry per row of `data`.", call. = FALSE)
+  combos <- .somalign_normalize_param_grid(param_grid)
+  if (!is.null(seed)) withr::local_seed(seed)
+
+  folds <- if (isTRUE(stratify)) .somalign_stratified_folds(labels, k)
+           else rep_len(seq_len(k), nrow(data))[sample.int(nrow(data))]
+  fold_objs <- lapply(seq_len(k), function(f) {
+    test_idx <- which(folds == f); train_idx <- which(folds != f)
+    ref <- somalign_train_reference(data[train_idx, , drop = FALSE],
+                                    labels = labels[train_idx], grid = grid, rlen = rlen)
+    qry <- somalign_query(data[test_idx, , drop = FALSE], ref, grid = grid, rlen = rlen)
+    list(qry = qry, ref = ref, truth = labels[test_idx])
+  })
+
+  rows <- lapply(combos, function(params) {
+    preds <- lapply(fold_objs, function(fo) {
+      ev <- .somalign_tune_labels(fo$qry, fo$ref, params, min_match_fraction,
+                                  confidence_threshold, solver, max_iter, tol)
+      data.frame(truth = fo$truth, predicted = ev$predicted,
+                 accepted = ev$accepted, confidence = ev$confidence,
+                 stringsAsFactors = FALSE)
+    })
+    .somalign_tune_row(params, preds, n_bins)
+  })
+  grid_tbl <- do.call(rbind, rows)
+
+  objective <- grid_tbl[[metric]]
+  best_idx <- if (identical(metric, "ece")) which.min(objective) else which.max(objective)
+  structure(
+    list(best = grid_tbl[best_idx, , drop = FALSE],
+         best_params = combos[[best_idx]], grid = grid_tbl, metric = metric),
+    class = "somalign_tune"
+  )
+}
+
+#' @method print somalign_tune
+#' @export
+print.somalign_tune <- function(x, ...) {
+  cat(sprintf("<somalign_tune> objective = %s over %d combination(s)\n",
+              x$metric, nrow(x$grid)))
+  cat("  best:\n")
+  b <- x$best
+  cat(sprintf("    epsilon=%.4g rho_query=%.4g rho_ref=%.4g diagonal_boost=%.4g fw=%s\n",
+              b$epsilon, b$rho_query, b$rho_ref, b$diagonal_boost, b$feature_weights))
+  cat(sprintf("    accuracy=%.4f macro_f1=%.4f MCC=%.4f coverage=%.1f%% ECE=%.4f\n",
+              b$accuracy, b$macro_f1, b$mcc, 100 * b$coverage, b$ece))
+  invisible(x)
+}

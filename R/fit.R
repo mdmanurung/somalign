@@ -326,10 +326,17 @@ somalign_fit <- function(query,
                                    diagonal_boost = 0,
                                    label_mask = NULL,
                                    cost_bonus = NULL,
+                                   feature_weights = NULL,
                                    anneal_start = 10,
                                    anneal_factor = NULL,
                                    anneal_stages = 10L) {
-  cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
+  if (!is.null(feature_weights)) {
+    qcb <- .somalign_weighted_codebook(query$codebook, feature_weights)
+    rcb <- .somalign_weighted_codebook(reference$codebook, feature_weights)
+    cost <- .somalign_pairwise_distance(qcb, rcb)
+  } else {
+    cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
+  }
   prepared <- .somalign_prepare_cost(cost, diagonal_boost, cost_bonus, label_mask)
   ot <- .somalign_solve_ot(
     cost = prepared$cost_normalized,
