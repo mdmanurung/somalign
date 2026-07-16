@@ -4,13 +4,23 @@
 \alias{somalign_diagnostics}
 \title{Extract somalign diagnostics}
 \usage{
-somalign_diagnostics(fit)
+somalign_diagnostics(fit, topology = FALSE, ...)
 }
 \arguments{
 \item{fit}{A \code{somalign_fit} object.}
+
+\item{topology}{Logical. When \code{TRUE}, additionally computes a persistent-
+homology topology audit (see \code{\link[=somalign_topology_audit]{somalign_topology_audit()}}) and attaches
+it as \verb{$topology}. Default \code{FALSE}: the returned list is identical to
+calling this function before the topology feature existed. Not run by
+default because it is a post-hoc diagnostic, not part of the fit itself.}
+
+\item{...}{Passed to \code{\link[=somalign_topology_audit]{somalign_topology_audit()}} when \code{topology = TRUE}
+(e.g. \code{threshold}, \code{use_tda}, \code{nodes}).}
 }
 \value{
-A named list of solver, OT, node, and projection diagnostics.
+A named list of solver, OT, node, and projection diagnostics, plus
+\verb{$topology} when \code{topology = TRUE}.
 }
 \description{
 Extract somalign diagnostics

@@ -1,8 +1,16 @@
 #' Extract somalign diagnostics
 #'
 #' @param fit A `somalign_fit` object.
+#' @param topology Logical. When `TRUE`, additionally computes a persistent-
+#'   homology topology audit (see [somalign_topology_audit()]) and attaches
+#'   it as `$topology`. Default `FALSE`: the returned list is identical to
+#'   calling this function before the topology feature existed. Not run by
+#'   default because it is a post-hoc diagnostic, not part of the fit itself.
+#' @param ... Passed to [somalign_topology_audit()] when `topology = TRUE`
+#'   (e.g. `threshold`, `use_tda`, `nodes`).
 #'
-#' @return A named list of solver, OT, node, and projection diagnostics.
+#' @return A named list of solver, OT, node, and projection diagnostics, plus
+#'   `$topology` when `topology = TRUE`.
 #' @examples
 #' set.seed(1)
 #' mat <- matrix(rnorm(20), nrow = 10, ncol = 2,
@@ -14,11 +22,14 @@
 #' fit <- somalign_fit(qry, ref)
 #' somalign_diagnostics(fit)
 #' @export
-somalign_diagnostics <- function(fit) {
+somalign_diagnostics <- function(fit, topology = FALSE, ...) {
   if (!inherits(fit, "somalign_fit")) {
     stop("`fit` must be a somalign_fit object.", call. = FALSE)
   }
-  fit$diagnostics
+  .somalign_check_flag(topology, "topology")
+  diag <- fit$diagnostics
+  if (isTRUE(topology)) diag$topology <- somalign_topology_audit(fit, ...)
+  diag
 }
 
 #' Run an OT sensitivity grid
