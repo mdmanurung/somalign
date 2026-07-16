@@ -374,6 +374,13 @@ print.somalign_cross_validation <- function(x, ...) {
 #' `label_guided` and `rho_anchor` are out of scope here (they require a
 #' labelled query SOM or anchor pairs, respectively).
 #'
+#' Note that `"mcc"` and `"accuracy"` are scored on *accepted* predictions only,
+#' so they can be inflated by settings that abstain on hard cells (higher
+#' `epsilon` raises accuracy while dropping `coverage`). Always read the
+#' `coverage` and `macro_f1` columns alongside the objective: `macro_f1` falls
+#' when rare classes are abstained away, making it a more coverage-robust
+#' target for imbalanced data.
+#'
 #' @param data Numeric cell-by-feature matrix.
 #' @param labels Character vector of per-cell labels.
 #' @param grid A `kohonen::somgrid`.

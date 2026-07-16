@@ -67,6 +67,13 @@ anchors or query labels: \code{epsilon}, \code{rho_query}, \code{rho_ref},
 \code{diagonal_boost}, and \code{feature_weights} (a numeric per-feature vector).
 \code{label_guided} and \code{rho_anchor} are out of scope here (they require a
 labelled query SOM or anchor pairs, respectively).
+
+Note that \code{"mcc"} and \code{"accuracy"} are scored on \emph{accepted} predictions only,
+so they can be inflated by settings that abstain on hard cells (higher
+\code{epsilon} raises accuracy while dropping \code{coverage}). Always read the
+\code{coverage} and \code{macro_f1} columns alongside the objective: \code{macro_f1} falls
+when rare classes are abstained away, making it a more coverage-robust
+target for imbalanced data.
 }
 \examples{
 \donttest{

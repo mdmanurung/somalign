@@ -1,0 +1,70 @@
+[13:26:49] loading pilot data ...
+  44605247 cells x 49 cols
+           used  (Mb) gc trigger    (Mb)   max used    (Mb)
+Ncells   467117  25.0     980525    52.4     708188    37.9
+Vcells 93516587 713.5 1993515589 15209.4 2476493248 18894.2
+  subsampled 120000 cells across 6 classes:
+y
+Bcells   CD4T   CD8T MonoDC     NK OtherT 
+ 20000  20000  20000  20000  20000  20000 
+
+[13:27:39] 5-fold cross-validation at epsilon = 0.1 ...
+somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
+somalign_fit: 223 query node(s) have match_mass_ratio > 1 (max 1.69); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
+somalign_fit: 223 query node(s) have match_mass_ratio > 1 (max 1.91); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
+somalign_fit: 223 query node(s) have match_mass_ratio > 1 (max 1.85); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
+somalign_fit: 223 query node(s) have match_mass_ratio > 1 (max 2.10); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
+somalign_fit: 222 query node(s) have match_mass_ratio > 1 (max 1.91); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+<somalign_cross_validation> (5 folds)
+  pooled: accuracy = 0.9805  macro_f1 = 0.9789  MCC = 0.9767  coverage = 94.5%
+  calibration: ECE = 0.0521  Brier = 0.0231
+
+Per-class (pooled):
+   class precision    recall        f1 support
+1 Bcells 0.9973825 0.9954783 0.9964295   19904
+2   CD4T 0.9854233 0.9971208 0.9912375   19797
+3   CD8T 0.9845475 0.9809744 0.9827577   18186
+4 MonoDC 0.9951594 0.9989481 0.9970501   19963
+5     NK 0.9417874 0.9974418 0.9688160   19545
+6 OtherT 0.9807509 0.8975971 0.9373334   16064
+
+Reliability:
+  bin score_mean  accuracy     n
+1   7  0.6511692 0.8112986  4266
+2   8  0.7568852 0.9094529  5776
+3   9  0.8588345 0.9816318 15897
+4  10  0.9659136 0.9932701 87520
+
+[13:30:54] tuning epsilon against MCC ...
+somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
+somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
+somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
+somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
+somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
+<somalign_tune> objective = mcc over 5 combination(s)
+  best:
+    epsilon=0.5 rho_query=1 rho_ref=1 diagonal_boost=0 fw=none
+    accuracy=0.9942 macro_f1=0.8069 MCC=0.9898 coverage=13.7% ECE=0.3183
+
+Full tuning grid:
+  epsilon rho_query rho_ref diagonal_boost feature_weights  accuracy  macro_f1
+1    0.02         1       1              0            none 0.9702216 0.9695342
+2    0.05         1       1              0            none 0.9751954 0.9740731
+3    0.10         1       1              0            none 0.9805304 0.9789374
+4    0.20         1       1              0            none 0.9844936 0.9821218
+5    0.50         1       1              0            none 0.9942379 0.8069238
+        mcc  coverage         ece
+1 0.9643314 0.9828167 0.002502152
+2 0.9703073 0.9679000 0.012558261
+3 0.9767484 0.9454917 0.052095418
+4 0.9814270 0.8566333 0.163290924
+5 0.9898173 0.1373917 0.318325607
+
+Shipped epsilon=0.1 MCC = 0.9767  vs  tuned epsilon=0.5 MCC = 0.9898  (delta +0.0131)
+Best macro_f1 = 0.9821 at epsilon=0.2 (coverage 85.7%, ECE 0.1633) -- a more coverage-robust choice.
+
+[13:34:07] saved -> /exports/para-lipg-hpc/mdmanurung/somalign/analysis/label-validation/bmv_label_validation_results.rds
