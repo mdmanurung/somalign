@@ -44,6 +44,35 @@ utils::globalVariables(c("persistence"))
   data.frame(birth = 0, death = deaths[seq_len(k)], persistence = deaths[seq_len(k)])
 }
 
+# Per-node connected-component membership at a distance threshold, via the
+# same single-linkage / Kruskal union-find as .somalign_h0_persistence():
+# nodes joined through edges of length <= threshold share a label. Exposed so
+# callers needing membership (e.g. mass-weighted component sizes) reuse this
+# union-find instead of running a second, independent clustering. The number
+# of distinct labels equals .somalign_h0_n_components() at the same threshold
+# (both count MST edges of length > threshold, plus one), so the two never
+# disagree at the boundary. `D` must be a genuine (non-squared) metric.
+.somalign_h0_components <- function(D, threshold) {
+  m <- nrow(D)
+  if (m <= 1L) return(rep(1L, m))
+  idx <- which(upper.tri(D), arr.ind = TRUE)
+  keep <- D[idx] <= threshold
+  idx <- idx[keep, , drop = FALSE]
+
+  parent <- seq_len(m)
+  find_root <- function(i) {
+    while (parent[i] != i) i <- parent[i]
+    i
+  }
+  for (e in seq_len(nrow(idx))) {
+    ri <- find_root(idx[e, 1L])
+    rj <- find_root(idx[e, 2L])
+    if (ri != rj) parent[rj] <- ri
+  }
+  roots <- vapply(seq_len(m), find_root, integer(1))
+  match(roots, unique(roots))
+}
+
 # Number of H0 components with persistence > threshold, plus the one
 # essential (always-surviving) component.
 .somalign_h0_n_components <- function(diagram, threshold, n_nodes) {
@@ -169,7 +198,10 @@ utils::globalVariables(c("persistence"))
 #'   absent). Default `FALSE`.
 #' @param nodes One of `"correction_allowed"` (default; recommended -- nodes
 #'   with no correction contribute unchanged, potentially spurious topology)
-#'   or `"all"`.
+#'   or `"all"`. Note that `somalign_epsilon_sweep(..., topology = TRUE)`
+#'   reports its topology columns using `"all"` (the correction-allowed set is
+#'   epsilon-dependent, so it cannot be held fixed across a sweep); pass
+#'   `nodes = "all"` here to reproduce those numbers for a given fit.
 #'
 #' @return A list of class `somalign_topology`; see the source fields
 #'   `threshold`, `threshold_source` (`"auto"`/`"user"`),

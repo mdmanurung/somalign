@@ -132,3 +132,80 @@ test_that("somalign_sensitivity_grid includes a mutual_information column", {
                                     rho_query = 1, rho_ref = 1)
   expect_true("mutual_information" %in% names(grid))
 })
+
+## --------------------------------------------------------------------------
+## topology = TRUE tests
+## --------------------------------------------------------------------------
+
+test_that("topology = TRUE adds three finite, sane columns to the sweep table", {
+  skip_if_not_installed("kohonen")
+  fx <- local_sweep_fixture()
+  sw <- suppressWarnings(
+    somalign_epsilon_sweep(fx$qry, fx$ref, n_grid = 6, topology = TRUE)
+  )
+  tbl <- sw$table
+  expect_true(all(c("n_components_query", "n_components_corrected",
+                    "biggest_merge_mass_frac") %in% names(tbl)))
+  # n_components_query is constant across rows (query codebook is unchanged)
+  expect_true(length(unique(tbl$n_components_query)) == 1L)
+  expect_true(all(is.finite(tbl$n_components_query)))
+  expect_true(all(is.finite(tbl$n_components_corrected)))
+  expect_true(all(is.finite(tbl$biggest_merge_mass_frac)))
+  # biggest_merge_mass_frac must be in (0, 1]
+  expect_true(all(tbl$biggest_merge_mass_frac > 0 &
+                    tbl$biggest_merge_mass_frac <= 1 + 1e-9))
+})
+
+test_that("topology = FALSE (default) does NOT add the topology columns", {
+  skip_if_not_installed("kohonen")
+  fx <- local_sweep_fixture()
+  sw <- suppressWarnings(
+    somalign_epsilon_sweep(fx$qry, fx$ref, n_grid = 5, topology = FALSE)
+  )
+  expect_false("n_components_query" %in% names(sw$table))
+  expect_false("n_components_corrected" %in% names(sw$table))
+  expect_false("biggest_merge_mass_frac" %in% names(sw$table))
+})
+
+test_that("biggest_merge_mass_frac is non-decreasing (or at least correlated) with epsilon", {
+  skip_if_not_installed("kohonen")
+  fx <- local_sweep_fixture()
+  sw <- suppressWarnings(
+    somalign_epsilon_sweep(fx$qry, fx$ref,
+                           epsilon_grid = c(0.02, 0.05, 0.1, 0.5, 2.0),
+                           topology = TRUE)
+  )
+  tbl <- sw$table
+  # Higher epsilon -> more merging -> larger biggest_merge_mass_frac.
+  # Assert the correlation is positive (not necessarily monotone per step).
+  # Guard the degenerate case: if merging saturates across the whole grid the
+  # fraction is constant, cor() returns NA, and the trend claim is vacuously
+  # satisfied (already fully merged at the smallest epsilon).
+  frac <- tbl$biggest_merge_mass_frac
+  cor_val <- if (stats::var(frac) == 0) 1 else stats::cor(tbl$epsilon, frac)
+  expect_gt(cor_val, 0)
+})
+
+test_that("sweep topology columns match somalign_topology_audit(nodes='all') at same epsilon", {
+  # Pins the correctness of the shift recomputation inside the sweep by
+  # comparing against the canonical topology_audit path which reads
+  # fit$node_shifts directly.  We pin solver = "log_domain" on both sides so
+  # the plans are bit-for-bit identical.
+  skip_if_not_installed("kohonen")
+  fx <- local_sweep_fixture()
+  eps <- 0.1
+  fit <- suppressWarnings(
+    somalign_fit(fx$qry, fx$ref, epsilon = eps, solver = "log_domain")
+  )
+  aud <- suppressWarnings(
+    somalign_topology_audit(fit, nodes = "all")
+  )
+  sw <- suppressWarnings(
+    somalign_epsilon_sweep(fx$qry, fx$ref,
+                           epsilon_grid = c(0.05, eps, 0.2),
+                           solver = "log_domain", topology = TRUE)
+  )
+  row <- sw$table[sw$table$epsilon == eps, ]
+  expect_equal(row$n_components_query,     aud$n_components_query)
+  expect_equal(row$n_components_corrected, aud$n_components_corrected)
+})

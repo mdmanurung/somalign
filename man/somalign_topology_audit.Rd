@@ -28,7 +28,10 @@ absent). Default \code{FALSE}.}
 
 \item{nodes}{One of \code{"correction_allowed"} (default; recommended -- nodes
 with no correction contribute unchanged, potentially spurious topology)
-or \code{"all"}.}
+or \code{"all"}. Note that \code{somalign_epsilon_sweep(..., topology = TRUE)}
+reports its topology columns using \code{"all"} (the correction-allowed set is
+epsilon-dependent, so it cannot be held fixed across a sweep); pass
+\code{nodes = "all"} here to reproduce those numbers for a given fit.}
 }
 \value{
 A list of class \code{somalign_topology}; see the source fields

@@ -338,13 +338,31 @@ somalign_som_stability <- function(query_data,
 #' @param parallel Logical; see [somalign_sensitivity_grid()].
 #' @param anneal_start,anneal_factor,anneal_stages Annealing-schedule tuning
 #'   parameters, used only when `solver = "annealing"`. See [somalign_fit()].
+#' @param topology Logical. When `TRUE`, append three topology columns to
+#'   `table`: `n_components_query` (H0 component count of the unchanged query
+#'   codebook, computed once), `n_components_corrected` (H0 component count of
+#'   the corrected query codebook at each epsilon), and
+#'   `biggest_merge_mass_frac` (fraction of total query node mass in the
+#'   single largest H0 component of the corrected codebook at the
+#'   auto-selected threshold -- the key over-merging signal). The threshold is
+#'   derived via [somalign_topology_audit()] conventions (median of
+#'   `reference$distance_quantiles` 95th-percentile column). Default `FALSE`.
+#'   Note: these columns always use *all* query nodes, equivalent to
+#'   `somalign_topology_audit(fit, nodes = "all")`, because the
+#'   correction-allowed node set is itself epsilon-dependent and subsetting by
+#'   it would confound the component-count trend across the grid. The default
+#'   `somalign_topology_audit(fit)` uses `nodes = "correction_allowed"`, so its
+#'   `n_components_corrected` may differ from the sweep's; pass `nodes = "all"`
+#'   to the audit for directly comparable numbers.
 #'
 #' @return A list of class `"somalign_epsilon_sweep"` with components
 #'   `table`, `epsilon_c`, `epsilon_rec`, `cost_scale`. The `table` data
 #'   frame has one row per epsilon value with columns `epsilon`,
 #'   `log_epsilon`, `Phi`, `susceptibility`, `log_Z`, `mutual_information`,
 #'   `conditional_entropy_mean`, `expected_cost`, `transport_mass`,
-#'   `iterations`, `converged`.
+#'   `iterations`, `converged`. When `topology = TRUE`, three additional
+#'   columns are appended: `n_components_query`, `n_components_corrected`,
+#'   `biggest_merge_mass_frac`.
 #'
 #' @details
 #' The order parameter \eqn{\Phi(\epsilon)} is the mean effective fraction of
@@ -384,13 +402,15 @@ somalign_epsilon_sweep <- function(query, reference,
                                    max_iter = 1000, tol = 1e-7,
                                    diagonal_boost = 0, label_guided = FALSE,
                                    parallel = FALSE, anneal_start = 10,
-                                   anneal_factor = NULL, anneal_stages = 10L) {
+                                   anneal_factor = NULL, anneal_stages = 10L,
+                                   topology = FALSE) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   .somalign_check_pos_scalar(rho_query, "rho_query")
   .somalign_check_pos_scalar(rho_ref, "rho_ref")
   .somalign_check_nonneg_scalar(diagonal_boost, "diagonal_boost")
   .somalign_check_flag(parallel, "parallel")
+  .somalign_check_flag(topology, "topology")
   solver <- match.arg(solver, c("log_domain", "internal", "auto", "annealing"))
   if (identical(solver, "annealing"))
     .somalign_check_anneal_params(anneal_start, anneal_factor, anneal_stages)
@@ -402,13 +422,24 @@ somalign_epsilon_sweep <- function(query, reference,
     message("somalign_epsilon_sweep: fewer than 3 grid points; epsilon_c cannot be estimated reliably.")
   }
 
+  topo_precomp <- if (isTRUE(topology)) .somalign_sweep_topo_precompute(query, reference) else NULL
+
   K <- nrow(reference$codebook)
   .run_one <- function(i) {
-    .somalign_sweep_table_row(
+    row <- .somalign_sweep_table_row(
       query, reference, epsilon_grid[i], rho_query, rho_ref,
       solver, max_iter, tol, diagonal_boost, label_mask, K,
       anneal_start, anneal_factor, anneal_stages
     )
+    if (isTRUE(topology)) {
+      plan <- attr(row, "plan")
+      topo_cols <- .somalign_sweep_topology_row(plan, query, reference, topo_precomp)
+      attr(row, "plan") <- NULL
+      cbind(row, topo_cols)
+    } else {
+      attr(row, "plan") <- NULL
+      row
+    }
   }
   rows <- .somalign_run_grid(length(epsilon_grid), .run_one, parallel)
   table <- do.call(rbind, rows)
@@ -445,7 +476,7 @@ somalign_epsilon_sweep <- function(query, reference,
                               anneal_factor = anneal_factor,
                               anneal_stages = anneal_stages)
   Phi <- .somalign_order_parameter(r$conditional_entropy, K)
-  data.frame(
+  out <- data.frame(
     epsilon = r$epsilon,
     log_epsilon = log(r$epsilon),
     Phi = Phi,
@@ -458,6 +489,62 @@ somalign_epsilon_sweep <- function(query, reference,
     iterations = r$iterations,
     converged = r$converged
   )
+  # Stash the plan as an attribute so the caller can access it without changing
+  # the data.frame structure (attribute is stripped by the caller after use).
+  attr(out, "plan") <- r$plan
+  out
+}
+
+# Pre-compute topology quantities that are constant across the epsilon sweep:
+# the auto-threshold and the H0 component count of the (unchanged) query
+# codebook. Both are derived from the query and reference that do not change
+# per-epsilon.
+.somalign_sweep_topo_precompute <- function(query, reference) {
+  thresh <- .somalign_topo_threshold(reference)
+  # sqrt(): .somalign_pairwise_distance() returns SQUARED Euclidean; H0
+  # persistence requires a true metric (triangle inequality).
+  d_query <- sqrt(.somalign_pairwise_distance(query$codebook, query$codebook))
+  pd_q <- .somalign_h0_persistence(d_query)
+  n_nodes <- nrow(query$codebook)
+  nq <- .somalign_h0_n_components(pd_q, thresh, n_nodes)
+  list(thresh = thresh, n_components_query = nq, node_masses = query$node_masses)
+}
+
+# Compute the three topology columns for one epsilon row, given the OT plan
+# and pre-computed query topology. Defaults for min_match_fraction and
+# correction_min_mass match somalign_fit() so numbers are comparable to a
+# somalign_topology_audit(fit, nodes = "all") call at the same epsilon.
+.somalign_sweep_topology_row <- function(plan, query, reference, precomp,
+                                         min_match_fraction = 0.05,
+                                         correction_min_mass = 1e-8) {
+  cc <- .somalign_plan_to_correspondence(plan, query$node_masses)
+
+  shifts <- .somalign_node_shifts(
+    query$codebook, reference$codebook,
+    cc$correspondence, cc$row_mass, cc$match_fraction,
+    min_match_fraction, correction_min_mass
+  )
+  cb_corr <- query$codebook + shifts
+
+  # Single union-find pass on the corrected codebook yields both the component
+  # count and per-node membership -- no second (hclust) clustering pass.
+  d_corr <- sqrt(.somalign_pairwise_distance(cb_corr, cb_corr))
+  labels <- .somalign_h0_components(d_corr, precomp$thresh)
+
+  data.frame(
+    n_components_query     = precomp$n_components_query,
+    n_components_corrected = length(unique(labels)),
+    biggest_merge_mass_frac = .somalign_h0_largest_mass_frac(labels, precomp$node_masses)
+  )
+}
+
+# Fraction of total query node mass in the single largest H0 component, given
+# a per-node component-membership vector (from .somalign_h0_components()).
+.somalign_h0_largest_mass_frac <- function(labels, node_masses) {
+  if (length(labels) <= 1L) return(1)
+  total_mass <- sum(node_masses)
+  if (total_mass <= 0) return(NA_real_)
+  as.numeric(max(tapply(node_masses, labels, sum))) / total_mass
 }
 
 #' @method print somalign_epsilon_sweep

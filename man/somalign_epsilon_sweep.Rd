@@ -19,7 +19,8 @@ somalign_epsilon_sweep(
   parallel = FALSE,
   anneal_start = 10,
   anneal_factor = NULL,
-  anneal_stages = 10L
+  anneal_stages = 10L,
+  topology = FALSE
 )
 }
 \arguments{
@@ -50,6 +51,23 @@ entries. Default \code{0}.}
 
 \item{anneal_start, anneal_factor, anneal_stages}{Annealing-schedule tuning
 parameters, used only when \code{solver = "annealing"}. See \code{\link[=somalign_fit]{somalign_fit()}}.}
+
+\item{topology}{Logical. When \code{TRUE}, append three topology columns to
+\code{table}: \code{n_components_query} (H0 component count of the unchanged query
+codebook, computed once), \code{n_components_corrected} (H0 component count of
+the corrected query codebook at each epsilon), and
+\code{biggest_merge_mass_frac} (fraction of total query node mass in the
+single largest H0 component of the corrected codebook at the
+auto-selected threshold -- the key over-merging signal). The threshold is
+derived via \code{\link[=somalign_topology_audit]{somalign_topology_audit()}} conventions (median of
+\code{reference$distance_quantiles} 95th-percentile column). Default \code{FALSE}.
+Note: these columns always use \emph{all} query nodes, equivalent to
+\code{somalign_topology_audit(fit, nodes = "all")}, because the
+correction-allowed node set is itself epsilon-dependent and subsetting by
+it would confound the component-count trend across the grid. The default
+\code{somalign_topology_audit(fit)} uses \code{nodes = "correction_allowed"}, so its
+\code{n_components_corrected} may differ from the sweep's; pass \code{nodes = "all"}
+to the audit for directly comparable numbers.}
 }
 \value{
 A list of class \code{"somalign_epsilon_sweep"} with components
@@ -57,7 +75,9 @@ A list of class \code{"somalign_epsilon_sweep"} with components
 frame has one row per epsilon value with columns \code{epsilon},
 \code{log_epsilon}, \code{Phi}, \code{susceptibility}, \code{log_Z}, \code{mutual_information},
 \code{conditional_entropy_mean}, \code{expected_cost}, \code{transport_mass},
-\code{iterations}, \code{converged}.
+\code{iterations}, \code{converged}. When \code{topology = TRUE}, three additional
+columns are appended: \code{n_components_query}, \code{n_components_corrected},
+\code{biggest_merge_mass_frac}.
 }
 \description{
 Runs the Sinkhorn OT solve across a log-spaced epsilon grid without the

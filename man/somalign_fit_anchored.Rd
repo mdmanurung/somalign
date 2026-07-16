@@ -149,6 +149,22 @@ resulting shifts to \eqn{V_{\text{batch}}}.
 \code{"subspace"} and \code{"both"} expose \code{fit$anchors$batch_subspace} (a list with
 \code{V}, \code{rank}, \code{variance_explained}). \code{"cost_bonus"} sets this to \code{NULL}.
 
+\strong{Topology preservation and epsilon.} Empirically, the primary driver of
+topology/structure damage from batch correction is \code{epsilon}, not
+\code{rho_anchor}. Higher epsilon blurs the transport plan across a wider
+neighbourhood, causing the corrected codebook to collapse biologically
+distinct populations (H0 component merging). Subspace-restricted modes
+(\code{"subspace"} or \code{"both"}) substantially reduce merging at any given
+epsilon because shifts are confined to the batch-variation subspace, leaving
+orthogonal biological variation intact. As a result, choosing epsilon
+involves a genuine trade-off: higher epsilon is more numerically stable for
+the Sinkhorn solver, but lower epsilon preserves more topology. Before
+committing to an epsilon, run
+\code{somalign_epsilon_sweep(..., topology = TRUE)} alongside
+\code{\link[=somalign_select_epsilon]{somalign_select_epsilon()}} and inspect both the phase-transition criterion
+and the \code{biggest_merge_mass_frac} column -- the two criteria can disagree,
+especially at small epsilon near numerical instability.
+
 \strong{Cost modification.} Let \eqn{C} be the M×K codebook distance matrix
 normalised by its median positive entry (as in \code{\link[=somalign_fit]{somalign_fit()}}). Each
 anchor pair is projected onto both codebooks to build a count matrix
