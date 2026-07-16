@@ -339,7 +339,10 @@ somalign_fit <- function(query,
                                    solver, max_iter, tol,
                                    diagonal_boost = 0,
                                    label_mask = NULL,
-                                   cost_bonus = NULL) {
+                                   cost_bonus = NULL,
+                                   anneal_start = 10,
+                                   anneal_factor = NULL,
+                                   anneal_stages = 10L) {
   cost <- .somalign_pairwise_distance(query$codebook, reference$codebook)
   prepared <- .somalign_prepare_cost(cost, diagonal_boost, cost_bonus, label_mask)
   ot <- .somalign_solve_ot(
@@ -351,7 +354,10 @@ somalign_fit <- function(query,
     rho_ref = rho_ref,
     solver = solver,
     max_iter = max_iter,
-    tol = tol
+    tol = tol,
+    anneal_start = anneal_start,
+    anneal_factor = anneal_factor,
+    anneal_stages = anneal_stages
   )
   mi <- .somalign_plan_mutual_information(ot$plan, cost = prepared$cost_normalized)
   list(

@@ -106,6 +106,25 @@ test_that("somalign_select_epsilon returns a value within the grid for all three
   }
 })
 
+test_that("somalign_epsilon_sweep accepts solver = 'annealing' and matches log_domain", {
+  skip_if_not_installed("kohonen")
+  fx <- local_sweep_fixture()
+  sw_ann <- somalign_epsilon_sweep(fx$qry, fx$ref, epsilon_grid = c(0.05, 0.1, 0.2),
+                                   solver = "annealing")
+  sw_log <- somalign_epsilon_sweep(fx$qry, fx$ref, epsilon_grid = c(0.05, 0.1, 0.2),
+                                   solver = "log_domain")
+  expect_equal(sw_ann$table$Phi, sw_log$table$Phi, tolerance = 1e-6)
+  expect_true(all(sw_ann$table$converged))
+})
+
+test_that("somalign_select_epsilon accepts solver = 'annealing'", {
+  skip_if_not_installed("kohonen")
+  fx <- local_sweep_fixture()
+  sel <- somalign_select_epsilon(fx$qry, fx$ref, epsilon = c(0.05, 0.1, 0.2),
+                                 solver = "annealing")
+  expect_s3_class(sel, "somalign_epsilon_selection")
+})
+
 test_that("somalign_sensitivity_grid includes a mutual_information column", {
   skip_if_not_installed("kohonen")
   fx <- local_sweep_fixture()

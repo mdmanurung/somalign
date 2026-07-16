@@ -11,12 +11,15 @@ somalign_epsilon_sweep(
   n_grid = 25L,
   rho_query = 1,
   rho_ref = 1,
-  solver = c("log_domain", "internal", "auto"),
+  solver = c("log_domain", "internal", "auto", "annealing"),
   max_iter = 1000,
   tol = 1e-07,
   diagonal_boost = 0,
   label_guided = FALSE,
-  parallel = FALSE
+  parallel = FALSE,
+  anneal_start = 10,
+  anneal_factor = NULL,
+  anneal_stages = 10L
 )
 }
 \arguments{
@@ -32,7 +35,9 @@ a log-spaced grid of \code{n_grid} values from 1e-3 to 5 is used.}
 \item{rho_query, rho_ref}{Mass relaxation parameters passed to the OT solver.}
 
 \item{solver}{Sinkhorn solver. Default \code{"log_domain"} (required for
-\code{log_Z}; other solvers fill \code{log_Z} with \code{NA}).}
+\code{log_Z}; \code{"internal"}/\code{"auto"} fill \code{log_Z} with \code{NA}). \code{"annealing"}
+runs the geometric epsilon-cooling schedule at each grid point (using
+\code{anneal_start}/\code{anneal_factor}/\code{anneal_stages}) and also reports \code{log_Z}.}
 
 \item{max_iter, tol}{Sinkhorn convergence parameters.}
 
@@ -42,6 +47,9 @@ entries. Default \code{0}.}
 \item{label_guided}{Logical; see \code{\link[=somalign_fit]{somalign_fit()}}.}
 
 \item{parallel}{Logical; see \code{\link[=somalign_sensitivity_grid]{somalign_sensitivity_grid()}}.}
+
+\item{anneal_start, anneal_factor, anneal_stages}{Annealing-schedule tuning
+parameters, used only when \code{solver = "annealing"}. See \code{\link[=somalign_fit]{somalign_fit()}}.}
 }
 \value{
 A list of class \code{"somalign_epsilon_sweep"} with components

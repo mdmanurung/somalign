@@ -12,12 +12,15 @@ somalign_select_epsilon(
   rho_ref = 1,
   method = c("critical", "elbow", "entropy_fraction"),
   entropy_fraction = 0.9,
-  solver = c("log_domain", "internal", "auto"),
+  solver = c("log_domain", "internal", "auto", "annealing"),
   max_iter = 1000,
   tol = 1e-07,
   diagonal_boost = 0,
   label_guided = FALSE,
-  parallel = FALSE
+  parallel = FALSE,
+  anneal_start = 10,
+  anneal_factor = NULL,
+  anneal_stages = 10L
 )
 }
 \arguments{
@@ -42,6 +45,9 @@ mutual information when \code{method = "entropy_fraction"}. Default \code{0.90}.
 \item{solver, max_iter, tol}{Sinkhorn solver parameters.}
 
 \item{diagonal_boost, label_guided, parallel}{See \code{\link[=somalign_epsilon_sweep]{somalign_epsilon_sweep()}}.}
+
+\item{anneal_start, anneal_factor, anneal_stages}{Annealing-schedule tuning
+parameters, used only when \code{solver = "annealing"}. See \code{\link[=somalign_fit]{somalign_fit()}}.}
 }
 \value{
 A list of class \code{"somalign_epsilon_selection"} with

@@ -328,12 +328,16 @@ somalign_som_stability <- function(query_data,
 #' @param n_grid Integer. Grid size when `epsilon_grid = NULL`. Default `25`.
 #' @param rho_query,rho_ref Mass relaxation parameters passed to the OT solver.
 #' @param solver Sinkhorn solver. Default `"log_domain"` (required for
-#'   `log_Z`; other solvers fill `log_Z` with `NA`).
+#'   `log_Z`; `"internal"`/`"auto"` fill `log_Z` with `NA`). `"annealing"`
+#'   runs the geometric epsilon-cooling schedule at each grid point (using
+#'   `anneal_start`/`anneal_factor`/`anneal_stages`) and also reports `log_Z`.
 #' @param max_iter,tol Sinkhorn convergence parameters.
 #' @param diagonal_boost Non-negative cost reduction on nearest-reference-node
 #'   entries. Default `0`.
 #' @param label_guided Logical; see [somalign_fit()].
 #' @param parallel Logical; see [somalign_sensitivity_grid()].
+#' @param anneal_start,anneal_factor,anneal_stages Annealing-schedule tuning
+#'   parameters, used only when `solver = "annealing"`. See [somalign_fit()].
 #'
 #' @return A list of class `"somalign_epsilon_sweep"` with components
 #'   `table`, `epsilon_c`, `epsilon_rec`, `cost_scale`. The `table` data
@@ -376,17 +380,20 @@ somalign_som_stability <- function(query_data,
 somalign_epsilon_sweep <- function(query, reference,
                                    epsilon_grid = NULL, n_grid = 25L,
                                    rho_query = 1, rho_ref = 1,
-                                   solver = c("log_domain", "internal", "auto"),
+                                   solver = c("log_domain", "internal", "auto", "annealing"),
                                    max_iter = 1000, tol = 1e-7,
                                    diagonal_boost = 0, label_guided = FALSE,
-                                   parallel = FALSE) {
+                                   parallel = FALSE, anneal_start = 10,
+                                   anneal_factor = NULL, anneal_stages = 10L) {
   .somalign_check_query(query)
   .somalign_check_reference(reference)
   .somalign_check_pos_scalar(rho_query, "rho_query")
   .somalign_check_pos_scalar(rho_ref, "rho_ref")
   .somalign_check_nonneg_scalar(diagonal_boost, "diagonal_boost")
   .somalign_check_flag(parallel, "parallel")
-  solver <- match.arg(solver)
+  solver <- match.arg(solver, c("log_domain", "internal", "auto", "annealing"))
+  if (identical(solver, "annealing"))
+    .somalign_check_anneal_params(anneal_start, anneal_factor, anneal_stages)
 
   label_mask <- .somalign_sweep_label_mask(query, reference, label_guided)
   if (is.null(epsilon_grid)) epsilon_grid <- .somalign_default_eps_grid(n_grid)
@@ -399,7 +406,8 @@ somalign_epsilon_sweep <- function(query, reference,
   .run_one <- function(i) {
     .somalign_sweep_table_row(
       query, reference, epsilon_grid[i], rho_query, rho_ref,
-      solver, max_iter, tol, diagonal_boost, label_mask, K
+      solver, max_iter, tol, diagonal_boost, label_mask, K,
+      anneal_start, anneal_factor, anneal_stages
     )
   }
   rows <- .somalign_run_grid(length(epsilon_grid), .run_one, parallel)
@@ -427,11 +435,15 @@ somalign_epsilon_sweep <- function(query, reference,
 
 .somalign_sweep_table_row <- function(query, reference, eps, rho_query, rho_ref,
                                       solver, max_iter, tol, diagonal_boost,
-                                      label_mask, K) {
+                                      label_mask, K, anneal_start = 10,
+                                      anneal_factor = NULL, anneal_stages = 10L) {
   r <- .somalign_ot_sweep_one(query, reference, eps, rho_query, rho_ref,
                               solver, max_iter, tol,
                               diagonal_boost = diagonal_boost,
-                              label_mask = label_mask)
+                              label_mask = label_mask,
+                              anneal_start = anneal_start,
+                              anneal_factor = anneal_factor,
+                              anneal_stages = anneal_stages)
   Phi <- .somalign_order_parameter(r$conditional_entropy, K)
   data.frame(
     epsilon = r$epsilon,
@@ -489,6 +501,8 @@ plot.somalign_epsilon_sweep <- function(x, ...) {
 #'   mutual information when `method = "entropy_fraction"`. Default `0.90`.
 #' @param solver,max_iter,tol Sinkhorn solver parameters.
 #' @param diagonal_boost,label_guided,parallel See [somalign_epsilon_sweep()].
+#' @param anneal_start,anneal_factor,anneal_stages Annealing-schedule tuning
+#'   parameters, used only when `solver = "annealing"`. See [somalign_fit()].
 #'
 #' @return A list of class `"somalign_epsilon_selection"` with
 #'   `selected_epsilon`, `curve` (the sweep's `table`), and `method`.
@@ -508,10 +522,11 @@ somalign_select_epsilon <- function(query, reference,
                                     rho_query = 1, rho_ref = 1,
                                     method = c("critical", "elbow", "entropy_fraction"),
                                     entropy_fraction = 0.90,
-                                    solver = c("log_domain", "internal", "auto"),
+                                    solver = c("log_domain", "internal", "auto", "annealing"),
                                     max_iter = 1000, tol = 1e-7,
                                     diagonal_boost = 0, label_guided = FALSE,
-                                    parallel = FALSE) {
+                                    parallel = FALSE, anneal_start = 10,
+                                    anneal_factor = NULL, anneal_stages = 10L) {
   method <- match.arg(method)
   .somalign_check_prob_scalar(entropy_fraction, "entropy_fraction")
 
@@ -519,7 +534,9 @@ somalign_select_epsilon <- function(query, reference,
     query, reference, epsilon_grid = epsilon,
     rho_query = rho_query, rho_ref = rho_ref, solver = solver,
     max_iter = max_iter, tol = tol, diagonal_boost = diagonal_boost,
-    label_guided = label_guided, parallel = parallel
+    label_guided = label_guided, parallel = parallel,
+    anneal_start = anneal_start, anneal_factor = anneal_factor,
+    anneal_stages = anneal_stages
   )
 
   selected <- switch(
