@@ -11,6 +11,12 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
+> **Scope.** The two-pass procedure refines the *correction* (the per-node
+> shift field), which `somalign` treats as a diagnostic rather than a product.
+> The corrected coordinates can over-merge distinct populations (see
+> `somalign_topology_audit()`) and are not a batch-corrected expression matrix;
+> the primary deliverable remains label transfer.
+
 Batch effects in cytometry often contain a dominant global component — reagent lot changes,
 instrument calibration drift, or environmental factors that shift all populations in roughly
 the same direction by roughly the same amount — layered on top of smaller

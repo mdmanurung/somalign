@@ -185,6 +185,14 @@ utils::globalVariables(c("persistence"))
 #' correction that merges or erases a population shows up as a drop in the
 #' number of H0 components between the query and corrected codebooks.
 #'
+#' @section Role: This is a **diagnostic on the correction path**, answering
+#'   "did the barycentric correction merge distinct populations?" -- i.e. is
+#'   the *corrected codebook* trustworthy as batch-corrected coordinates. It
+#'   does **not** bear on label transfer, which is computed from the transport
+#'   plan and never uses `node_shifts`. Treat a large negative `topology_delta`
+#'   as a reason not to use the corrected coordinates for downstream
+#'   re-clustering, not as a problem with the transferred labels.
+#'
 #' @param fit A `somalign_fit` object.
 #' @param threshold Numeric scalar in reference-scaled Euclidean units. H0
 #'   components with persistence (death - birth) greater than this value are

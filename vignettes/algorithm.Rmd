@@ -26,6 +26,14 @@ The OT stage uses the internal pure-R Sinkhorn solver. There is no external
 transport backend to configure. Direct projection is always computed first and
 is the primary result; the OT-derived columns are auxiliary.
 
+> **Correction vectors are a diagnostic, not a product.** The barycentric
+> correction (stages 3--4 below) can over-merge distinct populations at larger
+> epsilon -- a conditional-expectation contraction that
+> `somalign_topology_audit()` quantifies. Use the corrected coordinates for
+> triage and visualisation, not as a batch-corrected expression matrix. Label
+> transfer (stage 5) is computed from the transport correspondence and never
+> uses the correction vectors, so it is unaffected by that over-merging.
+
 ## Pipeline overview
 
 ```{r overview, echo = FALSE, fig.height = 6,

@@ -61,6 +61,16 @@ distances concentrate, which can make H0 components less visually
 intuitive -- a known property of topological data analysis in high
 dimensions, not a bug.
 }
+\section{Role}{
+ This is a \strong{diagnostic on the correction path}, answering
+"did the barycentric correction merge distinct populations?" -- i.e. is
+the \emph{corrected codebook} trustworthy as batch-corrected coordinates. It
+does \strong{not} bear on label transfer, which is computed from the transport
+plan and never uses \code{node_shifts}. Treat a large negative \code{topology_delta}
+as a reason not to use the corrected coordinates for downstream
+re-clustering, not as a problem with the transferred labels.
+}
+
 \examples{
 set.seed(1)
 mat <- matrix(rnorm(40), nrow = 20, ncol = 2,

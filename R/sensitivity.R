@@ -5,6 +5,10 @@
 #' per-node correction confidence intervals and "tipping angles" -- the
 #' smallest rotation of `V` that would erase a node's correction.
 #'
+#' @section Role: A **diagnostic on the correction path** (how trustworthy the
+#'   subspace correction is), not a label-transfer diagnostic. Label transfer
+#'   does not use the subspace or `node_shifts`.
+#'
 #' @param fit A `somalign_anchored_fit` with `correction = "subspace"` or
 #'   `"both"`.
 #' @param n_boot Positive integer. Number of bootstrap replicates of `D`.

@@ -69,6 +69,12 @@ original fit (not re-selected per replicate), so principal angles compare
 subspaces of the same dimension; if a replicate's own rank is lower,
 its \code{V_b} is zero-padded.
 }
+\section{Role}{
+ A \strong{diagnostic on the correction path} (how trustworthy the
+subspace correction is), not a label-transfer diagnostic. Label transfer
+does not use the subspace or \code{node_shifts}.
+}
+
 \examples{
 set.seed(1)
 p <- 3L

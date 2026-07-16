@@ -451,6 +451,11 @@ somalign_fit_anchored <- function(query,
 #' underlying [somalign_fit_anchored()]'s `correction = "subspace"` mode:
 #' anchors should isolate the batch direction, not biology.
 #'
+#' @section Role: A **diagnostic validating the correction path's** assumption,
+#'   not a label-transfer diagnostic. A `fail` verdict means the corrected
+#'   coordinates may mix biology into the batch subspace; it does not impugn the
+#'   transferred labels, which are computed from the transport plan alone.
+#'
 #' @param fit A `somalign_anchored_fit` object from
 #'   `somalign_fit_anchored(..., correction = "subspace")` or `"both"`.
 #' @param n_perm Positive integer. Number of permutation replicates. Default `999L`.

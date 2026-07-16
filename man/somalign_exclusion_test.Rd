@@ -55,6 +55,13 @@ feature space, so R is identically zero), and low power when
 \eqn{V} (inspect \code{fit$anchors$batch_subspace$rank} and
 \code{variance_explained}).
 }
+\section{Role}{
+ A \strong{diagnostic validating the correction path's} assumption,
+not a label-transfer diagnostic. A \code{fail} verdict means the corrected
+coordinates may mix biology into the batch subspace; it does not impugn the
+transferred labels, which are computed from the transport plan alone.
+}
+
 \examples{
 set.seed(1)
 p <- 3L

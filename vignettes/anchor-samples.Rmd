@@ -11,6 +11,13 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
+> **Scope.** Anchor regularisation shapes the *correction* (the per-node
+> shift), which `somalign` treats as a diagnostic rather than a product. The
+> anchor machinery still helps label transfer indirectly, because the anchor
+> cost bonus also biases the transport plan that labels are read from -- but the
+> corrected coordinates it produces can over-merge populations (see
+> `somalign_topology_audit()`) and are not a batch-corrected expression matrix.
+
 In many longitudinal and multi-site studies, a small set of quality-control
 samples -- control cell lines, reference bead populations, or proficiency
 panel specimens -- gets run alongside every batch. When those same samples

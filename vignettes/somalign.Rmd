@@ -16,6 +16,16 @@ codebook-level unbalanced entropic optimal transport. The example below trains
 a reference SOM on labelled old samples, then projects a shifted query dataset
 into that reference.
 
+**The primary product is label transfer** -- carrying reference labels (and a
+per-cell confidence and margin) onto the query via the transport plan. The
+*corrected coordinates* (`corrected_som_*`, `correction_norm`) are a secondary,
+diagnostic output: they are useful for triage and visualisation, but the
+barycentric correction can over-merge distinct populations (see
+`somalign_topology_audit()`), so they should not be treated as a
+batch-corrected expression matrix for downstream re-clustering or differential
+testing. Call `summary()` on a fit for the label-transfer headline, or
+`somalign_results(fit, include_correction = FALSE)` for a label-focused table.
+
 ## Quick start
 
 ```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
