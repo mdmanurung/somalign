@@ -163,10 +163,18 @@
     g <- tau_b * (epsilon * log_b - epsilon * lse_f)
     g[is.nan(g)] <- 0
 
-    delta <- max(
-      abs(f - f_old) / pmax(1, abs(f_old)),
-      abs(g - g_old) / pmax(1, abs(g_old))
-    )
+    # Convergence is measured only over finite potentials. Zero-mass nodes
+    # produce f_i = -Inf (or g_j = -Inf) permanently, which is structurally
+    # correct (exp(-Inf) = 0 in the plan) but causes abs(-Inf - -Inf) = NaN,
+    # poisoning max() even though all meaningful potentials have converged.
+    # Restricting to is.finite() ratios mirrors how .somalign_logsumexp already
+    # handles -Inf entries, and does not mask genuine divergence: a truly
+    # degenerate solve produces all-non-finite ratios, so finite_ratios is
+    # empty and delta falls through to the Inf guard (no convergence declared).
+    f_ratio <- abs(f - f_old) / pmax(1, abs(f_old))
+    g_ratio <- abs(g - g_old) / pmax(1, abs(g_old))
+    finite_ratios <- c(f_ratio[is.finite(f_ratio)], g_ratio[is.finite(g_ratio)])
+    delta <- if (length(finite_ratios) == 0L) Inf else max(finite_ratios)
     if (is.finite(delta) && delta < tol) {
       iterations <- iter
       break
