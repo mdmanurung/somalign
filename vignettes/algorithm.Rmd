@@ -23,8 +23,11 @@ of the pipeline, explaining how direct projection, the OT correspondence,
 correction vectors, and label transfer each contribute to the output columns.
 
 The OT stage uses the internal pure-R Sinkhorn solver. There is no external
-transport backend to configure. Direct projection is always computed first and
-is the primary result; the OT-derived columns are auxiliary.
+transport backend to configure. Two outputs are primary: the direct projection,
+which assigns each cell to its nearest reference node, and label transfer
+(stage 5), which carries a reference label and confidence onto each cell through
+the transport correspondence. The correction columns (stages 3 and 4) are a
+diagnostic, shown muted in the diagram below.
 
 > **Correction vectors are a diagnostic, not a product.** The barycentric
 > correction (stages 3 and 4 below) can over-merge distinct populations at larger
@@ -49,20 +52,21 @@ graph TD
   RS --> S2[Stage 2: OT on Codebooks]
   QS --> S2
   S2 --> TP[Transport plan P<br/>M x K]
+  TP --> S5[Stage 5: Label Transfer]
+  S5 --> LAB[transferred_label<br/>confidence, margin<br/>PRODUCT]
+  S1 --> DIR[old_som_unit<br/>old_som_label<br/>final_status]
   TP --> S3[Stage 3: Correction Vectors]
   RS --> S3
   S3 --> S4[Stage 4: Corrected Projection]
-  TP --> S5[Stage 5: Label Transfer]
-  S1 --> PR[old_som_unit<br/>old_som_label<br/>final_status]
-  S4 --> AX[corrected_som_unit<br/>correction_norm<br/>transferred_label]
-  S5 --> AX
-  style PR fill:#d4edda,stroke:#28a745,color:#155724
-  style AX fill:#cce5ff,stroke:#004085,color:#004085
+  S4 --> CORR[corrected_som_unit<br/>correction_norm<br/>DIAGNOSTIC ONLY]
+  style LAB fill:#d4edda,stroke:#28a745,color:#155724
+  style DIR fill:#d4edda,stroke:#28a745,color:#155724
+  style CORR fill:#f2f2f2,stroke:#adb5bd,color:#6c757d
+  style S5 fill:#d1ecf1,stroke:#0c5460
   style S1 fill:#fff3cd,stroke:#856404
   style S2 fill:#fff3cd,stroke:#856404
-  style S3 fill:#fff3cd,stroke:#856404
-  style S4 fill:#fff3cd,stroke:#856404
-  style S5 fill:#fff3cd,stroke:#856404
+  style S3 fill:#f2f2f2,stroke:#adb5bd,color:#6c757d
+  style S4 fill:#f2f2f2,stroke:#adb5bd,color:#6c757d
 ")
 ```
 
