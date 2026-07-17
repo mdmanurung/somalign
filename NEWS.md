@@ -2,6 +2,16 @@
 
 ## New features
 
+* `somalign_correct_expression()` returns a cell-level (cells by markers)
+  batch-corrected marker expression matrix for downstream visualisation and
+  differential expression. The correction is confined to the anchor-estimated
+  batch subspace and smoothed across each cell's nearest SOM nodes with a
+  Gaussian kernel, preserving variation orthogonal to the batch direction.
+  Requires a subspace-aware fit from `somalign_fit_anchored(correction =
+  "subspace"/"both")` or `somalign_fit_two_pass()`. It is an auxiliary
+  correction aid, not the primary label-transfer product; see
+  `?somalign_correct_expression` and `vignette("anchor-samples")`.
+
 * `somalign_reference()`, `somalign_train_reference()`, and
   `somalign_reference_from_som()` now compute and store `reference$node_var`
   (per-node per-marker variance in reference-scaled space) by default

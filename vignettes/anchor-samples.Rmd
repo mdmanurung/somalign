@@ -281,6 +281,32 @@ simple, uniform batch offset all three modes produce similar corrected positions
 the difference becomes meaningful when anchor coverage is uneven or when the query
 carries populations not represented in the reference.
 
+## Corrected marker expression for downstream analysis
+
+Label transfer is the primary product, but some downstream steps (a UMAP, a
+differential-expression contrast) want a corrected expression matrix rather than
+a per-cell label. `somalign_correct_expression()` returns one: a cells-by-markers
+matrix in which the correction is confined to the anchor-estimated batch subspace
+and smoothed across each cell's nearest SOM nodes, so variation orthogonal to the
+batch direction is left intact. It requires a subspace-aware fit
+(`correction = "subspace"` or `"both"`, or `somalign_fit_two_pass()`); a plain
+fit carries no batch subspace and is rejected.
+
+```{r correct-expression, eval = FALSE}
+expr_corrected <- somalign_correct_expression(fit_sub)   # raw marker units
+head(expr_corrected[, 1:4])
+```
+
+This output is an aid for visualisation and differential expression, not the
+primary product. The correction preserves orthogonal structure, but within the
+batch subspace it reduces rather than fully removes the distance between
+populations, so run `somalign_topology_audit(fit_sub)` first to confirm that
+correction is warranted; populations that sit close together along the batch
+direction can be drawn toward one another. For comparing cell-type composition or
+abundance across batches, prefer the direct projection columns from
+`somalign_results()` with a compositional (centred log-ratio) transform rather
+than corrected expression.
+
 ## When to use `somalign_fit_anchored()`
 
 `somalign_fit_anchored()` is appropriate when a set of samples (QC pools,

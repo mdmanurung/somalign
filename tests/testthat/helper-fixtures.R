@@ -26,6 +26,44 @@ make_anchored_fixture <- function(seed = 1L) {
   )
 }
 
+# Fixture with a known batch direction and an orthogonal biology direction, for
+# testing the signal-preserving subspace correction (correction = "subspace" /
+# "both") and somalign_correct_expression().
+make_subspace_fixture <- function(seed = 42L) {
+  withr::local_seed(seed)
+  p <- 3L
+  b  <- c(1, 0, 0)   # batch direction (unit)
+  cc <- c(0, 1, 0)   # orthogonal biology direction (unit)
+  colnms <- paste0("F", seq_len(p))
+
+  ref_data <- matrix(rnorm(40L * p, 0, 0.5), ncol = p,
+                     dimnames = list(NULL, colnms))
+
+  batch_mag <- 2.0
+  bio_mag   <- 1.5
+  n_total   <- nrow(ref_data)
+  sub_idx   <- seq_len(10L)   # subpopulation with biology
+
+  qry_data <- ref_data +
+    matrix(batch_mag * b, n_total, p, byrow = TRUE)
+  qry_data[sub_idx, ] <- qry_data[sub_idx, ] +
+    matrix(bio_mag * cc, length(sub_idx), p, byrow = TRUE)
+
+  anc_idx   <- seq(11L, 30L)   # pure-batch anchors (no biology)
+  anc_old   <- ref_data[anc_idx, , drop = FALSE]
+  anc_new   <- anc_old + matrix(batch_mag * b, length(anc_idx), p, byrow = TRUE)
+
+  ref <- somalign_train_reference(
+    ref_data, grid = kohonen::somgrid(2L, 2L, "hexagonal"), rlen = 10L
+  )
+  qry <- somalign_query(
+    qry_data, ref, grid = kohonen::somgrid(2L, 2L, "hexagonal"), rlen = 10L
+  )
+  list(ref = ref, qry = qry, ref_data = ref_data, qry_data = qry_data,
+       anc_old = anc_old, anc_new = anc_new,
+       b = b, cc = cc, bio_mag = bio_mag, sub_idx = sub_idx)
+}
+
 make_som <- function(codebook) {
   codebook <- as.matrix(codebook)
   if (is.null(colnames(codebook)) && ncol(codebook) == 2) {
