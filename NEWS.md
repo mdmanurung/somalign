@@ -2,6 +2,17 @@
 
 ## New features
 
+* `somalign_soft_labels()` and `somalign_soft_frequencies()` add **soft
+  (probabilistic) projection**: each query cell is projected onto its k nearest
+  reference nodes with a Gaussian kernel and given a distribution over labels (or
+  any node-level grouping via `node_groups`, e.g. a node-to-metacluster map),
+  rather than a single hard nearest-node label. Aggregated per sample, this
+  reduces the quantisation/boundary variance of hard cluster proportions and
+  improves cross-batch reproducibility of cluster-abundance profiles (validated:
+  repeat-sample CLR weighted-r 0.93 to 0.96, robust across `k`). The most-likely
+  label is unchanged; only the frequency estimate is smoothed. Reuses the k-NN
+  kernel machinery from `somalign_correct_expression()`.
+
 * `somalign_correct_expression()` returns a cell-level (cells by markers)
   batch-corrected marker expression matrix for downstream visualisation and
   differential expression. The correction is confined to the anchor-estimated

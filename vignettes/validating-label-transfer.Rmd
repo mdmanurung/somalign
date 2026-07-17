@@ -164,3 +164,23 @@ cobj <- crumblr(as.matrix(counts))               # CLR in cobj$E, weights in cob
 Use the direct projection (`old_som_unit`) for composition, not the corrected
 one; the CLR abundance profile is reproducible across batches, whereas absolute
 per-cluster proportions are only approximate.
+
+For the abundance step specifically, prefer **soft** projection over hard
+nearest-node counts. Hard assignment sends each cell to a single node and counts
+it once for that node's cluster, so a cell near a cluster boundary contributes a
+whole unit to one side and a small batch shift can flip it — inflating the
+sampling variance of per-sample cluster proportions. `somalign_soft_frequencies()`
+instead spreads each cell over its nearest reference nodes, giving a smoother
+per-sample frequency profile that reproduces better across batches. Pass a
+node-to-cluster map through `node_groups` when the grouping of interest is
+coarser than the reference labels:
+
+```{r, eval = FALSE}
+# node2cluster: length-n_nodes map from reference node to metacluster
+freq <- somalign_soft_frequencies(fit, group = sample_id, node_groups = node2cluster)
+cobj <- crumblr::crumblr(round(somalign_soft_frequencies(
+  fit, group = sample_id, node_groups = node2cluster, normalize = FALSE)))
+```
+
+The most-likely label is unchanged by softening; only the abundance estimate is
+smoothed.
