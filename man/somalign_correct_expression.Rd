@@ -102,7 +102,7 @@ available here.
 if (requireNamespace("kohonen", quietly = TRUE)) {
   set.seed(1)
   ref_x <- matrix(rnorm(60 * 3, 0, 0.5), ncol = 3,
-                  dimnames = list(NULL, paste0("m", 1:3)))
+                  dimnames = list(NULL, paste0("m", seq_len(3))))
   grid <- kohonen::somgrid(2, 2, "hexagonal")
   ref <- somalign_train_reference(ref_x, grid = grid, rlen = 10)
   shift <- matrix(c(2, 0, 0), nrow(ref_x), 3, byrow = TRUE)

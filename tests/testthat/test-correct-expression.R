@@ -119,6 +119,17 @@ test_that("default bandwidth is derived and reduces the batch component", {
   expect_lt(after, before)
 })
 
+# Fused chunking must be invariant to chunk_size.
+test_that("corrected expression is invariant to chunk_size", {
+  skip_if_not_installed("kohonen")
+  sf <- subspace_fit()
+  a <- somalign_correct_expression(sf$fit, units = "scaled", bandwidth = 0.5,
+                                   chunk_size = 1000000L)
+  b <- somalign_correct_expression(sf$fit, units = "scaled", bandwidth = 0.5,
+                                   chunk_size = 9L)
+  expect_equal(unclass(a), unclass(b), tolerance = 1e-12, ignore_attr = TRUE)
+})
+
 # Output shape, dimnames, and class.
 test_that("output has cell x marker shape with expected names and class", {
   skip_if_not_installed("kohonen")

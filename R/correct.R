@@ -75,7 +75,7 @@
 #' if (requireNamespace("kohonen", quietly = TRUE)) {
 #'   set.seed(1)
 #'   ref_x <- matrix(rnorm(60 * 3, 0, 0.5), ncol = 3,
-#'                   dimnames = list(NULL, paste0("m", 1:3)))
+#'                   dimnames = list(NULL, paste0("m", seq_len(3))))
 #'   grid <- kohonen::somgrid(2, 2, "hexagonal")
 #'   ref <- somalign_train_reference(ref_x, grid = grid, rlen = 10)
 #'   shift <- matrix(c(2, 0, 0), nrow(ref_x), 3, byrow = TRUE)
@@ -171,44 +171,81 @@ somalign_correct_expression <- function(fit,
   if (!is.finite(h) || h <= 0) 1 else h
 }
 
-# k nearest SOM nodes per cell, chunked over cells. Returns the node indices
-# (N x k, ascending distance) and their squared distances (N x k).
-.somalign_knn_codes_chunked <- function(scaled_data, codebook, k, chunk_size) {
-  x <- as.matrix(scaled_data)
-  n <- nrow(x)
-  k <- min(as.integer(k), nrow(codebook))
-  indices <- matrix(0L, n, k)
-  sq_dist <- matrix(0, n, k)
-  cs <- if (is.null(chunk_size) || is.infinite(chunk_size)) n else as.integer(chunk_size)
-  cs <- max(1L, cs)
-  for (s in seq(1L, n, by = cs)) {
-    idx <- s:min(s + cs - 1L, n)
-    d2 <- .somalign_pairwise_distance(x[idx, , drop = FALSE], codebook)
-    ord <- t(apply(d2, 1L, order))[, seq_len(k), drop = FALSE]
-    rows <- seq_len(nrow(d2))
-    indices[idx, ] <- ord
-    sq_dist[idx, ] <- d2[cbind(rep(rows, k), as.vector(ord))]
+# Indices and squared distances of the k nearest codebook nodes for each row of
+# `d2` (an L x m matrix of squared distances), by partial selection: k rounds of
+# a vectorised column-min, so neighbours come out in ascending-distance order
+# without a full O(m log m) sort per row and column 1 is always the row minimum.
+.somalign_knn_select <- function(d2, k) {
+  L <- nrow(d2)
+  indices <- matrix(0L, L, k)
+  sq_dist <- matrix(0, L, k)
+  rows <- seq_len(L)
+  for (j in seq_len(k)) {
+    nn <- max.col(-d2, ties.method = "first")   # nearest remaining node per row
+    indices[, j] <- nn
+    sel <- cbind(rows, nn)
+    sq_dist[, j] <- d2[sel]
+    d2[sel] <- Inf                               # exclude for the next round
   }
   list(indices = indices, sq_dist = sq_dist)
 }
 
-# Stabilised Gaussian kernel weights times per-neighbour gate weights. The
-# per-row minimum distance is subtracted before exponentiating, so the nearest
-# node always has raw weight 1 and rows never underflow to all zeros.
-.somalign_kernel_weights <- function(sq_dist, bandwidth, gate) {
-  d2min <- apply(sq_dist, 1L, min)
-  w <- exp(-(sq_dist - d2min) / (2 * bandwidth^2))
-  w * gate
+# Fused k-NN kernel smoother: for each query cell, a Gaussian-kernel-weighted,
+# gated average of `node_matrix` over its k nearest `codebook` nodes. Distances,
+# neighbours, weights and accumulation are all computed chunk-locally, so
+# `chunk_size` genuinely bounds peak memory (no full-N k-NN intermediates). With
+# `group = NULL` the result is one row per cell (N x C); with `group` supplied,
+# per-cell rows are summed into their group, giving a groups x C matrix without
+# ever materialising the N x C matrix. `node_gate` (length m) zeroes a node's
+# contribution; cells whose k neighbours are all gated out get a zero row.
+.somalign_knn_smooth <- function(scaled_data, codebook, node_matrix, node_gate,
+                                 bandwidth, k, chunk_size, group = NULL) {
+  x <- as.matrix(scaled_data)
+  n <- nrow(x)
+  cols <- ncol(node_matrix)
+  k <- min(as.integer(k), nrow(codebook))
+  denom <- 2 * bandwidth^2
+  per_cell <- is.null(group)
+  if (per_cell) {
+    out <- matrix(0, n, cols)
+  } else {
+    glev <- sort(unique(group))
+    gidx <- match(group, glev)
+    out <- matrix(0, length(glev), cols, dimnames = list(as.character(glev), NULL))
+  }
+  cs <- if (is.null(chunk_size) || is.infinite(chunk_size)) n else max(1L, as.integer(chunk_size))
+  for (s in seq(1L, n, by = cs)) {
+    idx <- s:min(s + cs - 1L, n)
+    d2 <- .somalign_pairwise_distance(x[idx, , drop = FALSE], codebook)
+    sel <- .somalign_knn_select(d2, k)
+    ind <- sel$indices
+    w <- exp(-(sel$sq_dist - sel$sq_dist[, 1L]) / denom)   # col 1 is the row min
+    w <- w * matrix(node_gate[ind], nrow(ind), k)
+    wsum <- rowSums(w)
+    acc <- matrix(0, length(idx), cols)
+    for (j in seq_len(k))
+      acc <- acc + w[, j] * node_matrix[ind[, j], , drop = FALSE]
+    keep <- wsum > 0
+    acc[keep, ] <- acc[keep, , drop = FALSE] / wsum[keep]
+    acc[!keep, ] <- 0
+    if (per_cell) {
+      out[idx, ] <- acc
+    } else {
+      rs <- rowsum(acc, gidx[idx])
+      gi <- as.integer(rownames(rs))
+      out[gi, ] <- out[gi, ] + rs
+    }
+  }
+  colnames(out) <- colnames(node_matrix)
+  out
 }
 
-# Smooth per-cell correction field: kernel-weighted, confidence-gated average
-# of the k nearest node shifts, computed in blocks to bound memory. Nodes whose
-# correction is disallowed (or, with gating, poorly matched) contribute zero.
+# Smooth per-cell correction field (N x p): kernel-weighted, confidence-gated
+# average of the k nearest node shifts. Nodes whose correction is disallowed
+# (or, with gating, poorly matched) contribute zero.
 .somalign_smooth_cell_shifts <- function(scaled_data, codebook, node_shifts,
                                          allowed, match_fraction, k, bandwidth,
                                          confidence_gate, chunk_size) {
-  n <- nrow(scaled_data)
-  p <- ncol(node_shifts)
   node_conf <- if (confidence_gate && !is.null(match_fraction)) {
     mf <- match_fraction
     mf[!is.finite(mf)] <- 0
@@ -217,23 +254,8 @@ somalign_correct_expression <- function(fit,
     rep(1, nrow(node_shifts))
   }
   node_conf[!allowed] <- 0
-  knn <- .somalign_knn_codes_chunked(scaled_data, codebook, k, chunk_size)
-  gate <- matrix(node_conf[knn$indices], n, ncol(knn$indices))
-  w <- .somalign_kernel_weights(knn$sq_dist, bandwidth, gate)
-  wsum <- rowSums(w)
-  shifts <- matrix(0, n, p)
-  cs <- if (is.null(chunk_size) || is.infinite(chunk_size)) n else max(1L, as.integer(chunk_size))
-  for (s in seq(1L, n, by = cs)) {
-    idx <- s:min(s + cs - 1L, n)
-    acc <- matrix(0, length(idx), p)
-    for (j in seq_len(ncol(knn$indices)))
-      acc <- acc + w[idx, j] * node_shifts[knn$indices[idx, j], , drop = FALSE]
-    keep <- wsum[idx] > 0
-    acc[keep, ] <- acc[keep, , drop = FALSE] / wsum[idx][keep]
-    acc[!keep, ] <- 0
-    shifts[idx, ] <- acc
-  }
-  shifts
+  .somalign_knn_smooth(scaled_data, codebook, node_shifts, node_conf,
+                       bandwidth, k, chunk_size)
 }
 
 # Attach dimnames, settings attributes, and class to the corrected matrix.

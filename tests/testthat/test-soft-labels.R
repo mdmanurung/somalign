@@ -75,6 +75,19 @@ test_that("soft frequencies aggregate soft labels by group and normalise", {
                tolerance = 1e-10, ignore_attr = TRUE)
 })
 
+test_that("soft labels are invariant to chunk_size (fused chunking)", {
+  skip_if_not_installed("kohonen")
+  fx <- soft_fixture()
+  a <- somalign_soft_labels(fx$fit, bandwidth = 0.5, chunk_size = 1000000L)
+  b <- somalign_soft_labels(fx$fit, bandwidth = 0.5, chunk_size = 7L)
+  expect_equal(unclass(a), unclass(b), tolerance = 1e-12, ignore_attr = TRUE)
+})
+
+test_that("soft frequencies errors on a non-fit object", {
+  expect_error(somalign_soft_frequencies(list(), group = 1),
+               regexp = "must be a somalign_fit")
+})
+
 test_that("soft frequencies checks group length and supports raw counts", {
   skip_if_not_installed("kohonen")
   fx <- soft_fixture()

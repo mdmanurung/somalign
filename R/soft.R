@@ -15,6 +15,16 @@
 #' estimates. It changes the *frequency estimate*, not the most-likely label:
 #' `max.col()` of a soft-label matrix typically matches the hard label.
 #'
+#' @section Coverage contract:
+#' Soft projection applies **no** acceptance or out-of-reference gating. Unlike
+#' the hard path in [somalign_results()] (which flags cells via
+#' `outside_reference_distance` / `transferred_label_accepted` and can suppress
+#' low-confidence transfers), every cell contributes to the soft distribution
+#' according to its distance to the reference nodes alone. Cells that fall
+#' outside the reference are still projected onto their nearest nodes. If you
+#' need to exclude out-of-reference cells, filter them with [somalign_results()]
+#' before aggregating, or subset the query.
+#'
 #' @param fit A `somalign_fit` object.
 #' @param node_groups Optional node-level grouping to project onto instead of the
 #'   reference labels. Either a length-`n_nodes` vector (one group per reference
@@ -42,7 +52,7 @@
 #'   set.seed(1)
 #'   x <- rbind(matrix(rnorm(90 * 3, -3, 0.5), ncol = 3),
 #'              matrix(rnorm(90 * 3,  3, 0.5), ncol = 3))
-#'   colnames(x) <- paste0("m", 1:3)
+#'   colnames(x) <- paste0("m", seq_len(3))
 #'   lab <- rep(c("low", "high"), each = 90)
 #'   grid <- kohonen::somgrid(3, 3, "hexagonal")
 #'   ref <- somalign_train_reference(x, labels = lab, grid = grid, rlen = 10)
@@ -60,17 +70,9 @@ somalign_soft_labels <- function(fit, node_groups = NULL, k = 8L,
   if (!is.null(bandwidth)) .somalign_check_pos_scalar(bandwidth, "bandwidth")
   .somalign_check_pos_int(chunk_size, "chunk_size")
 
-  node_prob <- .somalign_resolve_node_prob(fit, node_groups)
-  cb <- fit$reference$codebook
-  k_eff <- min(as.integer(k), nrow(cb))
-  h <- if (is.null(bandwidth)) .somalign_default_bandwidth(cb) else bandwidth
-
-  soft <- .somalign_soft_label_matrix(fit$query$scaled_data, cb, node_prob,
-                                      k_eff, h, chunk_size)
+  soft <- .somalign_soft_project(fit, node_groups, k, bandwidth, chunk_size,
+                                 group = NULL)
   rownames(soft) <- fit$query$sample_id
-  colnames(soft) <- colnames(node_prob)
-  attr(soft, "k") <- k_eff
-  attr(soft, "bandwidth") <- h
   class(soft) <- c("somalign_soft_labels", "matrix")
   soft
 }
@@ -94,7 +96,11 @@ somalign_soft_labels <- function(fit, node_groups = NULL, k = 8L,
 #' @param normalize Logical. When `TRUE` (default) each group's row is divided by
 #'   its total so rows are frequencies summing to 1; when `FALSE` the raw summed
 #'   soft memberships (soft counts) are returned, suitable for count-based
-#'   differential-abundance models.
+#'   differential-abundance models. Note that a group's soft counts sum to the
+#'   number of that group's cells whose neighbours carry label mass, not
+#'   necessarily its total cell count: cells all of whose k nearest nodes are
+#'   unlabelled contribute a zero row. With a fully labelled reference the two
+#'   coincide.
 #'
 #' @return A numeric matrix of class
 #'   `c("somalign_soft_frequencies", "matrix")`, one row per group and one column
@@ -106,7 +112,7 @@ somalign_soft_labels <- function(fit, node_groups = NULL, k = 8L,
 #'   set.seed(1)
 #'   x <- rbind(matrix(rnorm(90 * 3, -3, 0.5), ncol = 3),
 #'              matrix(rnorm(90 * 3,  3, 0.5), ncol = 3))
-#'   colnames(x) <- paste0("m", 1:3)
+#'   colnames(x) <- paste0("m", seq_len(3))
 #'   lab <- rep(c("low", "high"), each = 90)
 #'   grid <- kohonen::somgrid(3, 3, "hexagonal")
 #'   ref <- somalign_train_reference(x, labels = lab, grid = grid, rlen = 10)
@@ -119,15 +125,21 @@ somalign_soft_labels <- function(fit, node_groups = NULL, k = 8L,
 somalign_soft_frequencies <- function(fit, group, node_groups = NULL, k = 8L,
                                       bandwidth = NULL, normalize = TRUE,
                                       chunk_size = 10000L) {
+  if (!inherits(fit, "somalign_fit"))
+    stop("`fit` must be a somalign_fit object.", call. = FALSE)
+  .somalign_check_pos_int(k, "k")
+  if (!is.null(bandwidth)) .somalign_check_pos_scalar(bandwidth, "bandwidth")
   .somalign_check_flag(normalize, "normalize")
-  soft <- somalign_soft_labels(fit, node_groups = node_groups, k = k,
-                               bandwidth = bandwidth, chunk_size = chunk_size)
-  if (length(group) != nrow(soft))
+  .somalign_check_pos_int(chunk_size, "chunk_size")
+  if (length(group) != nrow(fit$query$scaled_data))
     stop("`group` must have one entry per query cell.", call. = FALSE)
-  agg <- rowsum(unclass(soft), group)
+
+  agg <- .somalign_soft_project(fit, node_groups, k, bandwidth, chunk_size,
+                                group = group)
+  k_eff <- attr(agg, "k"); h <- attr(agg, "bandwidth")
   if (normalize) agg <- agg / pmax(rowSums(agg), .Machine$double.eps)
-  attr(agg, "k") <- attr(soft, "k")
-  attr(agg, "bandwidth") <- attr(soft, "bandwidth")
+  attr(agg, "k") <- k_eff
+  attr(agg, "bandwidth") <- h
   attr(agg, "normalized") <- normalize
   class(agg) <- c("somalign_soft_frequencies", "matrix")
   agg
@@ -161,33 +173,25 @@ somalign_soft_frequencies <- function(fit, group, node_groups = NULL, k = 8L,
   m
 }
 
-# Kernel-weighted average of node-level label probabilities over each cell's k
-# nearest reference nodes. Mirrors .somalign_smooth_cell_shifts() (R/correct.R)
-# but aggregates label_prob rather than node shifts; nodes with no label mass
-# are gated out and cells whose neighbours are all unlabelled get a zero row.
-.somalign_soft_label_matrix <- function(scaled_data, codebook, node_prob,
-                                        k, bandwidth, chunk_size) {
-  n <- nrow(scaled_data)
-  C <- ncol(node_prob)
+# Resolve the node-level target, row-normalise it, and project query cells onto
+# it with the shared fused k-NN kernel smoother (.somalign_knn_smooth, R/correct.R).
+# `group = NULL` returns a per-cell N x C matrix; `group` supplied returns
+# per-group soft counts (groups x C) without ever materialising the N x C matrix.
+# Nodes with no label mass are gated out; cells whose k neighbours are all
+# unlabelled get a zero row. Carries `k` and `bandwidth` as attributes.
+.somalign_soft_project <- function(fit, node_groups, k, bandwidth, chunk_size,
+                                   group) {
+  node_prob <- .somalign_resolve_node_prob(fit, node_groups)
   mass <- rowSums(node_prob)
   ok <- mass > 0
-  lp <- node_prob
-  lp[ok, ] <- lp[ok, , drop = FALSE] / mass[ok]
-  lp[!ok, ] <- 0
-  knn <- .somalign_knn_codes_chunked(scaled_data, codebook, k, chunk_size)
-  gate <- matrix(as.numeric(ok[knn$indices]), n, ncol(knn$indices))
-  w <- .somalign_kernel_weights(knn$sq_dist, bandwidth, gate)
-  wsum <- rowSums(w)
-  out <- matrix(0, n, C)
-  cs <- if (is.null(chunk_size) || is.infinite(chunk_size)) n else max(1L, as.integer(chunk_size))
-  for (s in seq(1L, n, by = cs)) {
-    idx <- s:min(s + cs - 1L, n)
-    acc <- matrix(0, length(idx), C)
-    for (j in seq_len(ncol(knn$indices)))
-      acc <- acc + w[idx, j] * lp[knn$indices[idx, j], , drop = FALSE]
-    keep <- wsum[idx] > 0
-    acc[keep, ] <- acc[keep, , drop = FALSE] / wsum[idx][keep]
-    out[idx, ] <- acc
-  }
+  node_prob[ok, ] <- node_prob[ok, , drop = FALSE] / mass[ok]
+  node_prob[!ok, ] <- 0
+  cb <- fit$reference$codebook
+  k_eff <- min(as.integer(k), nrow(cb))
+  h <- if (is.null(bandwidth)) .somalign_default_bandwidth(cb) else bandwidth
+  out <- .somalign_knn_smooth(fit$query$scaled_data, cb, node_prob,
+                              as.numeric(ok), h, k_eff, chunk_size, group = group)
+  attr(out, "k") <- k_eff
+  attr(out, "bandwidth") <- h
   out
 }

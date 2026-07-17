@@ -176,10 +176,15 @@ node-to-cluster map through `node_groups` when the grouping of interest is
 coarser than the reference labels:
 
 ```{r, eval = FALSE}
-# node2cluster: length-n_nodes map from reference node to metacluster
-freq <- somalign_soft_frequencies(fit, group = sample_id, node_groups = node2cluster)
-cobj <- crumblr::crumblr(round(somalign_soft_frequencies(
-  fit, group = sample_id, node_groups = node2cluster, normalize = FALSE)))
+# node2cluster: length-n_nodes map from reference node to metacluster.
+# Use normalize = FALSE for crumblr, which models counts, not frequencies.
+counts <- somalign_soft_frequencies(fit, group = sample_id,
+                                    node_groups = node2cluster, normalize = FALSE)
+# crumblr wants a plain integer samples-by-cluster matrix, so drop the
+# somalign_soft_frequencies class and round the soft counts to integers.
+counts <- matrix(as.integer(round(counts)), nrow(counts), ncol(counts),
+                 dimnames = dimnames(counts))
+cobj <- crumblr::crumblr(counts)   # CLR in cobj$E, precision weights in cobj$weights
 ```
 
 The most-likely label is unchanged by softening; only the abundance estimate is

@@ -29,7 +29,11 @@ uses the reference labels.}
 \item{normalize}{Logical. When \code{TRUE} (default) each group's row is divided by
 its total so rows are frequencies summing to 1; when \code{FALSE} the raw summed
 soft memberships (soft counts) are returned, suitable for count-based
-differential-abundance models.}
+differential-abundance models. Note that a group's soft counts sum to the
+number of that group's cells whose neighbours carry label mass, not
+necessarily its total cell count: cells all of whose k nearest nodes are
+unlabelled contribute a zero row. With a fully labelled reference the two
+coincide.}
 }
 \value{
 A numeric matrix of class
@@ -49,7 +53,7 @@ if (requireNamespace("kohonen", quietly = TRUE)) {
   set.seed(1)
   x <- rbind(matrix(rnorm(90 * 3, -3, 0.5), ncol = 3),
              matrix(rnorm(90 * 3,  3, 0.5), ncol = 3))
-  colnames(x) <- paste0("m", 1:3)
+  colnames(x) <- paste0("m", seq_len(3))
   lab <- rep(c("low", "high"), each = 90)
   grid <- kohonen::somgrid(3, 3, "hexagonal")
   ref <- somalign_train_reference(x, labels = lab, grid = grid, rlen = 10)

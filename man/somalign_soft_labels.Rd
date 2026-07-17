@@ -56,12 +56,24 @@ and reduces the quantisation variance in downstream per-sample frequency
 estimates. It changes the \emph{frequency estimate}, not the most-likely label:
 \code{max.col()} of a soft-label matrix typically matches the hard label.
 }
+\section{Coverage contract}{
+
+Soft projection applies \strong{no} acceptance or out-of-reference gating. Unlike
+the hard path in \code{\link[=somalign_results]{somalign_results()}} (which flags cells via
+\code{outside_reference_distance} / \code{transferred_label_accepted} and can suppress
+low-confidence transfers), every cell contributes to the soft distribution
+according to its distance to the reference nodes alone. Cells that fall
+outside the reference are still projected onto their nearest nodes. If you
+need to exclude out-of-reference cells, filter them with \code{\link[=somalign_results]{somalign_results()}}
+before aggregating, or subset the query.
+}
+
 \examples{
 if (requireNamespace("kohonen", quietly = TRUE)) {
   set.seed(1)
   x <- rbind(matrix(rnorm(90 * 3, -3, 0.5), ncol = 3),
              matrix(rnorm(90 * 3,  3, 0.5), ncol = 3))
-  colnames(x) <- paste0("m", 1:3)
+  colnames(x) <- paste0("m", seq_len(3))
   lab <- rep(c("low", "high"), each = 90)
   grid <- kohonen::somgrid(3, 3, "hexagonal")
   ref <- somalign_train_reference(x, labels = lab, grid = grid, rlen = 10)
