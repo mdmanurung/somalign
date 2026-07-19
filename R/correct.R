@@ -58,7 +58,9 @@
 #' @param confidence_gate Logical. When `TRUE` (default), each node's kernel
 #'   weight is multiplied by its transported match fraction, down-weighting nodes
 #'   the transport plan could not align. Nodes whose correction is disallowed
-#'   contribute zero weight in either case.
+#'   contribute zero weight in either case. Has no effect when `smooth = FALSE`,
+#'   where each cell simply takes its nearest node's shift with no kernel
+#'   weighting.
 #' @param chunk_size Positive integer. Cells are processed in blocks of this size
 #'   to bound peak memory. Default `10000L`.
 #'
@@ -110,18 +112,19 @@ somalign_correct_expression <- function(fit,
          "`somalign_fit_anchored(correction = \"subspace\")` or ",
          "`somalign_fit_two_pass()`, and run `somalign_topology_audit()` first ",
          "to check that correction is warranted.", call. = FALSE)
-  if (all(bsub$V == 0))
+  if (isTRUE(bsub$rank == 0L) || length(bsub$V) == 0L ||
+      all(abs(bsub$V) < .Machine$double.eps))
     warning("The batch subspace in `fit` has zero variance; all correction ",
             "shifts are zero.", call. = FALSE)
 
   shifts <- .somalign_correction_shifts(
-    fit, smooth = smooth, k = k, bandwidth = bandwidth,
+    fit, V = bsub$V, smooth = smooth, k = k, bandwidth = bandwidth,
     confidence_gate = confidence_gate, chunk_size = chunk_size)
 
   corrected <- fit$query$scaled_data + shifts
   if (identical(units, "raw"))
-    corrected <- sweep(sweep(corrected, 2, fit$reference$scale, "*"),
-                       2, fit$reference$center, "+")
+    corrected <- .somalign_unscale_matrix(
+      corrected, fit$reference$center, fit$reference$scale)
 
   .somalign_new_corrected_expression(
     corrected, fit, units, attr(shifts, "bandwidth"), smooth, attr(shifts, "k"))
@@ -137,11 +140,17 @@ somalign_correct_expression <- function(fit,
 # Per-cell correction shifts (N x p), in reference-scaled space. Dispatches
 # between the smoothed field and the piecewise-constant nearest-node baseline,
 # and records the bandwidth and effective k as attributes.
-.somalign_correction_shifts <- function(fit, smooth, k, bandwidth,
+.somalign_correction_shifts <- function(fit, V, smooth, k, bandwidth,
                                         confidence_gate, chunk_size) {
   node_shifts <- fit$node_shifts
   allowed <- attr(node_shifts, "correction_allowed")
   if (is.null(allowed)) allowed <- rep(TRUE, nrow(node_shifts))
+  # Confine the shifts to the batch subspace span(V) so the correction never
+  # touches variation orthogonal to V. Anchored subspace/both fits are already
+  # projected (V is orthonormal, so this is idempotent); two-pass fits store
+  # full-rank shifts, so this is where the documented invariant is enforced.
+  if (!is.null(V) && ncol(V) > 0L)
+    node_shifts <- node_shifts %*% V %*% t(V)
   if (!smooth) {
     su <- fit$query$sample_unit
     shifts <- node_shifts[su, , drop = FALSE]
@@ -159,85 +168,6 @@ somalign_correct_expression <- function(fit,
   attr(shifts, "bandwidth") <- h
   attr(shifts, "k") <- k_eff
   shifts
-}
-
-# Median nearest-neighbour distance of the SOM codebook. Sets the default
-# kernel bandwidth so it adapts to the lattice spacing in scaled space.
-.somalign_default_bandwidth <- function(codebook) {
-  if (nrow(codebook) < 2L) return(1)
-  d2 <- .somalign_pairwise_distance(codebook, codebook)
-  diag(d2) <- Inf
-  h <- sqrt(stats::median(apply(d2, 1, min)))
-  if (!is.finite(h) || h <= 0) 1 else h
-}
-
-# Indices and squared distances of the k nearest codebook nodes for each row of
-# `d2` (an L x m matrix of squared distances), by partial selection: k rounds of
-# a vectorised column-min, so neighbours come out in ascending-distance order
-# without a full O(m log m) sort per row and column 1 is always the row minimum.
-.somalign_knn_select <- function(d2, k) {
-  L <- nrow(d2)
-  indices <- matrix(0L, L, k)
-  sq_dist <- matrix(0, L, k)
-  rows <- seq_len(L)
-  for (j in seq_len(k)) {
-    nn <- max.col(-d2, ties.method = "first")   # nearest remaining node per row
-    indices[, j] <- nn
-    sel <- cbind(rows, nn)
-    sq_dist[, j] <- d2[sel]
-    d2[sel] <- Inf                               # exclude for the next round
-  }
-  list(indices = indices, sq_dist = sq_dist)
-}
-
-# Fused k-NN kernel smoother: for each query cell, a Gaussian-kernel-weighted,
-# gated average of `node_matrix` over its k nearest `codebook` nodes. Distances,
-# neighbours, weights and accumulation are all computed chunk-locally, so
-# `chunk_size` genuinely bounds peak memory (no full-N k-NN intermediates). With
-# `group = NULL` the result is one row per cell (N x C); with `group` supplied,
-# per-cell rows are summed into their group, giving a groups x C matrix without
-# ever materialising the N x C matrix. `node_gate` (length m) zeroes a node's
-# contribution; cells whose k neighbours are all gated out get a zero row.
-.somalign_knn_smooth <- function(scaled_data, codebook, node_matrix, node_gate,
-                                 bandwidth, k, chunk_size, group = NULL) {
-  x <- as.matrix(scaled_data)
-  n <- nrow(x)
-  cols <- ncol(node_matrix)
-  k <- min(as.integer(k), nrow(codebook))
-  denom <- 2 * bandwidth^2
-  per_cell <- is.null(group)
-  if (per_cell) {
-    out <- matrix(0, n, cols)
-  } else {
-    glev <- sort(unique(group))
-    gidx <- match(group, glev)
-    out <- matrix(0, length(glev), cols, dimnames = list(as.character(glev), NULL))
-  }
-  cs <- if (is.null(chunk_size) || is.infinite(chunk_size)) n else max(1L, as.integer(chunk_size))
-  for (s in seq(1L, n, by = cs)) {
-    idx <- s:min(s + cs - 1L, n)
-    d2 <- .somalign_pairwise_distance(x[idx, , drop = FALSE], codebook)
-    sel <- .somalign_knn_select(d2, k)
-    ind <- sel$indices
-    w <- exp(-(sel$sq_dist - sel$sq_dist[, 1L]) / denom)   # col 1 is the row min
-    w <- w * matrix(node_gate[ind], nrow(ind), k)
-    wsum <- rowSums(w)
-    acc <- matrix(0, length(idx), cols)
-    for (j in seq_len(k))
-      acc <- acc + w[, j] * node_matrix[ind[, j], , drop = FALSE]
-    keep <- wsum > 0
-    acc[keep, ] <- acc[keep, , drop = FALSE] / wsum[keep]
-    acc[!keep, ] <- 0
-    if (per_cell) {
-      out[idx, ] <- acc
-    } else {
-      rs <- rowsum(acc, gidx[idx])
-      gi <- as.integer(rownames(rs))
-      out[gi, ] <- out[gi, ] + rs
-    }
-  }
-  colnames(out) <- colnames(node_matrix)
-  out
 }
 
 # Smooth per-cell correction field (N x p): kernel-weighted, confidence-gated

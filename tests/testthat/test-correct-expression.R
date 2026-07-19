@@ -130,6 +130,22 @@ test_that("corrected expression is invariant to chunk_size", {
   expect_equal(unclass(a), unclass(b), tolerance = 1e-12, ignore_attr = TRUE)
 })
 
+# Two-pass fits store full-rank node shifts; the correction must still be
+# confined to the two-pass batch subspace (the invariant enforced by projecting
+# node shifts onto span(V) before smoothing).
+test_that("two-pass fit correction is confined to its batch subspace", {
+  skip_if_not_installed("kohonen")
+  fx <- make_subspace_fixture()
+  fit_tp <- somalign_fit_two_pass(fx$qry, fx$ref)
+  corr <- somalign_correct_expression(fit_tp, units = "scaled", bandwidth = 0.5)
+
+  expect_s3_class(corr, "somalign_corrected_expression")
+  expect_true(all(is.finite(corr)))
+  shift <- unclass(corr) - fit_tp$query$scaled_data
+  V <- fit_tp$two_pass$batch_subspace$V
+  expect_lt(norm(shift - shift %*% V %*% t(V), "F"), 1e-10)
+})
+
 # Output shape, dimnames, and class.
 test_that("output has cell x marker shape with expected names and class", {
   skip_if_not_installed("kohonen")
@@ -140,4 +156,11 @@ test_that("output has cell x marker shape with expected names and class", {
   expect_equal(nrow(corr), nrow(sf$fit$query$scaled_data))
   expect_equal(colnames(corr), colnames(sf$fit$query$scaled_data))
   expect_equal(rownames(corr), sf$fit$query$sample_id)
+})
+
+test_that("print.somalign_corrected_expression does not error", {
+  skip_if_not_installed("kohonen")
+  sf <- subspace_fit()
+  corr <- somalign_correct_expression(sf$fit, bandwidth = 0.5)
+  expect_output(print(corr), "somalign_corrected_expression")
 })
