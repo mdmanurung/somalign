@@ -21,7 +21,7 @@
 #' \eqn{3\varepsilon}.  Pairs outside this band contribute negligible weight to
 #' the Sinkhorn kernel.  If fewer than 1\% of pairs are within
 #' \eqn{3\varepsilon}, the transport plan will be near-singular and most query
-#' mass will be destroyed.
+#' mass may be destroyed; re-check coordinate alignment or raise epsilon.
 #'
 #' @param query_codebook Numeric matrix of query SOM codebook vectors in
 #'   reference-scaled coordinate space (nodes \eqn{\times} features).  Column
@@ -214,7 +214,7 @@ somalign_check_codebook_alignment <- function(query_codebook,
       "% of query-reference codebook pairs fall within 3\u03b5 ",
       "(epsilon = ", epsilon, "). ",
       "The Sinkhorn kernel will be near-singular and most query mass may be ",
-      "destroyed. Consider re-checking coordinate alignment or lowering epsilon."
+      "destroyed. Consider re-checking coordinate alignment or raising epsilon."
     )
   }
 

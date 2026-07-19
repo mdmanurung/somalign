@@ -71,7 +71,7 @@ query-reference codebook pairs whose normalised squared distance falls within
 \eqn{3\varepsilon}.  Pairs outside this band contribute negligible weight to
 the Sinkhorn kernel.  If fewer than 1\\% of pairs are within
 \eqn{3\varepsilon}, the transport plan will be near-singular and most query
-mass will be destroyed.
+mass may be destroyed; re-check coordinate alignment or raise epsilon.
 }
 \seealso{
 \code{\link[=somalign_fit]{somalign_fit()}}, \code{\link[=somalign_query]{somalign_query()}}
