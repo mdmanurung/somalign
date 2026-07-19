@@ -130,10 +130,11 @@ test_that("corrected expression is invariant to chunk_size", {
   expect_equal(unclass(a), unclass(b), tolerance = 1e-12, ignore_attr = TRUE)
 })
 
-# Two-pass fits store full-rank node shifts; the correction must still be
-# confined to the two-pass batch subspace (the invariant enforced by projecting
-# node shifts onto span(V) before smoothing).
-test_that("two-pass fit correction is confined to its batch subspace", {
+# A two-pass fit carries no anchor-estimated subspace: somalign_correct_expression
+# applies the full documented two-pass correction (residual + global), NOT a
+# subspace-confined one. The $two_pass$batch_subspace diagnostic must not be used
+# to censor the correction (it is documented as descriptive-only).
+test_that("two-pass fit correction is applied in full and reduces the batch shift", {
   skip_if_not_installed("kohonen")
   fx <- make_subspace_fixture()
   fit_tp <- somalign_fit_two_pass(fx$qry, fx$ref)
@@ -141,9 +142,24 @@ test_that("two-pass fit correction is confined to its batch subspace", {
 
   expect_s3_class(corr, "somalign_corrected_expression")
   expect_true(all(is.finite(corr)))
-  shift <- unclass(corr) - fit_tp$query$scaled_data
-  V <- fit_tp$two_pass$batch_subspace$V
-  expect_lt(norm(shift - shift %*% V %*% t(V), "F"), 1e-10)
+
+  # The correction reduces the batch-direction component of the query.
+  before <- mean(abs(fit_tp$query$scaled_data %*% fx$b))
+  after  <- mean(abs(corr %*% fx$b))
+  expect_lt(after, before)
+
+  # Regression lock: with smooth = FALSE each cell takes its nearest node's FULL
+  # shift (disallowed nodes zeroed). If the correction were re-projected onto the
+  # two-pass subspace this identity would break.
+  ns <- fit_tp$node_shifts
+  allowed <- attr(ns, "correction_allowed")
+  if (is.null(allowed)) allowed <- rep(TRUE, nrow(ns))
+  su <- fit_tp$query$sample_unit
+  expected <- ns[su, , drop = FALSE]
+  expected[!allowed[su], ] <- 0
+  full <- somalign_correct_expression(fit_tp, units = "scaled", smooth = FALSE)
+  expect_equal(unclass(full) - fit_tp$query$scaled_data, expected,
+               ignore_attr = TRUE, tolerance = 1e-10)
 })
 
 # Output shape, dimnames, and class.

@@ -25,10 +25,9 @@ carries no batch subspace and is rejected.}
 
 \item{smooth}{Logical. When \code{TRUE} (default), smooths the correction across
 the k nearest SOM nodes with a Gaussian kernel. When \code{FALSE}, each cell
-takes its nearest node's shift directly (piecewise constant, still confined
-to the batch subspace); for anchored fits this reproduces the correction
-\code{somalign} uses internally. Provided as a diagnostic baseline, not
-recommended for downstream analysis.}
+takes its nearest node's shift directly (piecewise constant); this
+reproduces the correction \code{somalign} uses internally and is provided as a
+diagnostic baseline, not recommended for downstream analysis.}
 
 \item{k}{Integer. Number of nearest SOM nodes used for smoothing, clamped to
 the number of query SOM nodes. Default \code{8L}.}
@@ -84,11 +83,15 @@ correction is warranted for your data.
 
 \section{Subspace restriction}{
 
-The correction is confined to the span of the batch subspace \eqn{V}
-estimated from anchor displacements during fitting. Each cell shift is a
-weighted average of node shifts that already lie in that span, so the cell
-shift lies in it too; no post-smoothing re-projection is applied. Variation
-orthogonal to \eqn{V} is untouched.
+For an anchored \code{correction = "subspace"}/\code{"both"} fit the node shifts
+are projected onto the span of the batch subspace \eqn{V} at fit time. Each cell
+shift is a weighted average of those node shifts, so it lies in span(\eqn{V})
+too (no post-smoothing re-projection is applied), and variation orthogonal to
+\eqn{V} is untouched. A two-pass fit does \strong{not} carry an anchor-estimated
+subspace: its stored shifts are the full documented two-pass correction
+(population-specific residual plus global shift), and
+\code{somalign_correct_expression()} applies them in full without subspace
+confinement. The \code{$two_pass$batch_subspace} diagnostic is not used here.
 }
 
 \section{Future extension}{
