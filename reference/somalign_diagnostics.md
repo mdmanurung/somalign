@@ -5,7 +5,7 @@ Extract somalign diagnostics
 ## Usage
 
 ``` r
-somalign_diagnostics(fit)
+somalign_diagnostics(fit, topology = FALSE, ...)
 ```
 
 ## Arguments
@@ -14,9 +14,26 @@ somalign_diagnostics(fit)
 
   A `somalign_fit` object.
 
+- topology:
+
+  Logical. When `TRUE`, additionally computes a persistent- homology
+  topology audit (see
+  [`somalign_topology_audit()`](https://mdmanurung.github.io/somalign/reference/somalign_topology_audit.md))
+  and attaches it as `$topology`. Default `FALSE`: the returned list is
+  identical to calling this function before the topology feature
+  existed. Not run by default because it is a post-hoc diagnostic, not
+  part of the fit itself.
+
+- ...:
+
+  Passed to
+  [`somalign_topology_audit()`](https://mdmanurung.github.io/somalign/reference/somalign_topology_audit.md)
+  when `topology = TRUE` (e.g. `threshold`, `use_tda`, `nodes`).
+
 ## Value
 
-A named list of solver, OT, node, and projection diagnostics.
+A named list of solver, OT, node, and projection diagnostics, plus
+`$topology` when `topology = TRUE`.
 
 ## Examples
 
@@ -63,6 +80,15 @@ somalign_diagnostics(fit)
 #> $solver$cost_scale
 #> [1] 2.762185
 #> 
+#> $solver$log_Z
+#> [1] NA
+#> 
+#> $solver$anneal_schedule
+#> NULL
+#> 
+#> $solver$anneal_stage_info
+#> NULL
+#> 
 #> $solver$rel_marginal_row_error
 #> [1] 0.02342453
 #> 
@@ -100,6 +126,9 @@ somalign_diagnostics(fit)
 #> $ot$max_col_mass_error
 #> [1] 0.03828297
 #> 
+#> $ot$mutual_information
+#> [1] 1.204442
+#> 
 #> 
 #> $nodes
 #>    query_node query_mass transported_mass match_fraction correction_allowed
@@ -107,11 +136,11 @@ somalign_diagnostics(fit)
 #> V2          2        0.3        0.2869031      0.9563437               TRUE
 #> V3          3        0.5        0.5002755      1.0000000               TRUE
 #> V4          4        0.1        0.1111685      1.0000000               TRUE
-#>    correction_norm
-#> V1       0.3455139
-#> V2       0.1185567
-#> V3       0.4395087
-#> V4       0.1478769
+#>    correction_norm transport_entropy
+#> V1       0.3455139      3.089021e-02
+#> V2       0.1185567      6.652620e-01
+#> V3       0.4395087      9.990417e-01
+#> V4       0.1478769      8.307340e-10
 #> 
 #> $projection
 #> $projection$outside_direct_fraction
@@ -119,6 +148,11 @@ somalign_diagnostics(fit)
 #> 
 #> $projection$outside_corrected_fraction
 #> [1] 0.1
+#> 
+#> 
+#> $cost_metric
+#> $cost_metric$feature_weights
+#> NULL
 #> 
 #> 
 ```

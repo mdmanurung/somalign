@@ -93,8 +93,8 @@ batch shift that the OT plan may not be able to absorb.
 query-reference codebook pairs whose normalised squared distance falls
 within \\3\varepsilon\\. Pairs outside this band contribute negligible
 weight to the Sinkhorn kernel. If fewer than 1\\ \\3\varepsilon\\, the
-transport plan will be near-singular and most query mass will be
-destroyed.
+transport plan will be near-singular and most query mass may be
+destroyed; re-check coordinate alignment or raise epsilon.
 
 ## See also
 

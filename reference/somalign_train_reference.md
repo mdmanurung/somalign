@@ -12,6 +12,7 @@ somalign_train_reference(
   grid = NULL,
   rlen = 100,
   alpha = c(0.05, 0.01),
+  compute_node_var = TRUE,
   ...
 )
 ```
@@ -45,6 +46,15 @@ somalign_train_reference(
 
   Learning-rate schedule passed to
   [`kohonen::som()`](https://rdrr.io/pkg/kohonen/man/supersom.html).
+
+- compute_node_var:
+
+  Logical; if `TRUE` (default) per-node per-marker variances are
+  computed from the reference cells assigned to each node and stored as
+  `reference$node_var`. Set `FALSE` to skip (reduces memory by one
+  `n_nodes x p` matrix; disables surprisal-based outside-reference
+  detection in
+  [`somalign_results()`](https://mdmanurung.github.io/somalign/reference/somalign_results.md)).
 
 - ...:
 

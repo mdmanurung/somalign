@@ -1,23 +1,31 @@
 # Two-pass global and local alignment
 
-Batch effects in cytometry often contain a dominant global component —
-reagent lot changes, instrument calibration drift, or environmental
+> **Scope.** The two-pass procedure refines the *correction* (the
+> per-node shift field), which `somalign` treats as a diagnostic rather
+> than a product. The corrected coordinates can over-merge distinct
+> populations (see
+> [`somalign_topology_audit()`](https://mdmanurung.github.io/somalign/reference/somalign_topology_audit.md))
+> and are not a batch-corrected expression matrix; the primary
+> deliverable remains label transfer.
+
+Batch effects in cytometry often contain a dominant global component
+(reagent lot changes, instrument calibration drift, or environmental
 factors that shift all populations in roughly the same direction by
-roughly the same amount — layered on top of smaller population-specific
+roughly the same amount), layered on top of smaller population-specific
 displacements. A single OT pass at a small epsilon captures fine
 structure well but can be destabilised when the global offset dwarfs the
 typical inter-node distance. A single pass at large epsilon smooths away
 that instability at the cost of resolution.
 
 [`somalign_fit_two_pass()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_two_pass.md)
-resolves this explicitly: a first OT pass at a larger `epsilon_global`
-estimates the mass-weighted mean node displacement (the *global shift*),
-subtracts it from the query codebook, and then a second pass at a finer
-`epsilon_local` captures residual population-specific offsets. The final
-per-node correction is the sum of both passes, so the total displacement
-for each sample is equivalent to a direct single-pass alignment at
-`epsilon_local` — but the global subtraction makes the second-pass OT
-problem better conditioned.
+resolves this tension explicitly: a first OT pass at a larger
+`epsilon_global` estimates the mass-weighted mean node displacement (the
+*global shift*), subtracts it from the query codebook, and then a second
+pass at a finer `epsilon_local` captures residual population-specific
+offsets. The final per-node correction is the sum of both passes, so the
+total displacement for each sample is equivalent to a direct single-pass
+alignment at `epsilon_local`; the global subtraction makes the
+second-pass OT problem better conditioned.
 
 ## Setup
 
@@ -87,10 +95,8 @@ fit2 <- somalign_fit_two_pass(
 #> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.15); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 fit2
 #> <somalign_fit>
-#>   solver: internal
-#>   query nodes: 9
-#>   reference nodes: 9
-#>   transport mass: 1.12
+#>   label transfer: 100.0% of cells accepted across 2 class(es); median confidence 1.00, median margin 1.00
+#>   solver: internal  |  query nodes: 9  |  reference nodes: 9  |  transport mass: 1.12
 ```
 
 The `$two_pass` slot records the estimated global shift and both epsilon
@@ -113,16 +119,16 @@ cat("\nGlobal shift magnitude:", round(fit2$two_pass$global_shift_norm, 3), "\n"
 #> Global shift magnitude: 0.28
 ```
 
-`global_shift` points in the *correction* direction — from query
-codebook toward the reference — so its sign is opposite to the true
-batch offset. Because the node shifts are the mass-weighted mean of
-first-pass OT transport vectors, the magnitude is in reference-scaled
-units, not raw units, and does not directly equal the raw feature
-offset. What matters in practice is the direction: each feature’s sign
-should oppose the known batch offset, and features with larger
-displacements should show larger absolute values. The norm
-`global_shift_norm` gives an overall scalar measure of the global batch
-displacement that can be compared across batches or experiments.
+`global_shift` points in the *correction* direction (from query codebook
+toward the reference), so its sign is opposite to the true batch offset.
+Because the node shifts are the mass-weighted mean of first-pass OT
+transport vectors, the magnitude is in reference-scaled units, not raw
+units, and does not directly equal the raw feature offset. What matters
+in practice is the direction: each feature’s sign should oppose the
+known batch offset, and features with larger displacements should show
+larger absolute values. The norm `global_shift_norm` gives an overall
+scalar measure of the global batch displacement that can be compared
+across batches or experiments.
 
 ## Batch subspace diagnostic
 
@@ -139,7 +145,7 @@ cat("Variance explained by leading directions:", round(bs$variance_explained, 3)
 ```
 
 This is a read-only diagnostic. Rank 1 indicates that pass-1 node shifts
-are nearly collinear — which is expected when a single global offset
+are nearly collinear, which is expected when a single global offset
 dominates. Higher rank means the first-pass correction has more
 heterogeneous directions across the codebook, pointing toward a
 spatially varied batch effect.
@@ -214,9 +220,9 @@ and
 [`somalign_fit_two_pass()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_two_pass.md)
 accept `label_guided = TRUE`, which applies a large cost penalty to node
 pairs with discordant dominant labels. When reference labels are known
-and the batch does not scramble population boundaries, this concentrates
-OT transport onto same-label pairs and reduces spurious cross-cluster
-mass.
+and the batch does not scramble population boundaries, the penalty
+concentrates OT transport onto same-label pairs and reduces spurious
+cross-cluster mass.
 
 `label_guided = TRUE` requires `query$label_prob` to be non-NULL. The
 standard
@@ -257,7 +263,7 @@ fit_lg <- somalign_fit_two_pass(
 )
 ```
 
-This works equally for
+Label-guided alignment works equally for
 [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
 If labels are noisy or the batch shifts populations across label
 boundaries, the cost penalty can destabilise the OT plan; check
@@ -269,8 +275,8 @@ before using label-transferred assignments in downstream analyses.
 ## When to use `somalign_fit_two_pass()`
 
 Two-pass alignment is most useful when the global batch offset is large
-relative to `epsilon_local` — large enough that a single pass at low
-epsilon struggles to route mass across the full displacement, while a
+relative to `epsilon_local`, large enough that a single pass at low
+epsilon struggles to route mass across the full displacement while a
 single pass at high epsilon loses population-level resolution. The
 explicit global subtraction removes that tension. When the batch shift
 is small or the OT problem is well-conditioned at a single epsilon,
@@ -306,7 +312,7 @@ decomposition.
     #> [1] stats     graphics  grDevices utils     datasets  methods   base     
     #> 
     #> other attached packages:
-    #> [1] somalign_0.99.1  kohonen_3.0.13   BiocStyle_2.40.0
+    #> [1] somalign_0.99.4  kohonen_3.0.13   BiocStyle_2.40.0
     #> 
     #> loaded via a namespace (and not attached):
     #>  [1] digest_0.6.39       desc_1.4.3          R6_2.6.1           

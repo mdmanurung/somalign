@@ -8,7 +8,8 @@ articles:
   pretrained-old-and-new-soms: pretrained-old-and-new-soms.html
   somalign: somalign.html
   two-pass: two-pass.html
-last_built: 2026-07-15T21:06Z
+  validating-label-transfer: validating-label-transfer.html
+last_built: 2026-07-19T22:33Z
 urls:
   reference: https://mdmanurung.github.io/somalign/reference
   article: https://mdmanurung.github.io/somalign/articles

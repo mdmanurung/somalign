@@ -13,7 +13,8 @@ somalign_reference_from_nodes(
   node_masses = NULL,
   label_prob = NULL,
   distance_quantiles = NULL,
-  global_distance_quantiles = NULL
+  global_distance_quantiles = NULL,
+  node_var = NULL
 )
 ```
 
@@ -50,6 +51,14 @@ somalign_reference_from_nodes(
 - global_distance_quantiles:
 
   Optional global reference distance quantiles.
+
+- node_var:
+
+  Optional `n_nodes x p` matrix of per-node per-marker variances
+  (reference-scaled space). Supply when deserialising a previously
+  computed reference. `NULL` (default) disables surprisal-based
+  outside-reference columns in
+  [`somalign_results()`](https://mdmanurung.github.io/somalign/reference/somalign_results.md).
 
 ## Value
 

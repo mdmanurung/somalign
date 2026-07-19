@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,6 +39,7 @@
     <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchor-regularized alignment</a></li>
     <li><a class="dropdown-item" href="../articles/two-pass.html">Two-pass global and local alignment</a></li>
     <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+    <li><a class="dropdown-item" href="../articles/validating-label-transfer.html">Validating and tuning label transfer</a></li>
     <li><a class="dropdown-item" href="../articles/function-coverage.html">API smoke test</a></li>
   </ul>
 </li>
@@ -46,7 +47,7 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-news">
 <li><h6 class="dropdown-header" data-toc-skip>Releases</h6></li>
-    <li><a class="dropdown-item" href="../news/index.html">Version 0.1.0</a></li>
+    <li><a class="dropdown-item" href="../news/index.html">Version 0.99.4</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../news/index.html">Changelog</a></li>
   </ul>
@@ -56,7 +57,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign" aria-label="GitHub repository"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul>
 </div>
 
@@ -83,6 +84,18 @@
 reference SOM using codebook-level unbalanced entropic optimal
 transport. The example below trains a reference SOM on labelled old
 samples, then projects a shifted query dataset into that reference.</p>
+<p><strong>The primary product is label transfer</strong>, which carries
+reference labels (and a per-cell confidence and margin) onto the query
+via the transport plan. The <em>corrected coordinates</em>
+(<code>corrected_som_*</code>, <code>correction_norm</code>) are a
+secondary, diagnostic output: they are useful for triage and
+visualisation, but the barycentric correction can over-merge distinct
+populations (see <code><a href="../reference/somalign_topology_audit.html">somalign_topology_audit()</a></code>), so they should
+not be treated as a batch-corrected expression matrix for downstream
+re-clustering or differential testing. Call <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> on a
+fit for the label-transfer headline, or
+<code>somalign_results(fit, include_correction = FALSE)</code> for a
+label-focused table.</p>
 <div class="section level2">
 <h2 id="quick-start">Quick start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
 </h2>
@@ -142,6 +155,11 @@ both <code>solver = "internal"</code> and the compatibility alias
 metadata row per query sample.</li>
 <li>Inspect fit quality with <code><a href="../reference/somalign_diagnostics.html">somalign_diagnostics()</a></code> and
 tune OT parameters with <code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code>.</li>
+<li>Validate the transferred labels and tune for accuracy with
+<code><a href="../reference/somalign_cross_validate.html">somalign_cross_validate()</a></code>,
+<code><a href="../reference/somalign_label_metrics.html">somalign_label_metrics()</a></code>,
+<code><a href="../reference/somalign_calibration.html">somalign_calibration()</a></code>, and <code><a href="../reference/somalign_tune.html">somalign_tune()</a></code>.
+See the “Validating and tuning label transfer” vignette.</li>
 </ul>
 </div>
 <div class="section level2">
@@ -156,16 +174,16 @@ Start with these columns:</p>
 <span>  <span class="st">"old_som_unit"</span>,</span>
 <span>  <span class="st">"old_som_distance"</span>,</span>
 <span>  <span class="st">"old_som_distance_threshold"</span>,</span>
-<span>  <span class="st">"old_som_label"</span>,</span>
 <span>  <span class="st">"outside_reference_distance"</span>,</span>
+<span>  <span class="st">"outside_reference_surprisal"</span>,</span>
+<span>  <span class="st">"outside_reference_top_marker"</span>,</span>
 <span>  <span class="st">"final_status"</span>,</span>
+<span>  <span class="st">"old_som_label"</span>,</span>
 <span>  <span class="st">"corrected_som_unit"</span>,</span>
-<span>  <span class="st">"corrected_som_distance"</span>,</span>
-<span>  <span class="st">"corrected_som_distance_threshold"</span>,</span>
-<span>  <span class="st">"corrected_outside_reference_distance"</span>,</span>
 <span>  <span class="st">"correction_norm"</span>,</span>
 <span>  <span class="st">"transferred_label"</span>,</span>
 <span>  <span class="st">"transferred_label_confidence"</span>,</span>
+<span>  <span class="st">"transferred_label_margin"</span>,</span>
 <span>  <span class="st">"transferred_label_accepted"</span></span>
 <span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   sample_id query_som_unit old_som_unit old_som_distance</span></span>
@@ -175,34 +193,34 @@ Start with these columns:</p>
 <span><span class="co">#&gt; 4         4              3            4        1.9063036</span></span>
 <span><span class="co">#&gt; 5         5              1            4        0.8813879</span></span>
 <span><span class="co">#&gt; 6         6              1            4        0.9746628</span></span>
-<span><span class="co">#&gt;   old_som_distance_threshold old_som_label outside_reference_distance</span></span>
-<span><span class="co">#&gt; 1                   1.775302          high                      FALSE</span></span>
-<span><span class="co">#&gt; 2                   1.919417           low                      FALSE</span></span>
-<span><span class="co">#&gt; 3                   1.919417           low                      FALSE</span></span>
-<span><span class="co">#&gt; 4                   1.919417           low                      FALSE</span></span>
-<span><span class="co">#&gt; 5                   1.919417           low                      FALSE</span></span>
-<span><span class="co">#&gt; 6                   1.919417           low                      FALSE</span></span>
-<span><span class="co">#&gt;       final_status corrected_som_unit corrected_som_distance</span></span>
-<span><span class="co">#&gt; 1 inside_reference                  1              0.2977163</span></span>
-<span><span class="co">#&gt; 2 inside_reference                  4              0.6852802</span></span>
-<span><span class="co">#&gt; 3 inside_reference                  4              1.2155583</span></span>
-<span><span class="co">#&gt; 4 inside_reference                  4              1.5699952</span></span>
-<span><span class="co">#&gt; 5 inside_reference                  4              0.8350049</span></span>
-<span><span class="co">#&gt; 6 inside_reference                  4              0.5477905</span></span>
-<span><span class="co">#&gt;   corrected_som_distance_threshold corrected_outside_reference_distance</span></span>
-<span><span class="co">#&gt; 1                         1.775302                                FALSE</span></span>
-<span><span class="co">#&gt; 2                         1.919417                                FALSE</span></span>
-<span><span class="co">#&gt; 3                         1.919417                                FALSE</span></span>
-<span><span class="co">#&gt; 4                         1.919417                                FALSE</span></span>
-<span><span class="co">#&gt; 5                         1.919417                                FALSE</span></span>
-<span><span class="co">#&gt; 6                         1.919417                                FALSE</span></span>
-<span><span class="co">#&gt;   correction_norm transferred_label transferred_label_confidence</span></span>
-<span><span class="co">#&gt; 1       1.3540493              &lt;NA&gt;                           NA</span></span>
-<span><span class="co">#&gt; 2       0.4712927               low                    0.9999969</span></span>
-<span><span class="co">#&gt; 3       0.4712927               low                    0.9999969</span></span>
-<span><span class="co">#&gt; 4       0.8539725              high                    0.7376283</span></span>
-<span><span class="co">#&gt; 5       0.4712927               low                    0.9999969</span></span>
-<span><span class="co">#&gt; 6       0.4712927               low                    0.9999969</span></span>
+<span><span class="co">#&gt;   old_som_distance_threshold outside_reference_distance</span></span>
+<span><span class="co">#&gt; 1                   1.775302                      FALSE</span></span>
+<span><span class="co">#&gt; 2                   1.919417                      FALSE</span></span>
+<span><span class="co">#&gt; 3                   1.919417                      FALSE</span></span>
+<span><span class="co">#&gt; 4                   1.919417                      FALSE</span></span>
+<span><span class="co">#&gt; 5                   1.919417                      FALSE</span></span>
+<span><span class="co">#&gt; 6                   1.919417                      FALSE</span></span>
+<span><span class="co">#&gt;   outside_reference_surprisal outside_reference_top_marker     final_status</span></span>
+<span><span class="co">#&gt; 1                    4.358669                           f3 inside_reference</span></span>
+<span><span class="co">#&gt; 2                    1.862734                           f2 inside_reference</span></span>
+<span><span class="co">#&gt; 3                    4.039242                           f4 inside_reference</span></span>
+<span><span class="co">#&gt; 4                    8.612408                           f2 inside_reference</span></span>
+<span><span class="co">#&gt; 5                    1.759145                           f2 inside_reference</span></span>
+<span><span class="co">#&gt; 6                    2.090646                           f1 inside_reference</span></span>
+<span><span class="co">#&gt;   old_som_label corrected_som_unit correction_norm transferred_label</span></span>
+<span><span class="co">#&gt; 1          high                  1       1.3540493              &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 2           low                  4       0.4712927               low</span></span>
+<span><span class="co">#&gt; 3           low                  4       0.4712927               low</span></span>
+<span><span class="co">#&gt; 4           low                  4       0.8539725              high</span></span>
+<span><span class="co">#&gt; 5           low                  4       0.4712927               low</span></span>
+<span><span class="co">#&gt; 6           low                  4       0.4712927               low</span></span>
+<span><span class="co">#&gt;   transferred_label_confidence transferred_label_margin</span></span>
+<span><span class="co">#&gt; 1                           NA                0.1991998</span></span>
+<span><span class="co">#&gt; 2                    0.9999969                0.9999938</span></span>
+<span><span class="co">#&gt; 3                    0.9999969                0.9999938</span></span>
+<span><span class="co">#&gt; 4                    0.7376283                0.4752565</span></span>
+<span><span class="co">#&gt; 5                    0.9999969                0.9999938</span></span>
+<span><span class="co">#&gt; 6                    0.9999969                0.9999938</span></span>
 <span><span class="co">#&gt;   transferred_label_accepted</span></span>
 <span><span class="co">#&gt; 1                      FALSE</span></span>
 <span><span class="co">#&gt; 2                       TRUE</span></span>
@@ -216,11 +234,24 @@ Start with these columns:</p>
 </h2>
 <p>The columns split into three groups. <code>old_som_unit</code>,
 <code>old_som_distance</code>, <code>old_som_distance_threshold</code>,
-<code>outside_reference_distance</code>, <code>final_status</code>,
+<code>outside_reference_distance</code>,
+<code>outside_reference_surprisal</code>,
+<code>outside_reference_top_marker</code>, <code>final_status</code>,
 <code>old_som_label</code>, and <code>old_som_label_confidence</code>
-are the primary result: each sample is assigned to its nearest reference
-node by Euclidean distance, with no transport involved.</p>
-<p>The OT plan then contributes two sets of auxiliary columns.
+describe the direct reference projection: each sample is assigned to its
+nearest reference node by Euclidean distance, with no transport
+involved. Use this group for reference-node assignment and cross-batch
+composition summaries.</p>
+<p>The OT plan then contributes label-transfer columns.
+<code>transferred_label</code> is the top label from
+<code>correspondence %*% reference$label_prob</code>; confidence is the
+top transported-label posterior probability;
+<code>transferred_label_margin</code> is the top posterior minus the
+runner-up posterior. <code>transferred_label_accepted</code> requires
+both enough transported mass and enough label confidence. Check the
+acceptance, confidence, and margin columns before using transferred
+labels downstream.</p>
+<p>The corrected-projection columns are auxiliary diagnostics.
 <code>corrected_som_unit</code>, <code>corrected_som_distance</code>,
 <code>corrected_som_distance_threshold</code>,
 <code>corrected_outside_reference_distance</code>, and
@@ -229,14 +260,32 @@ query SOM node is shifted toward its mass-weighted reference target. A
 large <code>correction_norm</code> signals a systematic offset between
 the batches and is worth examining, but the corrected assignment should
 not replace the direct one.</p>
-<p><code>transferred_label</code>,
-<code>transferred_label_confidence</code>, and
-<code>transferred_label_accepted</code> derive from the same OT
-correspondence: the dominant reference node in each query node’s
-transport row contributes its label, accepted only when transported mass
-and label confidence both clear their thresholds. Check
-<code>transferred_label_accepted</code> before using any transferred
-label downstream.</p>
+</div>
+<div class="section level2">
+<h2 id="cross-batch-composition-and-abundance">Cross-batch composition and abundance<a class="anchor" aria-label="anchor" href="#cross-batch-composition-and-abundance"></a>
+</h2>
+<p>When the goal is to compare cell-type composition across batches, two
+choices improve cross-batch reproducibility. First, use the direct
+projection (<code>old_som_unit</code>, <code>old_som_label</code>) or
+<code><a href="../reference/somalign_soft_frequencies.html">somalign_soft_frequencies()</a></code> rather than the corrected
+columns: the barycentric correction can over-merge populations (see
+<code><a href="../reference/somalign_topology_audit.html">somalign_topology_audit()</a></code>) and does not improve
+reproducibility of composition. Second, quantify abundance
+compositionally. Cluster frequencies sum to one, so a raw-frequency
+comparison is dominated by the largest clusters and understates how well
+rarer ones are recovered. A centred log-ratio (CLR) transform of
+per-sample cluster counts, as implemented in the <code>crumblr</code>
+package, maps the composition to log-ratio space and downweights
+low-count clusters, and is the transform used by downstream
+differential-abundance models:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># counts: a samples-by-cluster integer matrix (e.g. table(sample, old_som_label))</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">crumblr</span><span class="op">)</span></span>
+<span><span class="va">cobj</span> <span class="op">&lt;-</span> <span class="fu">crumblr</span><span class="op">(</span><span class="va">counts</span><span class="op">)</span>      <span class="co"># CLR values in cobj$E, precision weights in cobj$weights</span></span></code></pre></div>
+<p>For softer abundance estimates, aggregate with
+<code><a href="../reference/somalign_soft_frequencies.html">somalign_soft_frequencies()</a></code> before downstream compositional
+modelling. Absolute per-cluster proportions and node-level frequencies
+remain approximate; the CLR profile is the reproducible quantity.</p>
 </div>
 <div class="section level2">
 <h2 id="diagnostic-plots">Diagnostic plots<a class="anchor" aria-label="anchor" href="#diagnostic-plots"></a>
@@ -253,7 +302,7 @@ with <code>patchwork</code> or <code>cowplot</code>.</p>
 to test whether the query and reference SOM code ranges overlap
 sufficiently. Then visualise the result with
 <code><a href="../reference/somalign_plot_codebook_range.html">somalign_plot_codebook_range()</a></code>.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">chk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_check_codebook_alignment.html">somalign_check_codebook_alignment</a></span><span class="op">(</span><span class="va">query_obj</span><span class="op">$</span><span class="va">codebook</span>, <span class="va">reference</span>,</span>
 <span>                                         stop_if_critical <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">chk</span><span class="op">)</span></span>
@@ -274,7 +323,7 @@ cell-level densities of the query data in reference-scaled space, with
 reference SOM node prototypes overlaid as a rug. Passing
 <code>reference_data</code> (reference cells in reference-scaled
 coordinates) draws a true second density curve instead.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_plot_marker_distributions.html">somalign_plot_marker_distributions</a></span><span class="op">(</span><span class="va">query_obj</span>, reference <span class="op">=</span> <span class="va">reference</span><span class="op">)</span></span></code></pre></div>
 <p><img src="somalign_files/figure-html/plot-dists-1.png" class="r-plt" alt="" width="672"></p>
 </div>
@@ -284,10 +333,10 @@ coordinates) draws a true second density curve instead.</p>
 <p><code>match_fraction</code> near 1 means a query node’s mass arrived
 at the reference; values well below 1 indicate nodes the solver could
 not route.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_plot_mass_balance.html">somalign_plot_mass_balance</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
 <p><img src="somalign_files/figure-html/plot-ot-quality-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_plot_match_fraction.html">somalign_plot_match_fraction</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
 <p><img src="somalign_files/figure-html/plot-ot-quality-2.png" class="r-plt" alt="" width="672"></p>
 </div>
@@ -297,10 +346,10 @@ not route.</p>
 <p>Each query node is shifted by a correction vector derived from its OT
 transport row. Large <code>correction_norm</code> values relative to the
 typical inter-node spacing signal a systematic batch offset.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_plot_correction.html">somalign_plot_correction</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
 <p><img src="somalign_files/figure-html/plot-correction-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_plot_outside_fraction.html">somalign_plot_outside_fraction</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
 <p><img src="somalign_files/figure-html/plot-correction-2.png" class="r-plt" alt="" width="672"></p>
 </div>
@@ -310,7 +359,7 @@ typical inter-node spacing signal a systematic batch offset.</p>
 <p>The confusion heatmap is row-normalised: each row sums to 100%. High
 diagonal values indicate coherent transfer; strong off-diagonal entries
 warrant re-examination of the corresponding query node.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_plot_label_confusion.html">somalign_plot_label_confusion</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
 <p><img src="somalign_files/figure-html/plot-labels-1.png" class="r-plt" alt="" width="480"></p>
 </div>
@@ -320,18 +369,18 @@ warrant re-examination of the corresponding query node.</p>
 <p><code><a href="../reference/somalign_worst_nodes.html">somalign_worst_nodes()</a></code> returns the nodes with the lowest
 match fraction as a data frame, making it easy to inspect or pass
 downstream.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_worst_nodes.html">somalign_worst_nodes</a></span><span class="op">(</span><span class="va">fit</span>, n <span class="op">=</span> <span class="fl">10</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    query_node query_mass transported_mass match_fraction correction_allowed</span></span>
 <span><span class="co">#&gt; V2          2      0.475       0.42264344      0.8897757               TRUE</span></span>
 <span><span class="co">#&gt; V3          3      0.175       0.16011653      0.9149516               TRUE</span></span>
 <span><span class="co">#&gt; V1          1      0.300       0.35245983      1.0000000               TRUE</span></span>
 <span><span class="co">#&gt; V4          4      0.050       0.05309817      1.0000000               TRUE</span></span>
-<span><span class="co">#&gt;    correction_norm top_ref_label</span></span>
-<span><span class="co">#&gt; V2       0.4970407          high</span></span>
-<span><span class="co">#&gt; V3       0.8539725          high</span></span>
-<span><span class="co">#&gt; V1       0.4712927           low</span></span>
-<span><span class="co">#&gt; V4       1.3540493          high</span></span></code></pre></div>
+<span><span class="co">#&gt;    correction_norm transport_entropy top_ref_label</span></span>
+<span><span class="co">#&gt; V2       0.4970407      1.424552e+00          high</span></span>
+<span><span class="co">#&gt; V3       0.8539725      7.478739e-01          high</span></span>
+<span><span class="co">#&gt; V1       0.4712927      6.806472e-05           low</span></span>
+<span><span class="co">#&gt; V4       1.3540493      1.290350e-02          high</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -353,9 +402,9 @@ into a global shift (first OT pass at a coarser epsilon) and a residual
 per-node correction (second pass). Useful when the batch offset is large
 relative to the local OT problem scale.</p>
 <p><code><a href="../articles/algorithm.html">vignette("algorithm", package = "somalign")</a></code> walks
-through each pipeline stage — direct projection, OT correspondence,
-correction vectors, label transfer — and explains how they produce the
-output columns.</p>
+through each pipeline stage (direct projection, OT correspondence,
+correction vectors, label transfer, and soft abundance projection) and
+explains how they produce the output columns.</p>
 <p>For preprocessing, <code><a href="../reference/somalign_normalize.html">somalign_normalize()</a></code> subtracts the
 per-marker mean deviation between query and reference in z-scored space,
 and <code><a href="../reference/somalign_quantile_normalize.html">somalign_quantile_normalize()</a></code> scales raw values by
@@ -394,7 +443,7 @@ nearest-reference-node searches.</p>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] somalign_0.99.1  kohonen_3.0.13   BiocStyle_2.40.0</span></span>
+<span><span class="co">#&gt; [1] somalign_0.99.4  kohonen_3.0.13   BiocStyle_2.40.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
 <span><span class="co">#&gt;  [1] gtable_0.3.6        jsonlite_2.0.0      dplyr_1.2.1        </span></span>

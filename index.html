@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,6 +41,7 @@
     <li><a class="dropdown-item" href="articles/anchor-samples.html">Anchor-regularized alignment</a></li>
     <li><a class="dropdown-item" href="articles/two-pass.html">Two-pass global and local alignment</a></li>
     <li><a class="dropdown-item" href="articles/algorithm.html">Algorithm and interpretation</a></li>
+    <li><a class="dropdown-item" href="articles/validating-label-transfer.html">Validating and tuning label transfer</a></li>
     <li><a class="dropdown-item" href="articles/function-coverage.html">API smoke test</a></li>
   </ul>
 </li>
@@ -48,7 +49,7 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-news">
 <li><h6 class="dropdown-header" data-toc-skip>Releases</h6></li>
-    <li><a class="dropdown-item" href="news/index.html">Version 0.1.0</a></li>
+    <li><a class="dropdown-item" href="news/index.html">Version 0.99.4</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="news/index.html">Changelog</a></li>
   </ul>
@@ -58,7 +59,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="search.json">
 </form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign" aria-label="GitHub repository"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul>
 </div>
 
@@ -72,7 +73,7 @@
 <!-- badges: start -->
 
 <p><code>somalign</code> aligns query self-organising maps to fixed <code>kohonen</code> reference maps using codebook-level unbalanced entropic optimal transport.</p>
-<p>The conservative primary result is direct projection into the reference SOM. Transport-corrected projections are returned as auxiliary columns for visualisation, annotation, and triage.</p>
+<p>The main label-transfer product is a transferred label, confidence, margin, and acceptance flag for each query cell. Direct projection into the reference SOM is the conservative reference-node assignment and the preferred basis for composition/abundance summaries. Transport-corrected projection columns are auxiliary diagnostics for visualisation, annotation, and triage.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
@@ -109,7 +110,7 @@
 <tbody>
 <tr>
 <td><code>old_som_unit</code></td>
-<td>Direct reference-node assignment (primary result)</td>
+<td>Direct reference-node assignment</td>
 </tr>
 <tr>
 <td><code>old_som_distance</code></td>
@@ -119,6 +120,18 @@
 <td><code>outside_reference_distance</code></td>
 <td>
 <code>TRUE</code> if distance exceeds reference quantile threshold</td>
+</tr>
+<tr>
+<td><code>outside_reference_surprisal</code></td>
+<td>Chi-squared-style anomaly score for the assigned reference node</td>
+</tr>
+<tr>
+<td><code>outside_reference_pvalue</code></td>
+<td>Approximate p-value for the anomaly score</td>
+</tr>
+<tr>
+<td><code>outside_reference_top_marker</code></td>
+<td>Marker contributing most to the anomaly score</td>
 </tr>
 <tr>
 <td><code>final_status</code></td>
@@ -144,11 +157,20 @@
 </tr>
 <tr>
 <td><code>transferred_label</code></td>
-<td>Label transferred via OT correspondence (auxiliary)</td>
+<td>Top label from <code>correspondence %*% reference$label_prob</code>
+</td>
 </tr>
 <tr>
 <td><code>transferred_label_confidence</code></td>
 <td>Confidence of the transferred label</td>
+</tr>
+<tr>
+<td><code>transferred_label_second</code></td>
+<td>Runner-up transferred label</td>
+</tr>
+<tr>
+<td><code>transferred_label_margin</code></td>
+<td>Top minus runner-up transferred-label confidence</td>
 </tr>
 <tr>
 <td><code>transferred_label_accepted</code></td>
@@ -168,6 +190,8 @@
 <code><a href="articles/pretrained-old-and-new-soms.html">vignette("pretrained-old-and-new-soms", package = "somalign")</a></code>: existing SOMs, saved codebooks, diagnostics, and tuning.</li>
 <li>
 <code><a href="articles/algorithm.html">vignette("algorithm", package = "somalign")</a></code>: algorithm and output-column interpretation.</li>
+<li>
+<code><a href="articles/validating-label-transfer.html">vignette("validating-label-transfer", package = "somalign")</a></code>: label-transfer validation, calibration, tuning, and soft abundance summaries.</li>
 </ul>
 </div>
 </div>
@@ -198,7 +222,7 @@
 <div class="developers">
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
-<li>Mikhael Manurung <br><small class="roles"> Author, maintainer </small> <a href="https://orcid.org/0000-0000-0000-0000" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
+<li>Mikhael Manurung <br><small class="roles"> Author, maintainer </small>   </li>
 </ul>
 </div>
 

@@ -21,7 +21,7 @@ valid optimal transport problem over the full codebook."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,18 +38,19 @@ valid optimal transport problem over the full codebook."></head><body>
     <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchor-regularized alignment</a></li>
     <li><a class="dropdown-item" href="../articles/two-pass.html">Two-pass global and local alignment</a></li>
     <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+    <li><a class="dropdown-item" href="../articles/validating-label-transfer.html">Validating and tuning label transfer</a></li>
     <li><a class="dropdown-item" href="../articles/function-coverage.html">API smoke test</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-news"><li><h6 class="dropdown-header" data-toc-skip>Releases</h6></li>
-    <li><a class="dropdown-item" href="../news/index.html">Version 0.1.0</a></li>
+    <li><a class="dropdown-item" href="../news/index.html">Version 0.99.4</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../news/index.html">Changelog</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign" aria-label="GitHub repository"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul></div>
 
 
@@ -85,7 +86,7 @@ valid optimal transport problem over the full codebook.</p>
 <span>  epsilon <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>  rho_query <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  rho_ref <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  solver <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"internal"</span>, <span class="st">"log_domain"</span>, <span class="st">"auto"</span><span class="op">)</span>,</span>
+<span>  solver <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"internal"</span>, <span class="st">"log_domain"</span>, <span class="st">"auto"</span>, <span class="st">"annealing"</span><span class="op">)</span>,</span>
 <span>  min_match_fraction <span class="op">=</span> <span class="fl">0.05</span>,</span>
 <span>  confidence_threshold <span class="op">=</span> <span class="fl">0.6</span>,</span>
 <span>  correction_min_mass <span class="op">=</span> <span class="fl">1e-08</span>,</span>
@@ -93,7 +94,12 @@ valid optimal transport problem over the full codebook.</p>
 <span>  tol <span class="op">=</span> <span class="fl">1e-07</span>,</span>
 <span>  chunk_size <span class="op">=</span> <span class="fl">10000L</span>,</span>
 <span>  correction <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"cost_bonus"</span>, <span class="st">"subspace"</span>, <span class="st">"both"</span><span class="op">)</span>,</span>
-<span>  variance_threshold <span class="op">=</span> <span class="fl">0.9</span></span>
+<span>  variance_threshold <span class="op">=</span> <span class="fl">0.9</span>,</span>
+<span>  anneal_start <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>  anneal_stages <span class="op">=</span> <span class="fl">10L</span>,</span>
+<span>  anneal_factor <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  feature_weights <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  laplacian_lambda <span class="op">=</span> <span class="fl">0</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -187,6 +193,37 @@ fraction for selecting the rank of the batch subspace. Default <code>0.9</code>
 (CellANOVA convention). Only used when <code>correction</code> is <code>"subspace"</code> or
 <code>"both"</code>.</p></dd>
 
+
+<dt id="arg-anneal-start-anneal-stages-anneal-factor">anneal_start, anneal_stages, anneal_factor<a class="anchor" aria-label="anchor" href="#arg-anneal-start-anneal-stages-anneal-factor"></a></dt>
+<dd><p>Annealing-schedule tuning
+parameters, used only when <code>solver = "annealing"</code>. See <code><a href="somalign_fit.html">somalign_fit()</a></code>.</p></dd>
+
+
+<dt id="arg-feature-weights">feature_weights<a class="anchor" aria-label="anchor" href="#arg-feature-weights"></a></dt>
+<dd><p>Either <code>NULL</code> (default, squared-Euclidean cost), a
+named non-negative numeric vector of explicit per-feature weights (see
+<code><a href="somalign_fit.html">somalign_fit()</a></code>), or the string <code>"anchor"</code> – auto-estimates weights
+from the anchor displacement matrix <code>D</code> via
+\(w_f = 1 / (\mathrm{var}(D_{\cdot f}) + \delta)\), mean-normalised.
+Markers that vary most across the batch (large <code>var(D[, f])</code>, i.e.
+batch-driven) get low weight and are cheap to transport; markers stable
+across the batch get high weight and are expensive to transport,
+preserving biology. The resolved vector is stored in
+<code>fit$anchors$feature_weights</code> and
+<code>fit$diagnostics$cost_metric$feature_weights</code>. Composes independently
+with <code>correction</code>: the weights reshape the cost geometry, while
+<code>rho_anchor</code>/<code>correction</code> bias routing – both act on the same
+underlying transport problem without conflict.</p></dd>
+
+
+<dt id="arg-laplacian-lambda">laplacian_lambda<a class="anchor" aria-label="anchor" href="#arg-laplacian-lambda"></a></dt>
+<dd><p>Non-negative scalar. Graph-Laplacian smoothing of
+the node-shift field; see <code><a href="somalign_fit.html">somalign_fit()</a></code>. When <code>correction</code> is
+<code>"subspace"</code> or <code>"both"</code>, smoothing is applied <em>before</em> the subspace
+projection (smooth in full marker space, then restrict to the batch
+subspace <code>V</code>) so the Laplacian neighbor structure is respected. Default
+<code>0</code> (no smoothing).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -216,6 +253,21 @@ structure we want to capture.</p></li>
 resulting shifts to \(V_{\text{batch}}\).</p></li>
 </ul><p><code>"subspace"</code> and <code>"both"</code> expose <code>fit$anchors$batch_subspace</code> (a list with
 <code>V</code>, <code>rank</code>, <code>variance_explained</code>). <code>"cost_bonus"</code> sets this to <code>NULL</code>.</p>
+<p><strong>Topology preservation and epsilon.</strong> Empirically, the primary driver of
+topology/structure damage from batch correction is <code>epsilon</code>, not
+<code>rho_anchor</code>. Higher epsilon blurs the transport plan across a wider
+neighbourhood, causing the corrected codebook to collapse biologically
+distinct populations (H0 component merging). Subspace-restricted modes
+(<code>"subspace"</code> or <code>"both"</code>) substantially reduce merging at any given
+epsilon because shifts are confined to the batch-variation subspace, leaving
+orthogonal biological variation intact. As a result, choosing epsilon
+involves a genuine trade-off: higher epsilon is more numerically stable for
+the Sinkhorn solver, but lower epsilon preserves more topology. Before
+committing to an epsilon, run
+<code>somalign_epsilon_sweep(..., topology = TRUE)</code> alongside
+<code><a href="somalign_select_epsilon.html">somalign_select_epsilon()</a></code> and inspect both the phase-transition criterion
+and the <code>biggest_merge_mass_frac</code> column – the two criteria can disagree,
+especially at small epsilon near numerical instability.</p>
 <p><strong>Cost modification.</strong> Let \(C\) be the M×K codebook distance matrix
 normalised by its median positive entry (as in <code><a href="somalign_fit.html">somalign_fit()</a></code>). Each
 anchor pair is projected onto both codebooks to build a count matrix
@@ -266,6 +318,12 @@ work unchanged. An additional <code>$anchors</code> list element is attached:</p
 <code>V</code> (p × rank matrix), <code>rank</code> (integer), and <code>variance_explained</code>
 (cumulative variance at the selected rank). <code>NULL</code> for <code>"cost_bonus"</code>.</p></dd>
 
+<dt><code>displacements</code></dt>
+<dd><p>The scaled anchor displacement matrix
+\(D = X_{\text{old,scaled}} - X_{\text{new,scaled}}\)
+(n_anchors × p), always stored regardless of <code>correction</code> mode. Used by
+<code><a href="somalign_subspace_sensitivity.html">somalign_subspace_sensitivity()</a></code> and <code><a href="somalign_exclusion_test.html">somalign_exclusion_test()</a></code>.</p></dd>
+
 
 </dl></div>
     <div class="section level2">
@@ -273,8 +331,9 @@ work unchanged. An additional <code>$anchors</code> list element is attached:</p
     <p>At small <code>epsilon</code> with high anchor coverage the anchor bonus zeros out
 many entries of the normalised cost matrix, which sharpens the Sinkhorn
 kernel and can drive the remaining entries toward numerical underflow. If
-the solver warns about kernel underflow, pass <code>solver = "log_domain"</code>, which
-works in log-potential space and avoids the issue.</p>
+the solver warns about kernel underflow, pass <code>solver = "log_domain"</code> or
+<code>solver = "annealing"</code>, both of which work in log-potential space and
+avoid the issue.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
@@ -320,6 +379,25 @@ works in log-potential space and avoids the issue.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.5</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $batch_subspace</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> NULL</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $variance_threshold</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.9</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $displacements</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>               F1        F2         F3</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [1,] -0.2266608 -0.220545 -0.2307808</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [2,] -0.2266608 -0.220545 -0.2307808</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [3,] -0.2266608 -0.220545 -0.2307808</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [4,] -0.2266608 -0.220545 -0.2307808</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [5,] -0.2266608 -0.220545 -0.2307808</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [6,] -0.2266608 -0.220545 -0.2307808</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [7,] -0.2266608 -0.220545 -0.2307808</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [8,] -0.2266608 -0.220545 -0.2307808</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [9,] -0.2266608 -0.220545 -0.2307808</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [10,] -0.2266608 -0.220545 -0.2307808</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $feature_weights</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> NULL</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 </code></pre></div>

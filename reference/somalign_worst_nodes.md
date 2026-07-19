@@ -45,9 +45,9 @@ somalign_worst_nodes(fit, n = 4)
 #> V1          1        0.1        0.1234245      1.0000000               TRUE
 #> V3          3        0.5        0.5002755      1.0000000               TRUE
 #> V4          4        0.1        0.1111685      1.0000000               TRUE
-#>    correction_norm top_ref_label
-#> V2       0.1185567          <NA>
-#> V1       0.3455139          <NA>
-#> V3       0.4395087          <NA>
-#> V4       0.1478769          <NA>
+#>    correction_norm transport_entropy top_ref_label
+#> V2       0.1185567      6.652620e-01          <NA>
+#> V1       0.3455139      3.089021e-02          <NA>
+#> V3       0.4395087      9.990417e-01          <NA>
+#> V4       0.1478769      8.307340e-10          <NA>
 ```

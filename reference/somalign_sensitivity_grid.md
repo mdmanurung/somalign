@@ -11,7 +11,7 @@ somalign_sensitivity_grid(
   epsilon,
   rho_query,
   rho_ref,
-  solver = c("internal", "auto"),
+  solver = c("internal", "auto", "log_domain", "annealing"),
   min_match_fraction = 0.05,
   confidence_threshold = 0.6,
   correction_min_mass = 1e-08,
@@ -19,7 +19,10 @@ somalign_sensitivity_grid(
   tol = 1e-07,
   chunk_size = 10000L,
   diagonal_boost = 0,
-  parallel = FALSE
+  parallel = FALSE,
+  anneal_start = 10,
+  anneal_stages = 10L,
+  anneal_factor = NULL
 )
 ```
 
@@ -95,9 +98,17 @@ somalign_sensitivity_grid(
   When `FALSE` (default) a sequential for-loop is used, which is fully
   reproducible across platforms.
 
+- anneal_start, anneal_stages, anneal_factor:
+
+  Annealing-schedule tuning parameters, used only when
+  `solver = "annealing"`. See
+  [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
+
 ## Value
 
-A data frame with one row per parameter combination.
+A data frame with one row per parameter combination, including a
+`mutual_information` column (bits; `diagnostics$ot$mutual_information`
+for that grid point's fit).
 
 ## Examples
 
@@ -123,14 +134,14 @@ somalign_sensitivity_grid(qry, ref,
 #> 2    0.10       0.5       1 internal      1.0304219           0.9788873
 #> 3    0.05       1.0       1 internal      0.9818532           0.9688494
 #> 4    0.10       1.0       1 internal      1.0217717           0.9890859
-#>   max_row_mass_error max_col_mass_error accepted_label_fraction
-#> 1         0.04917404         0.03447202                       0
-#> 2         0.04375593         0.03647086                       0
-#> 3         0.03268400         0.03805557                       0
-#> 4         0.02342453         0.03828297                       0
-#>   outside_direct_fraction outside_corrected_fraction
-#> 1                     0.3                        0.2
-#> 2                     0.3                        0.1
-#> 3                     0.3                        0.1
-#> 4                     0.3                        0.1
+#>   max_row_mass_error max_col_mass_error mutual_information
+#> 1         0.04917404         0.03447202           1.293324
+#> 2         0.04375593         0.03647086           1.234240
+#> 3         0.03268400         0.03805557           1.248706
+#> 4         0.02342453         0.03828297           1.204442
+#>   accepted_label_fraction outside_direct_fraction outside_corrected_fraction
+#> 1                       0                     0.3                        0.2
+#> 2                       0                     0.3                        0.1
+#> 3                       0                     0.3                        0.1
+#> 4                       0                     0.3                        0.1
 ```

@@ -11,7 +11,7 @@ triage rather than feature-level differential testing."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -28,18 +28,19 @@ triage rather than feature-level differential testing."></head><body>
     <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchor-regularized alignment</a></li>
     <li><a class="dropdown-item" href="../articles/two-pass.html">Two-pass global and local alignment</a></li>
     <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+    <li><a class="dropdown-item" href="../articles/validating-label-transfer.html">Validating and tuning label transfer</a></li>
     <li><a class="dropdown-item" href="../articles/function-coverage.html">API smoke test</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-news"><li><h6 class="dropdown-header" data-toc-skip>Releases</h6></li>
-    <li><a class="dropdown-item" href="../news/index.html">Version 0.1.0</a></li>
+    <li><a class="dropdown-item" href="../news/index.html">Version 0.99.4</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../news/index.html">Changelog</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign" aria-label="GitHub repository"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul></div>
 
 
@@ -61,7 +62,12 @@ triage rather than feature-level differential testing.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">somalign_results</span><span class="op">(</span><span class="va">fit</span>, data <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">somalign_results</span><span class="op">(</span></span>
+<span>  <span class="va">fit</span>,</span>
+<span>  data <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  outside_pvalue_threshold <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  include_correction <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -75,10 +81,68 @@ triage rather than feature-level differential testing.</p>
 <dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
 <dd><p>Optional data frame to append after result columns.</p></dd>
 
+
+<dt id="arg-outside-pvalue-threshold">outside_pvalue_threshold<a class="anchor" aria-label="anchor" href="#arg-outside-pvalue-threshold"></a></dt>
+<dd><p>Optional numeric in [0, 1]. When
+supplied, adds a boolean <code>outside_reference_pvalue_flag</code> column,
+<code>TRUE</code> when <code>outside_reference_pvalue &lt; outside_pvalue_threshold</code>.
+<code>NULL</code> (default) omits the column.</p></dd>
+
+
+<dt id="arg-include-correction">include_correction<a class="anchor" aria-label="anchor" href="#arg-include-correction"></a></dt>
+<dd><p>Logical. When <code>FALSE</code>, drops the auxiliary
+correction columns (<code>corrected_som_unit</code>, <code>corrected_som_distance</code>,
+<code>corrected_som_distance_threshold</code>, <code>corrected_outside_reference_distance</code>,
+<code>correction_norm</code>) for a label-transfer-focused result. The corrected
+coordinates are a diagnostic, not a batch-corrected expression product;
+see the package's topology audit for why they can over-merge populations.
+Default <code>TRUE</code> (unchanged behaviour).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data frame with direct and corrected projection columns.</p>
+    <p>A data frame with direct and corrected projection columns, plus
+<code>transferred_label_second</code>, <code>transferred_label_second_confidence</code>, and
+<code>transferred_label_margin</code> for triaging low-margin label transfers, and
+<code>outside_reference_surprisal</code>, <code>outside_reference_pvalue</code>, and
+<code>outside_reference_top_marker</code>: a calibrated chi-squared alternative to
+<code>outside_reference_distance</code> that weights per-marker deviations from a
+query cell's assigned reference node by that node's own per-marker
+variance (<code>reference$node_var</code>). <code>NA</code> when the reference was built
+without <code>node_var</code> (e.g. <code>compute_node_var = FALSE</code>, or a reference
+built before this feature). The chi-squared calibration assumes a
+diagonal-Gaussian node model; it is anti-conservative for heavy-tailed
+(e.g. lognormal) marker distributions, but remains a useful <em>relative</em>
+ranking of anomalous cells regardless.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p><code>transferred_label</code> is the query node's top label transfer choice, an
+argmax over <code>correspondence %*% reference$label_prob</code>. When two labels
+receive close probability mass, this argmax can be brittle: a cell can
+land on a node whose true dominant population is clean, yet still get the
+runner-up label because it narrowly lost the top spot. <code>transferred_label_second</code>
+and <code>transferred_label_margin</code> (top confidence minus second confidence,
+from the same query node) expose this directly, so close calls can be
+triaged downstream instead of silently trusted at face value.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="cross-batch-composition-and-abundance">Cross-batch composition and abundance<a class="anchor" aria-label="anchor" href="#cross-batch-composition-and-abundance"></a></h2>
+
+
+<p>For comparing cell-type composition or abundance across batches, use the
+<strong>direct</strong> projection columns (<code>old_som_unit</code>, <code>old_som_label</code>), not the
+corrected ones. The barycentric correction can over-merge distinct
+populations (see <code><a href="somalign_topology_audit.html">somalign_topology_audit()</a></code>) and does not improve, and can
+worsen, the cross-batch reproducibility of composition. Quantify abundance
+<strong>compositionally</strong> rather than on raw frequencies: apply a centred
+log-ratio (CLR) transform to per-sample cluster counts (for example with the
+<code>crumblr</code> package, which also supplies count-based precision weights for
+downstream differential-abundance models). Raw proportions are dominated by
+the largest clusters and understate the reproducibility of rarer ones; the
+CLR profile is the reproducible quantity. Absolute per-cluster proportions
+and node-level frequencies remain approximate and should not be treated as
+precise.</p>
     </div>
 
     <div class="section level2">
@@ -105,61 +169,94 @@ triage rather than feature-level differential testing.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 8          8              3            3       0.69506366</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 9          9              3            3       0.53031798</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 10        10              2            1       0.23777951</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    old_som_distance_threshold outside_reference_distance      final_status</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1                   0.8250290                       TRUE outside_reference</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2                   0.6703518                      FALSE  inside_reference</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3                   0.4411642                       TRUE outside_reference</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4                   0.1478769                      FALSE  inside_reference</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5                   0.8250290                      FALSE  inside_reference</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6                   0.4411642                      FALSE  inside_reference</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 7                   0.6703518                      FALSE  inside_reference</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8                   0.6703518                       TRUE outside_reference</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 9                   0.6703518                      FALSE  inside_reference</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10                  0.8250290                      FALSE  inside_reference</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    old_som_label old_som_label_confidence corrected_som_unit</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1           &lt;NA&gt;                       NA                  1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2           &lt;NA&gt;                       NA                  3</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3           &lt;NA&gt;                       NA                  2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4           &lt;NA&gt;                       NA                  4</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5           &lt;NA&gt;                       NA                  1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6           &lt;NA&gt;                       NA                  2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 7           &lt;NA&gt;                       NA                  3</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8           &lt;NA&gt;                       NA                  3</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 9           &lt;NA&gt;                       NA                  3</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10          &lt;NA&gt;                       NA                  1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    corrected_som_distance corrected_som_distance_threshold</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1               0.7582309                        0.8250290</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2               0.6913405                        0.6703518</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3               0.3598947                        0.4411642</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4               0.0000000                        0.1478769</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5               0.5213334                        0.8250290</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6               0.1918948                        0.4411642</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 7               0.1097766                        0.6703518</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8               0.2575890                        0.6703518</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 9               0.1875863                        0.6703518</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10              0.1931799                        0.8250290</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    corrected_outside_reference_distance correction_norm transferred_label</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1                                 FALSE       0.4395087              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2                                  TRUE       0.4395087              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3                                 FALSE       0.1185567              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4                                 FALSE       0.1478769              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5                                 FALSE       0.4395087              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6                                 FALSE       0.1185567              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 7                                 FALSE       0.3455139              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8                                 FALSE       0.4395087              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 9                                 FALSE       0.4395087              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10                                FALSE       0.1185567              &lt;NA&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>    transferred_label_confidence transferred_label_accepted</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1                            NA                      FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2                            NA                      FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3                            NA                      FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4                            NA                      FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5                            NA                      FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6                            NA                      FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 7                            NA                      FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 8                            NA                      FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 9                            NA                      FALSE</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10                           NA                      FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    old_som_distance_threshold outside_reference_distance</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                   0.8250290                       TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                   0.6703518                      FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                   0.4411642                       TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                   0.1478769                      FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                   0.8250290                      FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6                   0.4411642                      FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7                   0.6703518                      FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8                   0.6703518                       TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9                   0.6703518                      FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10                  0.8250290                      FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    outside_reference_surprisal outside_reference_pvalue</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                   2.96492628                0.2270777</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                   2.30068114                0.3165290</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                   2.91411201                0.2329210</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                   0.02186757                0.9891258</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                   1.71095932                0.4250792</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6                   0.08580386                0.9580053</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7                   0.42477726                0.8086504</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8                   3.26341345                0.1955955</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9                   1.69971026                0.4274769</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10                  0.26978329                0.8738106</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    outside_reference_top_marker      final_status old_som_label</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                            F2 outside_reference          &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                            F1  inside_reference          &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                            F1 outside_reference          &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                            F1  inside_reference          &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                            F1  inside_reference          &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6                            F2  inside_reference          &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7                            F2  inside_reference          &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8                            F2 outside_reference          &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9                            F2  inside_reference          &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10                           F2  inside_reference          &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    old_som_label_confidence corrected_som_unit corrected_som_distance</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                        NA                  1              0.7582309</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                        NA                  3              0.6913405</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                        NA                  2              0.3598947</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                        NA                  4              0.0000000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                        NA                  1              0.5213334</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6                        NA                  2              0.1918948</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7                        NA                  3              0.1097766</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8                        NA                  3              0.2575890</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9                        NA                  3              0.1875863</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10                       NA                  1              0.1931799</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    corrected_som_distance_threshold corrected_outside_reference_distance</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                         0.8250290                                FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                         0.6703518                                 TRUE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                         0.4411642                                FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                         0.1478769                                FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                         0.8250290                                FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6                         0.4411642                                FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7                         0.6703518                                FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8                         0.6703518                                FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9                         0.6703518                                FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10                        0.8250290                                FALSE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    correction_norm transferred_label transferred_label_confidence</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1        0.4395087              &lt;NA&gt;                           NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2        0.4395087              &lt;NA&gt;                           NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3        0.1185567              &lt;NA&gt;                           NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4        0.1478769              &lt;NA&gt;                           NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5        0.4395087              &lt;NA&gt;                           NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6        0.1185567              &lt;NA&gt;                           NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7        0.3455139              &lt;NA&gt;                           NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8        0.4395087              &lt;NA&gt;                           NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9        0.4395087              &lt;NA&gt;                           NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10       0.1185567              &lt;NA&gt;                           NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    transferred_label_accepted transferred_label_second</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                       FALSE                     &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                       FALSE                     &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                       FALSE                     &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                       FALSE                     &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                       FALSE                     &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6                       FALSE                     &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7                       FALSE                     &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8                       FALSE                     &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9                       FALSE                     &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10                      FALSE                     &lt;NA&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    transferred_label_second_confidence transferred_label_margin</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1                                   NA                       NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2                                   NA                       NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3                                   NA                       NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4                                   NA                       NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5                                   NA                       NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6                                   NA                       NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7                                   NA                       NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 8                                   NA                       NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 9                                   NA                       NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 10                                  NA                       NA</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

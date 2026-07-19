@@ -5,12 +5,12 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>API smoke test — all public functions • somalign</title>
+<title>API smoke test: all public functions • somalign</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="API smoke test — all public functions">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="API smoke test: all public functions">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,6 +39,7 @@
     <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchor-regularized alignment</a></li>
     <li><a class="dropdown-item" href="../articles/two-pass.html">Two-pass global and local alignment</a></li>
     <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+    <li><a class="dropdown-item" href="../articles/validating-label-transfer.html">Validating and tuning label transfer</a></li>
     <li><a class="dropdown-item" href="../articles/function-coverage.html">API smoke test</a></li>
   </ul>
 </li>
@@ -46,7 +47,7 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-news">
 <li><h6 class="dropdown-header" data-toc-skip>Releases</h6></li>
-    <li><a class="dropdown-item" href="../news/index.html">Version 0.1.0</a></li>
+    <li><a class="dropdown-item" href="../news/index.html">Version 0.99.4</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../news/index.html">Changelog</a></li>
   </ul>
@@ -56,7 +57,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign" aria-label="GitHub repository"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul>
 </div>
 
@@ -70,7 +71,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
-      <h1>API smoke test — all public functions</h1>
+      <h1>API smoke test: all public functions</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/mdmanurung/somalign/blob/main/vignettes/function-coverage.Rmd" class="external-link"><code>vignettes/function-coverage.Rmd</code></a></small>
@@ -81,10 +82,9 @@
     
 <p>This vignette exercises every public function in the package so that
 build-time vignette rendering catches breaking changes or silent
-regressions. It is not a tutorial — see the other vignettes for
-annotated workflows. Each section calls the function, checks the return
-type, and prints a key field to confirm the object was constructed
-correctly.</p>
+regressions. It is not a tutorial (see the other vignettes for annotated
+workflows). Each section calls the function, checks the return type, and
+prints a key field to confirm the object was constructed correctly.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">kohonen</span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://mdmanurung.github.io/somalign">somalign</a></span><span class="op">)</span></span>
@@ -274,10 +274,8 @@ dynamic ranges across batches.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">fit</span>, <span class="st">"somalign_fit"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">fit</span></span>
 <span><span class="co">#&gt; &lt;somalign_fit&gt;</span></span>
-<span><span class="co">#&gt;   solver: internal</span></span>
-<span><span class="co">#&gt;   query nodes: 9</span></span>
-<span><span class="co">#&gt;   reference nodes: 9</span></span>
-<span><span class="co">#&gt;   transport mass: 1.104</span></span></code></pre></div>
+<span><span class="co">#&gt;   label transfer: 100.0% of cells accepted across 2 class(es); median confidence 1.00, median margin 1.00</span></span>
+<span><span class="co">#&gt;   solver: internal  |  query nodes: 9  |  reference nodes: 9  |  transport mass: 1.104</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="somalign_fit_anchored">
@@ -384,10 +382,36 @@ both plain and anchored fits.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="st">"corrected_som_unit"</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="st">"final_status"</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Rows:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span>, <span class="st">"  Columns:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Rows: 60   Columns: 17</span></span>
+<span><span class="co">#&gt; Rows: 60   Columns: 23</span></span>
 <span></span>
 <span><span class="va">res_aug</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_results.html">somalign_results</a></span><span class="op">(</span><span class="va">fit</span>, data <span class="op">=</span> <span class="va">new_data</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">res_aug</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="somalign_soft_labels">
+<code>somalign_soft_labels</code><a class="anchor" aria-label="anchor" href="#somalign_soft_labels"></a>
+</h2>
+<p>Computes per-cell soft label probabilities by smoothing over each
+cell’s nearest reference SOM nodes.</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">soft</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_soft_labels.html">somalign_soft_labels</a></span><span class="op">(</span><span class="va">fit</span>, k <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">soft</span>, <span class="st">"somalign_soft_labels"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">soft</span><span class="op">)</span> <span class="op">==</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">new_data</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Soft label columns:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">soft</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">", "</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Soft label columns: pop_A, pop_B</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="somalign_soft_frequencies">
+<code>somalign_soft_frequencies</code><a class="anchor" aria-label="anchor" href="#somalign_soft_frequencies"></a>
+</h2>
+<p>Aggregates soft labels by sample or another grouping variable.</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sample_group</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"sample_1"</span>, <span class="st">"sample_2"</span><span class="op">)</span>, length.out <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">new_data</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">freq</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_soft_frequencies.html">somalign_soft_frequencies</a></span><span class="op">(</span><span class="va">fit</span>, group <span class="op">=</span> <span class="va">sample_group</span>, k <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">freq</span>, <span class="st">"somalign_soft_frequencies"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">freq</span><span class="op">)</span> <span class="op">==</span> <span class="fl">2L</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Frequency row sums:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">freq</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">", "</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Frequency row sums: 1, 1</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="somalign_diagnostics">
@@ -395,7 +419,7 @@ both plain and anchored fits.</p>
 </h2>
 <p>Returns a named list of solver, OT, node, and projection
 diagnostics.</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">diag</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_diagnostics.html">somalign_diagnostics</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">is.list</a></span><span class="op">(</span><span class="va">diag</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"solver"</span>, <span class="st">"ot"</span>, <span class="st">"nodes"</span>, <span class="st">"projection"</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">diag</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
@@ -409,12 +433,45 @@ diagnostics.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">diag_anc</span><span class="op">$</span><span class="va">solver</span><span class="op">$</span><span class="va">converged</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="somalign_epsilon_sweep">
+<code>somalign_epsilon_sweep</code><a class="anchor" aria-label="anchor" href="#somalign_epsilon_sweep"></a>
+</h2>
+<p>Runs an OT-only sweep over epsilon values and reports plan-geometry
+diagnostics without re-projecting cells.</p>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">eps</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_epsilon_sweep.html">somalign_epsilon_sweep</a></span><span class="op">(</span></span>
+<span>  <span class="va">qry</span>, <span class="va">ref</span>,</span>
+<span>  epsilon_grid <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.1</span>, <span class="fl">0.2</span><span class="op">)</span>,</span>
+<span>  solver <span class="op">=</span> <span class="st">"internal"</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">eps</span>, <span class="st">"somalign_epsilon_sweep"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">eps</span><span class="op">$</span><span class="va">table</span><span class="op">)</span> <span class="op">==</span> <span class="fl">3L</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"epsilon_rec:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">eps</span><span class="op">$</span><span class="va">epsilon_rec</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; epsilon_rec: 0.03</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="somalign_select_epsilon">
+<code>somalign_select_epsilon</code><a class="anchor" aria-label="anchor" href="#somalign_select_epsilon"></a>
+</h2>
+<p>Selects an epsilon from the sweep curve using an unsupervised
+criterion.</p>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sel</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_select_epsilon.html">somalign_select_epsilon</a></span><span class="op">(</span></span>
+<span>  <span class="va">qry</span>, <span class="va">ref</span>,</span>
+<span>  epsilon <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.1</span>, <span class="fl">0.2</span><span class="op">)</span>,</span>
+<span>  solver <span class="op">=</span> <span class="st">"internal"</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">sel</span>, <span class="st">"somalign_epsilon_selection"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"selected epsilon:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">sel</span><span class="op">$</span><span class="va">selected_epsilon</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; selected epsilon: 0.03</span></span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="somalign_sensitivity_grid">
 <code>somalign_sensitivity_grid</code><a class="anchor" aria-label="anchor" href="#somalign_sensitivity_grid"></a>
 </h2>
 <p>Sweeps <code>epsilon</code> × <code>rho_query</code> ×
 <code>rho_ref</code> and returns a summary data frame.</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sg</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid</a></span><span class="op">(</span></span>
 <span>  <span class="va">qry</span>, <span class="va">ref</span>,</span>
 <span>  epsilon   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">0.3</span>, <span class="fl">0.7</span><span class="op">)</span>,</span>
@@ -445,7 +502,7 @@ diagnostics.</p>
 </h2>
 <p>Measures how much OT statistics vary with query SOM random seed by
 re-training the query SOM from scratch for each seed.</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">stab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_som_stability.html">somalign_som_stability</a></span><span class="op">(</span></span>
 <span>  <span class="va">new_data</span>, <span class="va">ref</span>,</span>
 <span>  som_seeds <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>,</span>
@@ -468,11 +525,215 @@ re-training the query SOM from scratch for each seed.</p>
 <span><span class="co">#&gt; 3        3       1.110050      TRUE</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="print-methods">Print methods<a class="anchor" aria-label="anchor" href="#print-methods"></a>
+<h2 id="somalign_topology_audit">
+<code>somalign_topology_audit</code><a class="anchor" aria-label="anchor" href="#somalign_topology_audit"></a>
 </h2>
-<p>All four main classes have print methods that should return the
-object invisibly.</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<p>Checks whether the barycentric correction collapses SOM topology.</p>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">topo</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_topology_audit.html">somalign_topology_audit</a></span><span class="op">(</span><span class="va">fit</span>, nodes <span class="op">=</span> <span class="st">"all"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: topology_warning: corrected codebook has 4 H0 component(s) vs 5 in</span></span>
+<span><span class="co">#&gt; query (delta = -1; populations may have been merged/erased). Inspect</span></span>
+<span><span class="co">#&gt; fit$diagnostics$topology for details.</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">topo</span>, <span class="st">"somalign_topology"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">topo</span></span>
+<span><span class="co">#&gt; &lt;somalign_topology&gt;</span></span>
+<span><span class="co">#&gt;   threshold: 0.4515 (auto)</span></span>
+<span><span class="co">#&gt;   H0 components  query: 5  corrected: 4  reference: 3</span></span>
+<span><span class="co">#&gt;   topology_delta: -1   warning: TRUE</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="somalign_worst_nodes">
+<code>somalign_worst_nodes</code><a class="anchor" aria-label="anchor" href="#somalign_worst_nodes"></a>
+</h2>
+<p>Returns the query nodes with the lowest match fraction.</p>
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">worst</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_worst_nodes.html">somalign_worst_nodes</a></span><span class="op">(</span><span class="va">fit</span>, n <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">is.data.frame</a></span><span class="op">(</span><span class="va">worst</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">worst</span><span class="op">)</span> <span class="op">==</span> <span class="fl">3L</span><span class="op">)</span></span>
+<span><span class="va">worst</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"query_node"</span>, <span class="st">"match_fraction"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;    query_node match_fraction</span></span>
+<span><span class="co">#&gt; V1          1              0</span></span>
+<span><span class="co">#&gt; V5          5              0</span></span>
+<span><span class="co">#&gt; V8          8              0</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="somalign_check_codebook_alignment">
+<code>somalign_check_codebook_alignment</code><a class="anchor" aria-label="anchor" href="#somalign_check_codebook_alignment"></a>
+</h2>
+<p>Preflight check for query/reference codebook coordinate
+compatibility.</p>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">chk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_check_codebook_alignment.html">somalign_check_codebook_alignment</a></span><span class="op">(</span></span>
+<span>  <span class="va">qry</span><span class="op">$</span><span class="va">codebook</span>, <span class="va">ref</span>,</span>
+<span>  query_masses <span class="op">=</span> <span class="va">qry</span><span class="op">$</span><span class="va">node_masses</span>,</span>
+<span>  stop_if_critical <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">chk</span>, <span class="st">"somalign_codebook_check"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"verdict:"</span>, <span class="va">chk</span><span class="op">$</span><span class="va">verdict</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; verdict: pass</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="somalign_label_metrics">
+<code>somalign_label_metrics</code><a class="anchor" aria-label="anchor" href="#somalign_label_metrics"></a>
+</h2>
+<p>Scores predicted labels against ground truth: accuracy, macro-F1,
+multiclass MCC, per-class statistics, and the confusion matrix.</p>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">truth</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A"</span>, <span class="st">"B"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">10</span><span class="op">)</span></span>
+<span><span class="va">pred</span>  <span class="op">&lt;-</span> <span class="va">truth</span>; <span class="va">pred</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="st">"B"</span></span>
+<span><span class="va">metrics</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_label_metrics.html">somalign_label_metrics</a></span><span class="op">(</span><span class="va">pred</span>, <span class="va">truth</span><span class="op">)</span></span>
+<span><span class="va">metrics</span></span>
+<span><span class="co">#&gt; &lt;somalign_label_metrics&gt;</span></span>
+<span><span class="co">#&gt;   accuracy = 0.9500  macro_f1 = 0.9499  MCC = 0.9045</span></span>
+<span><span class="co">#&gt;   scored = 20  coverage = 100.0%  accuracy_all = 0.9500</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="somalign_calibration">
+<code>somalign_calibration</code><a class="anchor" aria-label="anchor" href="#somalign_calibration"></a>
+</h2>
+<p>Bins predictions by a confidence score and compares mean confidence
+to empirical accuracy, returning the expected calibration error and
+Brier score.</p>
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">calib</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_calibration.html">somalign_calibration</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">50</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">50</span><span class="op">)</span> <span class="op">&lt;</span> <span class="fl">0.5</span><span class="op">)</span></span>
+<span><span class="va">calib</span></span>
+<span><span class="co">#&gt; &lt;somalign_calibration&gt;</span></span>
+<span><span class="co">#&gt;   ECE = 0.2827  MCE = 0.7356  Brier = 0.3287  (n = 50)</span></span>
+<span><span class="co">#&gt;   reliability (score_mean -&gt; accuracy, n):</span></span>
+<span><span class="co">#&gt;     0.05 -&gt; 0.57  (7)</span></span>
+<span><span class="co">#&gt;     0.16 -&gt; 0.67  (3)</span></span>
+<span><span class="co">#&gt;     0.26 -&gt; 1.00  (1)</span></span>
+<span><span class="co">#&gt;     0.35 -&gt; 0.43  (7)</span></span>
+<span><span class="co">#&gt;     0.44 -&gt; 0.25  (8)</span></span>
+<span><span class="co">#&gt;     0.63 -&gt; 0.83  (6)</span></span>
+<span><span class="co">#&gt;     0.77 -&gt; 0.67  (3)</span></span>
+<span><span class="co">#&gt;     0.87 -&gt; 0.67  (6)</span></span>
+<span><span class="co">#&gt;     0.94 -&gt; 0.56  (9)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="somalign_cross_validate">
+<code>somalign_cross_validate</code><a class="anchor" aria-label="anchor" href="#somalign_cross_validate"></a>
+</h2>
+<p>Held-out k-fold cross-validation of label transfer.</p>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">cv</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_cross_validate.html">somalign_cross_validate</a></span><span class="op">(</span></span>
+<span>  <span class="va">old_data</span>, <span class="va">labels_old</span>, grid <span class="op">=</span> <span class="va">grid_small</span>, k <span class="op">=</span> <span class="fl">2</span>, rlen <span class="op">=</span> <span class="fl">15</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.30); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.23); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">cv</span>, <span class="st">"somalign_cross_validation"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">cv</span></span>
+<span><span class="co">#&gt; &lt;somalign_cross_validation&gt; (2 folds)</span></span>
+<span><span class="co">#&gt;   pooled: accuracy = 1.0000  macro_f1 = 1.0000  MCC = 1.0000  coverage = 100.0%</span></span>
+<span><span class="co">#&gt;   calibration: ECE = 0.0000  Brier = 0.0000</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="somalign_tune">
+<code>somalign_tune</code><a class="anchor" aria-label="anchor" href="#somalign_tune"></a>
+</h2>
+<p>Selects transport-plan parameters by cross-validated label
+accuracy.</p>
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">tuned</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_tune.html">somalign_tune</a></span><span class="op">(</span></span>
+<span>  <span class="va">old_data</span>, <span class="va">labels_old</span>, grid <span class="op">=</span> <span class="va">grid_small</span>,</span>
+<span>  param_grid <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>epsilon <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">0.2</span><span class="op">)</span><span class="op">)</span>, k <span class="op">=</span> <span class="fl">2</span>, rlen <span class="op">=</span> <span class="fl">15</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
+<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">tuned</span>, <span class="st">"somalign_tune"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">tuned</span><span class="op">$</span><span class="va">grid</span></span>
+<span><span class="co">#&gt;   epsilon rho_query rho_ref diagonal_boost feature_weights accuracy macro_f1</span></span>
+<span><span class="co">#&gt; 1     0.1         1       1              0            none        1        1</span></span>
+<span><span class="co">#&gt; 2     0.2         1       1              0            none        1        1</span></span>
+<span><span class="co">#&gt;   mcc coverage          ece</span></span>
+<span><span class="co">#&gt; 1   1        1 0.000000e+00</span></span>
+<span><span class="co">#&gt; 2   1        1 1.835643e-12</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="somalign_anchor_benefit">
+<code>somalign_anchor_benefit</code><a class="anchor" aria-label="anchor" href="#somalign_anchor_benefit"></a>
+</h2>
+<p>Quantifies the label-transfer lift from anchor samples across a
+<code>rho_anchor</code> grid.</p>
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">anc_i</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span>, <span class="fl">31</span><span class="op">:</span><span class="fl">40</span><span class="op">)</span></span>
+<span><span class="va">ab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_anchor_benefit.html">somalign_anchor_benefit</a></span><span class="op">(</span></span>
+<span>  <span class="va">qry</span>, <span class="va">ref</span>, <span class="va">labels_old</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">new_data</span><span class="op">)</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>  anchor_old <span class="op">=</span> <span class="va">old_data</span><span class="op">[</span><span class="va">anc_i</span>, <span class="op">]</span>, anchor_new <span class="op">=</span> <span class="va">new_data</span><span class="op">[</span><span class="va">anc_i</span>, <span class="op">]</span>,</span>
+<span>  rho_grid <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">ab</span>, <span class="st">"somalign_anchor_benefit"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">ab</span><span class="op">$</span><span class="va">grid</span></span>
+<span><span class="co">#&gt;   rho_anchor accuracy macro_f1 mcc coverage          ece</span></span>
+<span><span class="co">#&gt; 1          0        1        1   1        1 1.998401e-15</span></span>
+<span><span class="co">#&gt; 2          1        1        1   1        1 1.443290e-15</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="somalign_correct_expression">
+<code>somalign_correct_expression</code><a class="anchor" aria-label="anchor" href="#somalign_correct_expression"></a>
+</h2>
+<p>Returns an auxiliary cell-by-marker corrected expression matrix for
+anchored subspace or two-pass fits.</p>
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">expr</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_correct_expression.html">somalign_correct_expression</a></span><span class="op">(</span><span class="va">fit_sub</span>, k <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">expr</span>, <span class="st">"somalign_corrected_expression"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">expr</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">new_data</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Corrected expression dimensions:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/dim.html" class="external-link">dim</a></span><span class="op">(</span><span class="va">expr</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">" x "</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Corrected expression dimensions: 60 x 4</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="somalign_subspace_sensitivity">
+<code>somalign_subspace_sensitivity</code><a class="anchor" aria-label="anchor" href="#somalign_subspace_sensitivity"></a>
+</h2>
+<p>Bootstraps the anchor-derived batch subspace and reports correction
+uncertainty.</p>
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sens</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_subspace_sensitivity.html">somalign_subspace_sensitivity</a></span><span class="op">(</span><span class="va">fit_sub</span>, n_boot <span class="op">=</span> <span class="fl">5L</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">sens</span>, <span class="st">"somalign_subspace_sensitivity"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Subspace rank:"</span>, <span class="va">sens</span><span class="op">$</span><span class="va">subspace_rank</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Subspace rank: 1</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="somalign_exclusion_test">
+<code>somalign_exclusion_test</code><a class="anchor" aria-label="anchor" href="#somalign_exclusion_test"></a>
+</h2>
+<p>Permutation diagnostic for structured residual signal outside the
+anchor batch subspace.</p>
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">excl</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_exclusion_test.html">somalign_exclusion_test</a></span><span class="op">(</span><span class="va">fit_sub</span>, n_perm <span class="op">=</span> <span class="fl">9L</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">excl</span>, <span class="st">"somalign_exclusion_test"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Exclusion verdict:"</span>, <span class="va">excl</span><span class="op">$</span><span class="va">verdict</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Exclusion verdict: pass</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="plot-functions">Plot functions<a class="anchor" aria-label="anchor" href="#plot-functions"></a>
+</h2>
+<p>All plotting helpers return <code>ggplot</code> objects.</p>
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">plot_list</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="../reference/somalign_plot_mass_balance.html">somalign_plot_mass_balance</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="../reference/somalign_plot_match_fraction.html">somalign_plot_match_fraction</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="../reference/somalign_plot_correction.html">somalign_plot_correction</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="../reference/somalign_plot_outside_fraction.html">somalign_plot_outside_fraction</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="../reference/somalign_plot_label_confusion.html">somalign_plot_label_confusion</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="../reference/somalign_plot_codebook_range.html">somalign_plot_codebook_range</a></span><span class="op">(</span><span class="va">chk</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="../reference/somalign_plot_marker_distributions.html">somalign_plot_marker_distributions</a></span><span class="op">(</span><span class="va">qry</span>, reference <span class="op">=</span> <span class="va">ref</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">plot_list</span>, <span class="va">inherits</span>, <span class="fu"><a href="https://rdrr.io/r/base/logical.html" class="external-link">logical</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span>, what <span class="op">=</span> <span class="st">"ggplot"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>The epsilon sweep object also has a plot method:</p>
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">eps_plot</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">eps</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">eps_plot</span>, <span class="st">"ggplot"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="print-and-summary-methods">Print and summary methods<a class="anchor" aria-label="anchor" href="#print-and-summary-methods"></a>
+</h2>
+<p>The main classes have print methods that return the object invisibly;
+<code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> on a fit reports the label-transfer
+breakdown.</p>
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">ref</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;somalign_reference&gt;</span></span>
 <span><span class="co">#&gt;   features: 4</span></span>
@@ -485,17 +746,72 @@ object invisibly.</p>
 <span><span class="co">#&gt;   query nodes: 9</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;somalign_fit&gt;</span></span>
-<span><span class="co">#&gt;   solver: internal</span></span>
-<span><span class="co">#&gt;   query nodes: 9</span></span>
-<span><span class="co">#&gt;   reference nodes: 9</span></span>
-<span><span class="co">#&gt;   transport mass: 1.104</span></span>
+<span><span class="co">#&gt;   label transfer: 100.0% of cells accepted across 2 class(es); median confidence 1.00, median margin 1.00</span></span>
+<span><span class="co">#&gt;   solver: internal  |  query nodes: 9  |  reference nodes: 9  |  transport mass: 1.104</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">fit_anc</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;somalign_anchored_fit&gt;</span></span>
-<span><span class="co">#&gt;   solver: internal</span></span>
-<span><span class="co">#&gt;   query nodes: 9</span></span>
-<span><span class="co">#&gt;   reference nodes: 9</span></span>
-<span><span class="co">#&gt;   transport mass: 1.123</span></span>
-<span><span class="co">#&gt;   anchors: 20 (66.7% node coverage)</span></span></code></pre></div>
+<span><span class="co">#&gt;   label transfer: 100.0% of cells accepted across 2 class(es); median confidence 1.00, median margin 1.00</span></span>
+<span><span class="co">#&gt;   solver: internal  |  query nodes: 9  |  reference nodes: 9  |  transport mass: 1.123</span></span>
+<span><span class="co">#&gt;   anchors: 20 (66.7% node coverage) -- correction is a diagnostic, not a corrected-expression product</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">eps</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; somalign epsilon sweep [3 points]</span></span>
+<span><span class="co">#&gt;   epsilon range      : 0.05 - 0.2</span></span>
+<span><span class="co">#&gt;   critical epsilon   : 0.1</span></span>
+<span><span class="co">#&gt;   recommended epsilon (0.3x critical): 0.03</span></span>
+<span><span class="co">#&gt;   cost_scale         : 3.755</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">metrics</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;somalign_label_metrics&gt;</span></span>
+<span><span class="co">#&gt;   accuracy = 0.9500  macro_f1 = 0.9499  MCC = 0.9045</span></span>
+<span><span class="co">#&gt;   scored = 20  coverage = 100.0%  accuracy_all = 0.9500</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">calib</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;somalign_calibration&gt;</span></span>
+<span><span class="co">#&gt;   ECE = 0.2827  MCE = 0.7356  Brier = 0.3287  (n = 50)</span></span>
+<span><span class="co">#&gt;   reliability (score_mean -&gt; accuracy, n):</span></span>
+<span><span class="co">#&gt;     0.05 -&gt; 0.57  (7)</span></span>
+<span><span class="co">#&gt;     0.16 -&gt; 0.67  (3)</span></span>
+<span><span class="co">#&gt;     0.26 -&gt; 1.00  (1)</span></span>
+<span><span class="co">#&gt;     0.35 -&gt; 0.43  (7)</span></span>
+<span><span class="co">#&gt;     0.44 -&gt; 0.25  (8)</span></span>
+<span><span class="co">#&gt;     0.63 -&gt; 0.83  (6)</span></span>
+<span><span class="co">#&gt;     0.77 -&gt; 0.67  (3)</span></span>
+<span><span class="co">#&gt;     0.87 -&gt; 0.67  (6)</span></span>
+<span><span class="co">#&gt;     0.94 -&gt; 0.56  (9)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">cv</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;somalign_cross_validation&gt; (2 folds)</span></span>
+<span><span class="co">#&gt;   pooled: accuracy = 1.0000  macro_f1 = 1.0000  MCC = 1.0000  coverage = 100.0%</span></span>
+<span><span class="co">#&gt;   calibration: ECE = 0.0000  Brier = 0.0000</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">tuned</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;somalign_tune&gt; objective = mcc over 2 combination(s)</span></span>
+<span><span class="co">#&gt;   best:</span></span>
+<span><span class="co">#&gt;     epsilon=0.1 rho_query=1 rho_ref=1 diagonal_boost=0 fw=none</span></span>
+<span><span class="co">#&gt;     accuracy=1.0000 macro_f1=1.0000 MCC=1.0000 coverage=100.0% ECE=0.0000</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">ab</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;somalign_anchor_benefit&gt; objective = mcc over 2 rho value(s)</span></span>
+<span><span class="co">#&gt;   baseline (rho=0): mcc = 1.0000  coverage = 100.0%</span></span>
+<span><span class="co">#&gt;   best: rho=0  mcc = 1.0000  (lift +0.0000)  coverage = 100.0%  ECE = 0.0000</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">topo</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;somalign_topology&gt;</span></span>
+<span><span class="co">#&gt;   threshold: 0.4515 (auto)</span></span>
+<span><span class="co">#&gt;   H0 components  query: 5  corrected: 4  reference: 3</span></span>
+<span><span class="co">#&gt;   topology_delta: -1   warning: TRUE</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">sens</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;somalign_subspace_sensitivity&gt;</span></span>
+<span><span class="co">#&gt;   n_anchors = 20   rank = 1   n_boot = 5   conf_level = 0.95</span></span>
+<span><span class="co">#&gt;   median principal angle: 0.0 deg</span></span>
+<span><span class="co">#&gt;   median tipping angle:    48.0 deg (n=6 allowed nodes)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">excl</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;somalign_exclusion_test&gt;</span></span>
+<span><span class="co">#&gt;   sv_observed = 0.0000   p = 0.4444   verdict = pass</span></span>
+<span><span class="co">#&gt;   null sv (2.5%/50%/97.5%): 0.0000 / 0.0000 / 0.0000</span></span>
+<span><span class="co">#&gt;   rank = 1   n_anchors = 20   n_features = 4</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;somalign_fit&gt; label-transfer summary</span></span>
+<span><span class="co">#&gt;   cells: 60  |  accepted: 60 (100.0%)  |  classes: 2</span></span>
+<span><span class="co">#&gt;   confidence quartiles (accepted): 1.00 / 1.00 / 1.00</span></span>
+<span><span class="co">#&gt;   median margin (accepted): 1.00</span></span>
+<span><span class="co">#&gt;   accepted class distribution:</span></span>
+<span><span class="co">#&gt;     pop_A                30</span></span>
+<span><span class="co">#&gt;     pop_B                30</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="session-info">Session info<a class="anchor" aria-label="anchor" href="#session-info"></a>
@@ -521,18 +837,24 @@ object invisibly.</p>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] somalign_0.99.1  kohonen_3.0.13   BiocStyle_2.40.0</span></span>
+<span><span class="co">#&gt; [1] somalign_0.99.4  kohonen_3.0.13   BiocStyle_2.40.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
-<span><span class="co">#&gt;  [1] digest_0.6.39       desc_1.4.3          R6_2.6.1           </span></span>
-<span><span class="co">#&gt;  [4] bookdown_0.47       fastmap_1.2.0       xfun_0.60          </span></span>
-<span><span class="co">#&gt;  [7] cachem_1.1.0        knitr_1.51          htmltools_0.5.9    </span></span>
-<span><span class="co">#&gt; [10] rmarkdown_2.31      lifecycle_1.0.5     cli_3.6.6          </span></span>
-<span><span class="co">#&gt; [13] sass_0.4.10         pkgdown_2.2.1       jquerylib_0.1.4    </span></span>
-<span><span class="co">#&gt; [16] compiler_4.6.1      tools_4.6.1         bslib_0.11.0       </span></span>
-<span><span class="co">#&gt; [19] evaluate_1.0.5      Rcpp_1.1.2          yaml_2.3.12        </span></span>
-<span><span class="co">#&gt; [22] BiocManager_1.30.27 otel_0.2.0          jsonlite_2.0.0     </span></span>
-<span><span class="co">#&gt; [25] rlang_1.3.0         fs_2.1.0            htmlwidgets_1.6.4</span></span></code></pre>
+<span><span class="co">#&gt;  [1] gtable_0.3.6        jsonlite_2.0.0      dplyr_1.2.1        </span></span>
+<span><span class="co">#&gt;  [4] compiler_4.6.1      BiocManager_1.30.27 tidyselect_1.2.1   </span></span>
+<span><span class="co">#&gt;  [7] Rcpp_1.1.2          jquerylib_0.1.4     scales_1.4.0       </span></span>
+<span><span class="co">#&gt; [10] yaml_2.3.12         fastmap_1.2.0       ggplot2_4.0.3      </span></span>
+<span><span class="co">#&gt; [13] R6_2.6.1            generics_0.1.4      knitr_1.51         </span></span>
+<span><span class="co">#&gt; [16] htmlwidgets_1.6.4   tibble_3.3.1        bookdown_0.47      </span></span>
+<span><span class="co">#&gt; [19] desc_1.4.3          bslib_0.11.0        pillar_1.11.1      </span></span>
+<span><span class="co">#&gt; [22] RColorBrewer_1.1-3  rlang_1.3.0         cachem_1.1.0       </span></span>
+<span><span class="co">#&gt; [25] xfun_0.60           fs_2.1.0            sass_0.4.10        </span></span>
+<span><span class="co">#&gt; [28] S7_0.2.2            otel_0.2.0          viridisLite_0.4.3  </span></span>
+<span><span class="co">#&gt; [31] cli_3.6.6           pkgdown_2.2.1       withr_3.0.3        </span></span>
+<span><span class="co">#&gt; [34] magrittr_2.0.5      digest_0.6.39       grid_4.6.1         </span></span>
+<span><span class="co">#&gt; [37] lifecycle_1.0.5     vctrs_0.7.3         evaluate_1.0.5     </span></span>
+<span><span class="co">#&gt; [40] glue_1.8.1          farver_2.1.2        rmarkdown_2.31     </span></span>
+<span><span class="co">#&gt; [43] pkgconfig_2.0.3     tools_4.6.1         htmltools_0.5.9</span></span></code></pre>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

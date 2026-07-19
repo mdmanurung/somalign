@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,6 +39,7 @@
     <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchor-regularized alignment</a></li>
     <li><a class="dropdown-item" href="../articles/two-pass.html">Two-pass global and local alignment</a></li>
     <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+    <li><a class="dropdown-item" href="../articles/validating-label-transfer.html">Validating and tuning label transfer</a></li>
     <li><a class="dropdown-item" href="../articles/function-coverage.html">API smoke test</a></li>
   </ul>
 </li>
@@ -46,7 +47,7 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-news">
 <li><h6 class="dropdown-header" data-toc-skip>Releases</h6></li>
-    <li><a class="dropdown-item" href="../news/index.html">Version 0.1.0</a></li>
+    <li><a class="dropdown-item" href="../news/index.html">Version 0.99.4</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../news/index.html">Changelog</a></li>
   </ul>
@@ -56,7 +57,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign" aria-label="GitHub repository"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul>
 </div>
 
@@ -66,8 +67,10 @@
 
 
 
-
-<div class="row">
+<link href="algorithm_files/htmltools-fill-0.5.9/fill.css" rel="stylesheet">
+<script src="algorithm_files/htmlwidgets-1.6.4/htmlwidgets.js"></script><script src="algorithm_files/d3-3.3.8/d3.min.js"></script><script src="algorithm_files/dagre-0.4.0/dagre-d3.min.js"></script><link href="algorithm_files/mermaid-0.3.0/dist/mermaid.css" rel="stylesheet">
+<script src="algorithm_files/mermaid-0.3.0/dist/mermaid.slim.min.js"></script><link href="algorithm_files/DiagrammeR-styles-0.2/styles.css" rel="stylesheet">
+<script src="algorithm_files/chromatography-0.1/chromatography.js"></script><script src="algorithm_files/DiagrammeR-binding-1.0.12/DiagrammeR.js"></script><div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Algorithm and interpretation</h1>
@@ -82,20 +85,41 @@
 <p><code>somalign</code> aligns a query SOM to a fixed reference SOM
 using codebook-level KL-unbalanced entropic optimal transport. This page
 walks through each stage of the pipeline, explaining how direct
-projection, the OT correspondence, correction vectors, and label
-transfer each contribute to the output columns.</p>
-<p>The OT stage uses the internal pure-R Sinkhorn solver. There is no
-external transport backend to configure. Direct projection is always
-computed first and is the primary result; the OT-derived columns are
-auxiliary.</p>
+projection, the OT correspondence, correction vectors, label transfer,
+and soft abundance estimates each contribute to the current API.</p>
+<p>The OT stage is implemented inside the package.
+<code>solver = "internal"</code> is the default primal-domain Sinkhorn
+iteration, while <code>solver = "log_domain"</code> and
+<code>solver = "annealing"</code> provide more stable log-potential
+paths for small <code>epsilon</code>, label-guided fits, or difficult
+cost matrices.</p>
+<p>The primary outputs depend on the task. For query-cell annotation,
+use the transferred label, confidence, margin, and acceptance flag from
+stage 5. For reference-node assignment and cross-batch composition, use
+direct projection from stage 1. For abundance profiles, prefer the soft
+frequency estimator from stage 6. The corrected projection columns from
+stages 3 and 4 are auxiliary diagnostics, shown muted in the diagram
+below.</p>
+<blockquote>
+<p><strong>Correction vectors are a diagnostic path.</strong> The
+barycentric correction (stages 3 and 4 below) can over-merge distinct
+populations at larger epsilon: a conditional-expectation contraction
+that <code><a href="../reference/somalign_topology_audit.html">somalign_topology_audit()</a></code> quantifies. Use the
+corrected projection columns for triage and visualisation. If you need a
+cell-by-marker corrected expression matrix, use the dedicated
+<code><a href="../reference/somalign_correct_expression.html">somalign_correct_expression()</a></code> path on an anchored
+subspace-restricted fit or a two-pass fit, and audit topology first.
+Label transfer (stage 5) is computed from the transport correspondence
+and never uses corrected coordinates.</p>
+</blockquote>
 <div class="section level2">
 <h2 id="pipeline-overview">Pipeline overview<a class="anchor" aria-label="anchor" href="#pipeline-overview"></a>
 </h2>
-<p><code>{r overview, echo = FALSE, fig.height = 6,     eval = requireNamespace("DiagrammeR", quietly = TRUE)} DiagrammeR::mermaid(" graph TD   OD[Old data] --&gt; NS[z-score normalise]   ND[New data] --&gt; RT[transform: ref mu sigma]   NS --&gt; RS[Reference SOM&lt;br/&gt;C_ref K x p]   RT --&gt; QS[Query SOM&lt;br/&gt;C_query M x p]   RS --&gt; S1[Stage 1: Direct Projection]   QS --&gt; S1   RS --&gt; S2[Stage 2: OT on Codebooks]   QS --&gt; S2   S2 --&gt; TP[Transport plan P&lt;br/&gt;M x K]   TP --&gt; S3[Stage 3: Correction Vectors]   RS --&gt; S3   S3 --&gt; S4[Stage 4: Corrected Projection]   TP --&gt; S5[Stage 5: Label Transfer]   S1 --&gt; PR[old_som_unit&lt;br/&gt;old_som_label&lt;br/&gt;final_status]   S4 --&gt; AX[corrected_som_unit&lt;br/&gt;correction_norm&lt;br/&gt;transferred_label]   S5 --&gt; AX   style PR fill:#d4edda,stroke:#28a745,color:#155724   style AX fill:#cce5ff,stroke:#004085,color:#004085   style S1 fill:#fff3cd,stroke:#856404   style S2 fill:#fff3cd,stroke:#856404   style S3 fill:#fff3cd,stroke:#856404   style S4 fill:#fff3cd,stroke:#856404   style S5 fill:#fff3cd,stroke:#856404 ")</code></p>
-<hr>
+<div class="DiagrammeR html-widget html-fill-item" id="htmlwidget-ac96cb3ee4656e2e9ec3" style="width:100%;height:576px;"></div>
+<script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"diagram":"\ngraph TD\n  OD[Old data] --> NS[z-score normalise]\n  ND[New data] --> RT[transform: ref mu sigma]\n  NS --> RS[Reference SOM<br/>C_ref K x p]\n  RT --> QS[Query SOM<br/>C_query M x p]\n  RS --> S1[Stage 1: Direct Projection]\n  QS --> S1\n  RS --> S2[Stage 2: OT on Codebooks]\n  QS --> S2\n  S2 --> TP[Transport plan P<br/>M x K]\n  TP --> S5[Stage 5: Label Transfer]\n  S5 --> LAB[transferred_label<br/>confidence, margin<br/>PRODUCT]\n  S1 --> DIR[old_som_unit<br/>old_som_label<br/>final_status]\n  RS --> S6[Stage 6: Soft Projection]\n  RT --> S6\n  S6 --> SOFT[soft labels<br/>soft frequencies<br/>ABUNDANCE PRODUCT]\n  TP --> S3[Stage 3: Correction Vectors]\n  RS --> S3\n  S3 --> S4[Stage 4: Corrected Projection]\n  S4 --> CORR[corrected_som_unit<br/>correction_norm<br/>DIAGNOSTIC ONLY]\n  style LAB fill:#d4edda,stroke:#28a745,color:#155724\n  style DIR fill:#d4edda,stroke:#28a745,color:#155724\n  style SOFT fill:#d4edda,stroke:#28a745,color:#155724\n  style CORR fill:#f2f2f2,stroke:#adb5bd,color:#6c757d\n  style S5 fill:#d1ecf1,stroke:#0c5460\n  style S6 fill:#d1ecf1,stroke:#0c5460\n  style S1 fill:#fff3cd,stroke:#856404\n  style S2 fill:#fff3cd,stroke:#856404\n  style S3 fill:#f2f2f2,stroke:#adb5bd,color:#6c757d\n  style S4 fill:#f2f2f2,stroke:#adb5bd,color:#6c757d\n"},"evals":[],"jsHooks":[]}</script><hr>
 </div>
 <div class="section level2">
-<h2 id="stage-0-training-both-soms">Stage 0 — Training both SOMs<a class="anchor" aria-label="anchor" href="#stage-0-training-both-soms"></a>
+<h2 id="stage-0-training-both-soms">Stage 0: Training both SOMs<a class="anchor" aria-label="anchor" href="#stage-0-training-both-soms"></a>
 </h2>
 <p>The reference SOM is trained on labelled old data after z-score
 normalisation with the old-data mean
@@ -103,29 +127,35 @@ normalisation with the old-data mean
 and standard deviation
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>σ</mi><annotation encoding="application/x-tex">\sigma</annotation></semantics></math>.
 The query SOM must be trained on new data transformed with those same
-reference parameters — not new-data z-scores — so that both codebooks
-lie in the same feature coordinate system.</p>
+reference parameters (not new-data z-scores), so that both codebooks lie
+in the same feature coordinate system.</p>
 <p><img src="algorithm_files/figure-html/stage0-1.png" class="r-plt" alt="" width="100%"></p>
 <hr>
 </div>
 <div class="section level2">
-<h2 id="stage-1-direct-projection-primary-result">Stage 1 — Direct projection (primary result)<a class="anchor" aria-label="anchor" href="#stage-1-direct-projection-primary-result"></a>
+<h2 id="stage-1-direct-projection-reference-node-assignment">Stage 1: Direct projection (reference-node assignment)<a class="anchor" aria-label="anchor" href="#stage-1-direct-projection-reference-node-assignment"></a>
 </h2>
 <p>Every new sample
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>x</mi><mi>s</mi></msub><annotation encoding="application/x-tex">x_s</annotation></semantics></math>
 is assigned to its nearest reference node by Euclidean distance:
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>k</mi><mo>*</mo></msup><mo>=</mo><mrow><mi mathvariant="normal">arg</mi><mo>⁡</mo></mrow><munder><mi mathvariant="normal">min</mi><mi>k</mi></munder><mo stretchy="false" form="postfix">∥</mo><msub><mi>x</mi><mi>s</mi></msub><mo>−</mo><msub><mi>C</mi><mrow><mtext mathvariant="normal">ref</mtext><mo>,</mo><mi>k</mi></mrow></msub><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">k^* = \arg\min_k \|x_s - C_{\text{ref},k}\|</annotation></semantics></math></p>
 <p>No transport is involved. The assignment is deterministic given the
-reference codebook and is the result to use for downstream analysis.</p>
+reference codebook. Use it when the question is “which reference node is
+this cell nearest to?” and for composition or abundance summaries
+(<code>old_som_unit</code> / <code>old_som_label</code>). Label transfer
+is handled separately in stage 5.</p>
 <p><img src="algorithm_files/figure-html/stage1-1.png" class="r-plt" alt="" width="100%"></p>
 <p><strong>Output:</strong> <code>old_som_unit = k*</code>,
 <code>old_som_distance</code>, <code>old_som_distance_threshold</code>,
-<code>outside_reference_distance</code>, <code>final_status</code>,
+<code>outside_reference_distance</code>,
+<code>outside_reference_surprisal</code>,
+<code>outside_reference_pvalue</code>,
+<code>outside_reference_top_marker</code>, <code>final_status</code>,
 <code>old_som_label</code>, <code>old_som_label_confidence</code>.</p>
 <hr>
 </div>
 <div class="section level2">
-<h2 id="stage-2-ot-on-codebooks">Stage 2 — OT on codebooks<a class="anchor" aria-label="anchor" href="#stage-2-ot-on-codebooks"></a>
+<h2 id="stage-2-ot-on-codebooks">Stage 2: OT on codebooks<a class="anchor" aria-label="anchor" href="#stage-2-ot-on-codebooks"></a>
 </h2>
 <p>Transport is solved once on the <strong>codebooks</strong>
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math>
@@ -134,17 +164,17 @@ query nodes ×
 reference nodes), not on individual samples, keeping the problem
 dimensionality independent of sample count.</p>
 <div class="section level3">
-<h3 id="a-cost-matrix">2a — Cost matrix<a class="anchor" aria-label="anchor" href="#a-cost-matrix"></a>
+<h3 id="a-cost-matrix">2a: Cost matrix<a class="anchor" aria-label="anchor" href="#a-cost-matrix"></a>
 </h3>
 <p><img src="algorithm_files/figure-html/stage2a-1.png" class="r-plt" alt="" width="100%"></p>
 </div>
 <div class="section level3">
-<h3 id="b-ot-objective">2b — OT objective<a class="anchor" aria-label="anchor" href="#b-ot-objective"></a>
+<h3 id="b-ot-objective">2b: OT objective<a class="anchor" aria-label="anchor" href="#b-ot-objective"></a>
 </h3>
 <p>The transport plan
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>P</mi><annotation encoding="application/x-tex">P</annotation></semantics></math>
 minimises:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><munder><mo>∑</mo><mrow><mi>i</mi><mi>j</mi></mrow></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><msub><mi>D</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>+</mo><mi>ε</mi><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>P</mi><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mn>𝟏</mn><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>ρ</mi><mi>q</mi></msub><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>P</mi><mn>𝟏</mn><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mi>𝐚</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>ρ</mi><mi>r</mi></msub><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><msup><mi>P</mi><mi>⊤</mi></msup><mspace width="-0.167em"></mspace><mn>𝟏</mn><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mi>𝐛</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\sum_{ij} P_{ij} D_{ij}
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><munder><mo>∑</mo><mrow><mi>i</mi><mi>j</mi></mrow></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><msub><mi>C</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>+</mo><mi>ε</mi><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>P</mi><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mn>𝟏</mn><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>ρ</mi><mi>q</mi></msub><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>P</mi><mn>𝟏</mn><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mi>𝐚</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><msub><mi>ρ</mi><mi>r</mi></msub><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><msup><mi>P</mi><mi>⊤</mi></msup><mspace width="-0.167em"></mspace><mn>𝟏</mn><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mi>𝐛</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\sum_{ij} P_{ij} C_{ij}
   + \varepsilon \cdot \mathrm{KL}(P \,\|\, \mathbf{1})
   + \rho_q \cdot \mathrm{KL}(P\mathbf{1} \,\|\, \mathbf{a})
   + \rho_r \cdot \mathrm{KL}(P^\top\!\mathbf{1} \,\|\, \mathbf{b})</annotation></semantics></math></p>
@@ -152,19 +182,27 @@ minimises:</p>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝐚</mi><annotation encoding="application/x-tex">\mathbf{a}</annotation></semantics></math>
 and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝐛</mi><annotation encoding="application/x-tex">\mathbf{b}</annotation></semantics></math>
-are the query and reference node masses. The entropic term
+are the query and reference node masses. Before the solve, the
+squared-distance cost matrix is divided by its median positive entry, so
+<code>epsilon</code> is on a roughly stable scale across marker panels.
+Optional feature weights rescale marker columns before computing the
+cost. Optional diagonal boost, anchor cost bonuses, and label-guided
+penalties then modify the normalised cost.</p>
+<p>The entropic term
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ε</mi><mo>⋅</mo><mrow><mi mathvariant="normal">K</mi><mi mathvariant="normal">L</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>P</mi><mspace width="0.167em"></mspace><mo stretchy="false" form="postfix">∥</mo><mspace width="0.167em"></mspace><mn>𝟏</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\varepsilon \cdot \mathrm{KL}(P \,\|\, \mathbf{1})</annotation></semantics></math>
-is the negentropy regulariser of Cuturi (2013), which yields the Gibbs
-kernel
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>K</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>−</mi><msub><mi>D</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mi>/</mi><mi>ε</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">K_{ij} = \exp(-D_{ij}/\varepsilon)</annotation></semantics></math>
-used by the solver. The KL marginal penalties relax the balance
+yields the Gibbs kernel
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>K</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>−</mi><msub><mi>C</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mi>/</mi><mi>ε</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">K_{ij} = \exp(-C_{ij}/\varepsilon)</annotation></semantics></math>
+used by the primal-domain solver. The log-domain and annealing solvers
+use equivalent log-potential updates and avoid explicitly materialising
+an underflowing kernel. The KL marginal penalties relax the balance
 constraint: mass can be destroyed rather than transported, so a query
 node with no good reference counterpart routes only a small fraction of
 its mass rather than forcing an artificial match. The plan is found by
-the internal pure-R Sinkhorn scaling implementation.</p>
+the internal pure-R Sinkhorn scaling implementation selected by
+<code>solver</code>.</p>
 </div>
 <div class="section level3">
-<h3 id="c-transport-plan">2c — Transport plan<a class="anchor" aria-label="anchor" href="#c-transport-plan"></a>
+<h3 id="c-transport-plan">2c: Transport plan<a class="anchor" aria-label="anchor" href="#c-transport-plan"></a>
 </h3>
 <p><img src="algorithm_files/figure-html/stage2c-1.png" class="r-plt" alt="" width="100%"></p>
 <p><code>match_fraction</code> near 1 means the node transported most of
@@ -175,7 +213,7 @@ nodes.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="stage-3-correction-vectors">Stage 3 — Correction vectors<a class="anchor" aria-label="anchor" href="#stage-3-correction-vectors"></a>
+<h2 id="stage-3-correction-vectors">Stage 3: Correction vectors<a class="anchor" aria-label="anchor" href="#stage-3-correction-vectors"></a>
 </h2>
 <p>For each query node
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
@@ -187,13 +225,13 @@ reference nodes:</p>
 <p>A small
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">\|\Delta_i\|</annotation></semantics></math>
 means the query node sits close to its matched reference positions. A
-large value indicates a systematic offset — potentially a batch effect
-or a true population shift — and is worth examining before accepting the
+large value indicates a systematic offset (potentially a batch effect or
+a true population shift) and is worth examining before accepting the
 corrected projection.</p>
 <hr>
 </div>
 <div class="section level2">
-<h2 id="stage-4-corrected-projection-auxiliary">Stage 4 — Corrected projection (auxiliary)<a class="anchor" aria-label="anchor" href="#stage-4-corrected-projection-auxiliary"></a>
+<h2 id="stage-4-corrected-projection-auxiliary">Stage 4: Corrected projection (auxiliary)<a class="anchor" aria-label="anchor" href="#stage-4-corrected-projection-auxiliary"></a>
 </h2>
 <p>Every sample in query node
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>
@@ -203,34 +241,80 @@ and re-projected:</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">corrected_som_unit</mtext><mi>s</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">arg</mi><mo>⁡</mo></mrow><munder><mi mathvariant="normal">min</mi><mi>k</mi></munder><mo stretchy="false" form="postfix">∥</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mi>s</mi></msub><mo>+</mo><msub><mi mathvariant="normal">Δ</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>−</mo><msub><mi>C</mi><mrow><mtext mathvariant="normal">ref</mtext><mo>,</mo><mi>k</mi></mrow></msub><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">\text{corrected\_som\_unit}_s = \arg\min_k \|(x_s + \Delta_i) - C_{\text{ref},k}\|</annotation></semantics></math></p>
 <p><img src="algorithm_files/figure-html/stage4-1.png" class="r-plt" alt="" width="100%"></p>
 <p>Both assignments are reported in the results table.
-<code>old_som_unit</code> (blue) is the primary result;
-<code>corrected_som_unit</code> (red),
+<code>old_som_unit</code> (blue) is the conservative direct
+reference-node assignment; <code>corrected_som_unit</code> (red),
 <code>corrected_som_distance</code>, and
 <code>corrected_outside_reference_distance</code> are intended for
 visualisation and triage, not as replacement assignments.</p>
 <hr>
 </div>
 <div class="section level2">
-<h2 id="stage-5-label-transfer-auxiliary">Stage 5 — Label transfer (auxiliary)<a class="anchor" aria-label="anchor" href="#stage-5-label-transfer-auxiliary"></a>
+<h2 id="stage-5-label-transfer-query-cell-annotation">Stage 5: Label transfer (query-cell annotation)<a class="anchor" aria-label="anchor" href="#stage-5-label-transfer-query-cell-annotation"></a>
 </h2>
 <p>For each query node
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>i</mi><annotation encoding="application/x-tex">i</annotation></semantics></math>,
-the reference node with the highest transported mass in row
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mo stretchy="false" form="prefix">[</mo><mi>i</mi><mo>,</mo><mi>⋅</mi><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">P[i, \cdot]</annotation></semantics></math>
-is identified as the dominant match, and its label is transferred when
-both acceptance thresholds are passed.</p>
+the raw transport row is first normalised over reference nodes:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>T</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>=</mo><mfrac><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mrow><munder><mo>∑</mo><mi>l</mi></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>l</mi></mrow></msub></mrow></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">T_{ij} = \frac{P_{ij}}{\sum_l P_{il}}.</annotation></semantics></math></p>
+<p>The query-node label posterior is then the full transported mixture
+of reference-node label probabilities:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>π</mi><mi>i</mi></msub><mo>=</mo><msub><mi>T</mi><mi>i</mi></msub><msub><mi>L</mi><mtext mathvariant="normal">ref</mtext></msub><mo>,</mo></mrow><annotation encoding="application/x-tex">\pi_i = T_i L_{\text{ref}},</annotation></semantics></math></p>
+<p>where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>L</mi><mtext mathvariant="normal">ref</mtext></msub><mo stretchy="false" form="prefix">[</mo><mi>j</mi><mo>,</mo><mi>c</mi><mo stretchy="false" form="postfix">]</mo><mo>=</mo><mrow><mi mathvariant="normal">Pr</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>c</mi><mo>∣</mo><mrow><mtext mathvariant="normal">reference node </mtext><mspace width="0.333em"></mspace></mrow><mi>j</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">L_{\text{ref}}[j,c] = \Pr(c \mid \text{reference node } j)</annotation></semantics></math>.
+The transferred label is <code>argmax_c pi_i[c]</code>; confidence is
+the top posterior probability; the second label and margin expose close
+calls. This is more accurate than treating the single highest-mass
+reference node as the only donor.</p>
 <p><img src="algorithm_files/figure-html/stage5-1.png" class="r-plt" alt="" width="100%"></p>
 <p>Transfer is rejected at two gates:
 <code>match_fraction &lt; 0.05</code> (node has no meaningful reference
 overlap) and <code>transferred_label_confidence &lt; 0.60</code> (the
-dominant reference node is too mixed to assign a clean label).</p>
+transported label posterior is too mixed to assign a clean label). The
+result table also exposes <code>transferred_label_second</code>,
+<code>transferred_label_second_confidence</code>, and
+<code>transferred_label_margin</code> so borderline cells can be triaged
+without discarding the posterior information.</p>
 <hr>
 </div>
 <div class="section level2">
-<h2 id="limitations-of-the-ot-correction">Limitations of the OT correction<a class="anchor" aria-label="anchor" href="#limitations-of-the-ot-correction"></a>
+<h2 id="stage-6-soft-label-and-frequency-projection">Stage 6: Soft label and frequency projection<a class="anchor" aria-label="anchor" href="#stage-6-soft-label-and-frequency-projection"></a>
 </h2>
-<p>The OT-derived columns are auxiliary. Three structural limitations
-govern when they should and should not be trusted.</p>
+<p><code><a href="../reference/somalign_soft_labels.html">somalign_soft_labels()</a></code> and
+<code><a href="../reference/somalign_soft_frequencies.html">somalign_soft_frequencies()</a></code> are separate from OT label
+transfer. They project each query cell directly to the reference
+codebook with a Gaussian kernel over its <code>k</code> nearest
+reference nodes, then average the corresponding reference label
+probabilities or user-supplied node-group indicators. No acceptance gate
+or out-of-reference gate is applied: every query cell contributes to the
+soft distribution unless all of its neighbouring reference nodes are
+unlabelled.</p>
+<p>This is the soft analogue of hard direct projection. It is mainly
+useful for per-sample cluster or metacluster abundance, where hard
+nearest-node counts are sensitive to small boundary shifts. Soft
+projection changes the frequency estimate; it does not change the
+most-likely hard label in <code><a href="../reference/somalign_results.html">somalign_results()</a></code>.</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">soft_labels</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_soft_labels.html">somalign_soft_labels</a></span><span class="op">(</span><span class="va">fit</span>, k <span class="op">=</span> <span class="fl">8</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># sample_id: one group label per query cell</span></span>
+<span><span class="va">soft_freq</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_soft_frequencies.html">somalign_soft_frequencies</a></span><span class="op">(</span><span class="va">fit</span>, group <span class="op">=</span> <span class="va">sample_id</span>, k <span class="op">=</span> <span class="fl">8</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># node2metacluster: one metacluster label per reference node</span></span>
+<span><span class="va">soft_meta</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_soft_frequencies.html">somalign_soft_frequencies</a></span><span class="op">(</span></span>
+<span>  <span class="va">fit</span>,</span>
+<span>  group <span class="op">=</span> <span class="va">sample_id</span>,</span>
+<span>  node_groups <span class="op">=</span> <span class="va">node2metacluster</span>,</span>
+<span>  normalize <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<hr>
+</div>
+<div class="section level2">
+<h2 id="limitations-of-the-ot-correction-and-uncertainty-scores">Limitations of the OT correction and uncertainty scores<a class="anchor" aria-label="anchor" href="#limitations-of-the-ot-correction-and-uncertainty-scores"></a>
+</h2>
+<p>Three structural limitations govern when corrected projection columns
+and uncertainty scores should and should not be trusted. These
+limitations do not change the direct projection, and label transfer
+should be interpreted through its own confidence, margin, and
+calibration diagnostics.</p>
 <div class="section level3">
 <h3 id="barycentric-contraction-f1">Barycentric contraction (F1)<a class="anchor" aria-label="anchor" href="#barycentric-contraction-f1"></a>
 </h3>
@@ -239,15 +323,16 @@ govern when they should and should not be trusted.</p>
 is the transport-weighted mean of matched reference codebook
 vectors:</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>C</mi><mo accent="true">̂</mo></mover><mi>i</mi></msub><mo>=</mo><mfrac><mrow><munder><mo>∑</mo><mi>j</mi></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mspace width="0.167em"></mspace><msub><mi>C</mi><mrow><mtext mathvariant="normal">ref</mtext><mo>,</mo><mi>j</mi></mrow></msub></mrow><mrow><munder><mo>∑</mo><mi>j</mi></munder><msub><mi>P</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub></mrow></mfrac></mrow><annotation encoding="application/x-tex">\hat{C}_i = \frac{\sum_j P_{ij}\,C_{\text{ref},j}}{\sum_j P_{ij}}</annotation></semantics></math></p>
-<p>This is a <strong>conditional mean</strong>, so the corrected
-positions always lie inside the convex hull of the reference codebook.
-Two consequences follow. First, variance shrinks: query nodes that
-genuinely sit near the periphery of a reference cluster will be pulled
-inward. Second, dense reference regions attract mass — if the reference
-has one very large T-cell cluster and one small NK cluster, even a
-predominantly NK query node will have its correction vector biased
-toward the T-cell centroid. Contraction grows as <code>epsilon</code>
-increases, because a larger entropic penalty spreads each transport row
+<p>This barycenter is a <strong>conditional mean</strong>, so the
+corrected positions always lie inside the convex hull of the reference
+codebook. Two consequences follow. First, variance shrinks: query nodes
+that genuinely sit near the periphery of a reference cluster will be
+pulled inward. Second, dense reference regions attract mass. For
+example, if the reference has one very large T-cell cluster and one
+small NK cluster, even a predominantly NK query node will have its
+correction vector biased toward the T-cell centroid. Contraction grows
+as <code>epsilon</code> increases, because a larger entropic penalty
+spreads each transport row
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mo stretchy="false" form="prefix">[</mo><mi>i</mi><mo>,</mo><mi>⋅</mi><mo stretchy="false" form="postfix">]</mo></mrow><annotation encoding="application/x-tex">P[i,
 \cdot]</annotation></semantics></math> across more reference nodes.
 Interpret <code>corrected_som_unit</code> with
@@ -256,7 +341,7 @@ Interpret <code>corrected_som_unit</code> with
 in a high-epsilon fit is the most suspect combination.</p>
 </div>
 <div class="section level3">
-<h3 id="unpaired-ot-f2">Unpaired OT (F2)<a class="anchor" aria-label="anchor" href="#unpaired-ot-f2"></a>
+<h3 id="unpaired-ot-without-anchors-f2">Unpaired OT without anchors (F2)<a class="anchor" aria-label="anchor" href="#unpaired-ot-without-anchors-f2"></a>
 </h3>
 <p>OT operates on <strong>node mass distributions</strong>, not on
 individual samples. If the query batch consists of literally remeasured
@@ -264,14 +349,18 @@ biological units (the same cells or patients measured again), that
 ground-truth sample-level correspondence is available but unused here.
 Anchor-based methods such as CytoNorm exploit exactly this pairing,
 using anchor controls measured in both old and new batches to identify
-the batch map with minimal ambiguity. <code>somalign</code> is designed
-for the common case where no such anchors exist: only the phenotypic
-structure of the populations (encoded in the codebooks) is shared. If
-you do have remeasured anchor controls, incorporate them at the
-reference-building stage rather than relying on the OT correction.</p>
+the batch map with less ambiguity. The plain <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>
+path is designed for the common case where no such anchors exist: only
+the phenotypic structure of the populations, encoded in the codebooks,
+is shared. If you do have remeasured anchor controls, use
+<code><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored()</a></code>. The
+<code>correction = "cost_bonus"</code> mode biases the OT cost toward
+anchor-supported routes; <code>correction = "subspace"</code> and
+<code>"both"</code> estimate an anchor-derived batch subspace and
+restrict correction vectors to that subspace.</p>
 </div>
 <div class="section level3">
-<h3 id="uncalibrated-novelty-score-f3">Uncalibrated novelty score (F3)<a class="anchor" aria-label="anchor" href="#uncalibrated-novelty-score-f3"></a>
+<h3 id="novelty-and-confidence-are-parameter-dependent-f3">Novelty and confidence are parameter-dependent (F3)<a class="anchor" aria-label="anchor" href="#novelty-and-confidence-are-parameter-dependent-f3"></a>
 </h3>
 <p><code>match_fraction</code> (and the derived label-transfer gate)
 reflects the
@@ -282,20 +371,30 @@ nodes, but that can happen because (a) the query contains a genuinely
 novel population, or (b) <code>rho_query</code> is small, (c)
 <code>epsilon</code> is large, or (d) the query SOM topology differs
 from the reference. There is no null model calibrating how much
-destroyed mass constitutes evidence of novelty. Use
-<code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code> to assess whether low-match
-nodes are stable across
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ε</mi><annotation encoding="application/x-tex">\varepsilon</annotation></semantics></math>/<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ρ</mi><annotation encoding="application/x-tex">\rho</annotation></semantics></math>
-values before interpreting them as novel populations.</p>
+destroyed mass constitutes evidence of novelty.</p>
+<p><code>outside_reference_surprisal</code> and
+<code>outside_reference_pvalue</code> provide a separate per-cell
+anomaly score under a diagonal-Gaussian reference-node model. That
+p-value is useful for ranking unusual cells and flagging large
+marker-level deviations, but it is approximate and can be
+anti-conservative for heavy-tailed marker distributions. Use
+<code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code>,
+<code><a href="../reference/somalign_epsilon_sweep.html">somalign_epsilon_sweep()</a></code>, and
+<code><a href="../reference/somalign_calibration.html">somalign_calibration()</a></code> to assess whether low match, high
+surprisal, and low confidence are stable before interpreting them as
+novel populations.</p>
 <hr>
 </div>
 </div>
 <div class="section level2">
 <h2 id="output-columns">Output columns<a class="anchor" aria-label="anchor" href="#output-columns"></a>
 </h2>
-<p>Direct projection columns are the primary result. OT-derived columns
-are auxiliary — they should always be read alongside the direct
-assignment and the <code><a href="../reference/somalign_diagnostics.html">somalign_diagnostics()</a></code> output.</p>
+<p>The results table contains direct projection columns,
+transferred-label columns, and auxiliary corrected-projection columns.
+Use the direct columns for reference-node assignment and abundance, the
+transferred-label columns for query-cell annotation, and the corrected
+columns only as correction diagnostics alongside
+<code><a href="../reference/somalign_diagnostics.html">somalign_diagnostics()</a></code>.</p>
 <table class="table">
 <colgroup>
 <col width="33%">
@@ -337,6 +436,27 @@ assignment and the <code><a href="../reference/somalign_diagnostics.html">somali
 <td><code>outside_reference_distance</code></td>
 <td>1</td>
 <td>Novelty flag</td>
+</tr>
+<tr class="odd">
+<td><code>outside_reference_surprisal</code></td>
+<td>1</td>
+<td>Diagonal-Gaussian anomaly score for the assigned reference node</td>
+</tr>
+<tr class="even">
+<td><code>outside_reference_pvalue</code></td>
+<td>1</td>
+<td>Approximate p-value for the anomaly score</td>
+</tr>
+<tr class="odd">
+<td><code>outside_reference_pvalue_flag</code></td>
+<td>1</td>
+<td>Optional p-value flag when <code>outside_pvalue_threshold</code> is
+supplied</td>
+</tr>
+<tr class="even">
+<td><code>outside_reference_top_marker</code></td>
+<td>1</td>
+<td>Marker contributing most to the anomaly score</td>
 </tr>
 <tr class="odd">
 <td><code>final_status</code></td>
@@ -383,17 +503,34 @@ assignment and the <code><a href="../reference/somalign_diagnostics.html">somali
 <tr class="odd">
 <td><code>transferred_label</code></td>
 <td>5</td>
-<td>OT-derived label</td>
+<td>Top label from
+<code>correspondence %*% reference$label_prob</code>
+</td>
 </tr>
 <tr class="even">
 <td><code>transferred_label_confidence</code></td>
 <td>5</td>
-<td>Purity at dominant ref node</td>
+<td>Top transported-label posterior probability</td>
 </tr>
 <tr class="odd">
 <td><code>transferred_label_accepted</code></td>
 <td>5</td>
 <td>Gate result (TRUE / FALSE)</td>
+</tr>
+<tr class="even">
+<td><code>transferred_label_second</code></td>
+<td>5</td>
+<td>Runner-up transported label</td>
+</tr>
+<tr class="odd">
+<td><code>transferred_label_second_confidence</code></td>
+<td>5</td>
+<td>Runner-up transported-label posterior probability</td>
+</tr>
+<tr class="even">
+<td><code>transferred_label_margin</code></td>
+<td>5</td>
+<td>Top confidence minus runner-up confidence</td>
 </tr>
 </tbody>
 </table>
@@ -431,15 +568,17 @@ nearest-node search, performed in configurable chunks by
 <span><span class="co">#&gt; [1] BiocStyle_2.40.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
-<span><span class="co">#&gt;  [1] digest_0.6.39       desc_1.4.3          R6_2.6.1           </span></span>
-<span><span class="co">#&gt;  [4] bookdown_0.47       fastmap_1.2.0       xfun_0.60          </span></span>
-<span><span class="co">#&gt;  [7] cachem_1.1.0        knitr_1.51          htmltools_0.5.9    </span></span>
-<span><span class="co">#&gt; [10] rmarkdown_2.31      lifecycle_1.0.5     cli_3.6.6          </span></span>
-<span><span class="co">#&gt; [13] sass_0.4.10         pkgdown_2.2.1       jquerylib_0.1.4    </span></span>
-<span><span class="co">#&gt; [16] compiler_4.6.1      tools_4.6.1         bslib_0.11.0       </span></span>
-<span><span class="co">#&gt; [19] evaluate_1.0.5      yaml_2.3.12         BiocManager_1.30.27</span></span>
-<span><span class="co">#&gt; [22] otel_0.2.0          jsonlite_2.0.0      rlang_1.3.0        </span></span>
-<span><span class="co">#&gt; [25] fs_2.1.0            htmlwidgets_1.6.4</span></span></code></pre>
+<span><span class="co">#&gt;  [1] cli_3.6.6           knitr_1.51          rlang_1.3.0        </span></span>
+<span><span class="co">#&gt;  [4] xfun_0.60           otel_0.2.0          jsonlite_2.0.0     </span></span>
+<span><span class="co">#&gt;  [7] glue_1.8.1          htmltools_0.5.9     sass_0.4.10        </span></span>
+<span><span class="co">#&gt; [10] rmarkdown_2.31      evaluate_1.0.5      jquerylib_0.1.4    </span></span>
+<span><span class="co">#&gt; [13] visNetwork_2.1.4    fastmap_1.2.0       yaml_2.3.12        </span></span>
+<span><span class="co">#&gt; [16] lifecycle_1.0.5     bookdown_0.47       BiocManager_1.30.27</span></span>
+<span><span class="co">#&gt; [19] DiagrammeR_1.0.12   compiler_4.6.1      fs_2.1.0           </span></span>
+<span><span class="co">#&gt; [22] RColorBrewer_1.1-3  htmlwidgets_1.6.4   digest_0.6.39      </span></span>
+<span><span class="co">#&gt; [25] R6_2.6.1            magrittr_2.0.5      bslib_0.11.0       </span></span>
+<span><span class="co">#&gt; [28] tools_4.6.1         pkgdown_2.2.1       cachem_1.1.0       </span></span>
+<span><span class="co">#&gt; [31] desc_1.4.3</span></span></code></pre>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

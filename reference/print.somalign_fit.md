@@ -1,6 +1,9 @@
 # Print a somalign_fit object
 
-Print a somalign_fit object
+Leads with the label-transfer result – the primary product of a fit –
+followed by the transport/solver line. Use
+[`summary.somalign_fit()`](https://mdmanurung.github.io/somalign/reference/summary.somalign_fit.md)
+for the full label breakdown.
 
 ## Usage
 

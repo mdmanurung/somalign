@@ -33,19 +33,60 @@
   : Two-pass alignment decomposing correction into global and local
   components
 
+## Correcting expression
+
+Dedicated auxiliary expression correction paths for anchored or two-pass
+fits.
+
+- [`somalign_correct_expression()`](https://mdmanurung.github.io/somalign/reference/somalign_correct_expression.md)
+  : Batch-correct query marker expression for downstream analysis
+
 ## Results
 
 - [`somalign_results()`](https://mdmanurung.github.io/somalign/reference/somalign_results.md)
   : Return per-sample somalign results
 
+## Soft labels and abundance
+
+Probabilistic reference projection for label probabilities and
+per-sample frequencies.
+
+- [`somalign_soft_labels()`](https://mdmanurung.github.io/somalign/reference/somalign_soft_labels.md)
+  : Soft (probabilistic) label projection for query cells
+- [`somalign_soft_frequencies()`](https://mdmanurung.github.io/somalign/reference/somalign_soft_frequencies.md)
+  : Per-group soft label frequencies for query cells
+
+## Validation and tuning
+
+- [`somalign_label_metrics()`](https://mdmanurung.github.io/somalign/reference/somalign_label_metrics.md)
+  : Label-transfer accuracy metrics
+- [`somalign_calibration()`](https://mdmanurung.github.io/somalign/reference/somalign_calibration.md)
+  : Confidence calibration of label transfer
+- [`somalign_cross_validate()`](https://mdmanurung.github.io/somalign/reference/somalign_cross_validate.md)
+  : Cross-validate label transfer on held-out cells
+- [`somalign_tune()`](https://mdmanurung.github.io/somalign/reference/somalign_tune.md)
+  : Tune transport-plan knobs against label-transfer accuracy
+- [`somalign_anchor_benefit()`](https://mdmanurung.github.io/somalign/reference/somalign_anchor_benefit.md)
+  : Quantify the label-transfer benefit of anchor (repeat) samples
+
 ## Diagnostics and sensitivity
 
 - [`somalign_diagnostics()`](https://mdmanurung.github.io/somalign/reference/somalign_diagnostics.md)
   : Extract somalign diagnostics
+- [`somalign_epsilon_sweep()`](https://mdmanurung.github.io/somalign/reference/somalign_epsilon_sweep.md)
+  : Epsilon phase-transition sweep for principled epsilon selection
+- [`somalign_select_epsilon()`](https://mdmanurung.github.io/somalign/reference/somalign_select_epsilon.md)
+  : Select epsilon from an epsilon-sweep curve
 - [`somalign_sensitivity_grid()`](https://mdmanurung.github.io/somalign/reference/somalign_sensitivity_grid.md)
   : Run an OT sensitivity grid
 - [`somalign_som_stability()`](https://mdmanurung.github.io/somalign/reference/somalign_som_stability.md)
   : Assess alignment stability across query SOM random seeds
+- [`somalign_topology_audit()`](https://mdmanurung.github.io/somalign/reference/somalign_topology_audit.md)
+  : Compute a persistent-homology topology audit for a somalign fit
+- [`somalign_subspace_sensitivity()`](https://mdmanurung.github.io/somalign/reference/somalign_subspace_sensitivity.md)
+  : Subspace sensitivity analysis for anchored batch correction
+- [`somalign_exclusion_test()`](https://mdmanurung.github.io/somalign/reference/somalign_exclusion_test.md)
+  : Anchor exclusion-restriction test
 - [`somalign_worst_nodes()`](https://mdmanurung.github.io/somalign/reference/somalign_worst_nodes.md)
   : Return worst-projecting query SOM nodes
 - [`somalign_check_codebook_alignment()`](https://mdmanurung.github.io/somalign/reference/somalign_check_codebook_alignment.md)
@@ -79,3 +120,11 @@
   : Print a somalign_query object
 - [`print(`*`<somalign_reference>`*`)`](https://mdmanurung.github.io/somalign/reference/print.somalign_reference.md)
   : Print a somalign_reference object
+- [`print(`*`<somalign_subspace_sensitivity>`*`)`](https://mdmanurung.github.io/somalign/reference/print.somalign_subspace_sensitivity.md)
+  : Print a somalign_subspace_sensitivity object
+- [`print(`*`<somalign_topology>`*`)`](https://mdmanurung.github.io/somalign/reference/print.somalign_topology.md)
+  : Print a somalign_topology object
+- [`print(`*`<somalign_exclusion_test>`*`)`](https://mdmanurung.github.io/somalign/reference/print.somalign_exclusion_test.md)
+  : Print a somalign_exclusion_test object
+- [`summary(`*`<somalign_fit>`*`)`](https://mdmanurung.github.io/somalign/reference/summary.somalign_fit.md)
+  : Summarise a somalign_fit's label transfer

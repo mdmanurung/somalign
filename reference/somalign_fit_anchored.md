@@ -23,7 +23,7 @@ somalign_fit_anchored(
   epsilon = 0.1,
   rho_query = 1,
   rho_ref = 1,
-  solver = c("internal", "log_domain", "auto"),
+  solver = c("internal", "log_domain", "auto", "annealing"),
   min_match_fraction = 0.05,
   confidence_threshold = 0.6,
   correction_min_mass = 1e-08,
@@ -31,7 +31,12 @@ somalign_fit_anchored(
   tol = 1e-07,
   chunk_size = 10000L,
   correction = c("cost_bonus", "subspace", "both"),
-  variance_threshold = 0.9
+  variance_threshold = 0.9,
+  anneal_start = 10,
+  anneal_stages = 10L,
+  anneal_factor = NULL,
+  feature_weights = NULL,
+  laplacian_lambda = 0
 )
 ```
 
@@ -126,6 +131,39 @@ somalign_fit_anchored(
   selecting the rank of the batch subspace. Default `0.9` (CellANOVA
   convention). Only used when `correction` is `"subspace"` or `"both"`.
 
+- anneal_start, anneal_stages, anneal_factor:
+
+  Annealing-schedule tuning parameters, used only when
+  `solver = "annealing"`. See
+  [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
+
+- feature_weights:
+
+  Either `NULL` (default, squared-Euclidean cost), a named non-negative
+  numeric vector of explicit per-feature weights (see
+  [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)),
+  or the string `"anchor"` – auto-estimates weights from the anchor
+  displacement matrix `D` via \\w_f = 1 / (\mathrm{var}(D\_{\cdot f}) +
+  \delta)\\, mean-normalised. Markers that vary most across the batch
+  (large `var(D[, f])`, i.e. batch-driven) get low weight and are cheap
+  to transport; markers stable across the batch get high weight and are
+  expensive to transport, preserving biology. The resolved vector is
+  stored in `fit$anchors$feature_weights` and
+  `fit$diagnostics$cost_metric$feature_weights`. Composes independently
+  with `correction`: the weights reshape the cost geometry, while
+  `rho_anchor`/`correction` bias routing – both act on the same
+  underlying transport problem without conflict.
+
+- laplacian_lambda:
+
+  Non-negative scalar. Graph-Laplacian smoothing of the node-shift
+  field; see
+  [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
+  When `correction` is `"subspace"` or `"both"`, smoothing is applied
+  *before* the subspace projection (smooth in full marker space, then
+  restrict to the batch subspace `V`) so the Laplacian neighbor
+  structure is respected. Default `0` (no smoothing).
+
 ## Value
 
 A `somalign_anchored_fit` object (also inherits `somalign_fit`).
@@ -160,6 +198,23 @@ A `somalign_anchored_fit` object (also inherits `somalign_fit`).
 `"subspace"` and `"both"` expose `fit$anchors$batch_subspace` (a list
 with `V`, `rank`, `variance_explained`). `"cost_bonus"` sets this to
 `NULL`.
+
+**Topology preservation and epsilon.** Empirically, the primary driver
+of topology/structure damage from batch correction is `epsilon`, not
+`rho_anchor`. Higher epsilon blurs the transport plan across a wider
+neighbourhood, causing the corrected codebook to collapse biologically
+distinct populations (H0 component merging). Subspace-restricted modes
+(`"subspace"` or `"both"`) substantially reduce merging at any given
+epsilon because shifts are confined to the batch-variation subspace,
+leaving orthogonal biological variation intact. As a result, choosing
+epsilon involves a genuine trade-off: higher epsilon is more numerically
+stable for the Sinkhorn solver, but lower epsilon preserves more
+topology. Before committing to an epsilon, run
+`somalign_epsilon_sweep(..., topology = TRUE)` alongside
+[`somalign_select_epsilon()`](https://mdmanurung.github.io/somalign/reference/somalign_select_epsilon.md)
+and inspect both the phase-transition criterion and the
+`biggest_merge_mass_frac` column – the two criteria can disagree,
+especially at small epsilon near numerical instability.
 
 **Cost modification.** Let \\C\\ be the M×K codebook distance matrix
 normalised by its median positive entry (as in
@@ -227,14 +282,23 @@ work unchanged. An additional `$anchors` list element is attached:
   matrix), `rank` (integer), and `variance_explained` (cumulative
   variance at the selected rank). `NULL` for `"cost_bonus"`.
 
+- `displacements`:
+
+  The scaled anchor displacement matrix \\D = X\_{\text{old,scaled}} -
+  X\_{\text{new,scaled}}\\ (n_anchors × p), always stored regardless of
+  `correction` mode. Used by
+  [`somalign_subspace_sensitivity()`](https://mdmanurung.github.io/somalign/reference/somalign_subspace_sensitivity.md)
+  and
+  [`somalign_exclusion_test()`](https://mdmanurung.github.io/somalign/reference/somalign_exclusion_test.md).
+
 ## Note
 
 At small `epsilon` with high anchor coverage the anchor bonus zeros out
 many entries of the normalised cost matrix, which sharpens the Sinkhorn
 kernel and can drive the remaining entries toward numerical underflow.
-If the solver warns about kernel underflow, pass
-`solver = "log_domain"`, which works in log-potential space and avoids
-the issue.
+If the solver warns about kernel underflow, pass `solver = "log_domain"`
+or `solver = "annealing"`, both of which work in log-potential space and
+avoid the issue.
 
 ## See also
 
@@ -281,6 +345,25 @@ fit$anchors
 #> [1] 0.5
 #> 
 #> $batch_subspace
+#> NULL
+#> 
+#> $variance_threshold
+#> [1] 0.9
+#> 
+#> $displacements
+#>               F1        F2         F3
+#>  [1,] -0.2266608 -0.220545 -0.2307808
+#>  [2,] -0.2266608 -0.220545 -0.2307808
+#>  [3,] -0.2266608 -0.220545 -0.2307808
+#>  [4,] -0.2266608 -0.220545 -0.2307808
+#>  [5,] -0.2266608 -0.220545 -0.2307808
+#>  [6,] -0.2266608 -0.220545 -0.2307808
+#>  [7,] -0.2266608 -0.220545 -0.2307808
+#>  [8,] -0.2266608 -0.220545 -0.2307808
+#>  [9,] -0.2266608 -0.220545 -0.2307808
+#> [10,] -0.2266608 -0.220545 -0.2307808
+#> 
+#> $feature_weights
 #> NULL
 #> 
 ```

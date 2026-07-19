@@ -5,6 +5,20 @@ using codebook-level unbalanced entropic optimal transport. The example
 below trains a reference SOM on labelled old samples, then projects a
 shifted query dataset into that reference.
 
+**The primary product is label transfer**, which carries reference
+labels (and a per-cell confidence and margin) onto the query via the
+transport plan. The *corrected coordinates* (`corrected_som_*`,
+`correction_norm`) are a secondary, diagnostic output: they are useful
+for triage and visualisation, but the barycentric correction can
+over-merge distinct populations (see
+[`somalign_topology_audit()`](https://mdmanurung.github.io/somalign/reference/somalign_topology_audit.md)),
+so they should not be treated as a batch-corrected expression matrix for
+downstream re-clustering or differential testing. Call
+[`summary()`](https://rdrr.io/r/base/summary.html) on a fit for the
+label-transfer headline, or
+`somalign_results(fit, include_correction = FALSE)` for a label-focused
+table.
+
 ## Quick start
 
 ``` r
@@ -71,6 +85,13 @@ functions:
   [`somalign_diagnostics()`](https://mdmanurung.github.io/somalign/reference/somalign_diagnostics.md)
   and tune OT parameters with
   [`somalign_sensitivity_grid()`](https://mdmanurung.github.io/somalign/reference/somalign_sensitivity_grid.md).
+- Validate the transferred labels and tune for accuracy with
+  [`somalign_cross_validate()`](https://mdmanurung.github.io/somalign/reference/somalign_cross_validate.md),
+  [`somalign_label_metrics()`](https://mdmanurung.github.io/somalign/reference/somalign_label_metrics.md),
+  [`somalign_calibration()`](https://mdmanurung.github.io/somalign/reference/somalign_calibration.md),
+  and
+  [`somalign_tune()`](https://mdmanurung.github.io/somalign/reference/somalign_tune.md).
+  See the “Validating and tuning label transfer” vignette.
 
 ## What to look at first
 
@@ -85,16 +106,16 @@ head(results[, c(
   "old_som_unit",
   "old_som_distance",
   "old_som_distance_threshold",
-  "old_som_label",
   "outside_reference_distance",
+  "outside_reference_surprisal",
+  "outside_reference_top_marker",
   "final_status",
+  "old_som_label",
   "corrected_som_unit",
-  "corrected_som_distance",
-  "corrected_som_distance_threshold",
-  "corrected_outside_reference_distance",
   "correction_norm",
   "transferred_label",
   "transferred_label_confidence",
+  "transferred_label_margin",
   "transferred_label_accepted"
 )])
 #>   sample_id query_som_unit old_som_unit old_som_distance
@@ -104,34 +125,34 @@ head(results[, c(
 #> 4         4              3            4        1.9063036
 #> 5         5              1            4        0.8813879
 #> 6         6              1            4        0.9746628
-#>   old_som_distance_threshold old_som_label outside_reference_distance
-#> 1                   1.775302          high                      FALSE
-#> 2                   1.919417           low                      FALSE
-#> 3                   1.919417           low                      FALSE
-#> 4                   1.919417           low                      FALSE
-#> 5                   1.919417           low                      FALSE
-#> 6                   1.919417           low                      FALSE
-#>       final_status corrected_som_unit corrected_som_distance
-#> 1 inside_reference                  1              0.2977163
-#> 2 inside_reference                  4              0.6852802
-#> 3 inside_reference                  4              1.2155583
-#> 4 inside_reference                  4              1.5699952
-#> 5 inside_reference                  4              0.8350049
-#> 6 inside_reference                  4              0.5477905
-#>   corrected_som_distance_threshold corrected_outside_reference_distance
-#> 1                         1.775302                                FALSE
-#> 2                         1.919417                                FALSE
-#> 3                         1.919417                                FALSE
-#> 4                         1.919417                                FALSE
-#> 5                         1.919417                                FALSE
-#> 6                         1.919417                                FALSE
-#>   correction_norm transferred_label transferred_label_confidence
-#> 1       1.3540493              <NA>                           NA
-#> 2       0.4712927               low                    0.9999969
-#> 3       0.4712927               low                    0.9999969
-#> 4       0.8539725              high                    0.7376283
-#> 5       0.4712927               low                    0.9999969
-#> 6       0.4712927               low                    0.9999969
+#>   old_som_distance_threshold outside_reference_distance
+#> 1                   1.775302                      FALSE
+#> 2                   1.919417                      FALSE
+#> 3                   1.919417                      FALSE
+#> 4                   1.919417                      FALSE
+#> 5                   1.919417                      FALSE
+#> 6                   1.919417                      FALSE
+#>   outside_reference_surprisal outside_reference_top_marker     final_status
+#> 1                    4.358669                           f3 inside_reference
+#> 2                    1.862734                           f2 inside_reference
+#> 3                    4.039242                           f4 inside_reference
+#> 4                    8.612408                           f2 inside_reference
+#> 5                    1.759145                           f2 inside_reference
+#> 6                    2.090646                           f1 inside_reference
+#>   old_som_label corrected_som_unit correction_norm transferred_label
+#> 1          high                  1       1.3540493              <NA>
+#> 2           low                  4       0.4712927               low
+#> 3           low                  4       0.4712927               low
+#> 4           low                  4       0.8539725              high
+#> 5           low                  4       0.4712927               low
+#> 6           low                  4       0.4712927               low
+#>   transferred_label_confidence transferred_label_margin
+#> 1                           NA                0.1991998
+#> 2                    0.9999969                0.9999938
+#> 3                    0.9999969                0.9999938
+#> 4                    0.7376283                0.4752565
+#> 5                    0.9999969                0.9999938
+#> 6                    0.9999969                0.9999938
 #>   transferred_label_accepted
 #> 1                      FALSE
 #> 2                       TRUE
@@ -145,11 +166,22 @@ head(results[, c(
 
 The columns split into three groups. `old_som_unit`, `old_som_distance`,
 `old_som_distance_threshold`, `outside_reference_distance`,
-`final_status`, `old_som_label`, and `old_som_label_confidence` are the
-primary result: each sample is assigned to its nearest reference node by
-Euclidean distance, with no transport involved.
+`outside_reference_surprisal`, `outside_reference_top_marker`,
+`final_status`, `old_som_label`, and `old_som_label_confidence` describe
+the direct reference projection: each sample is assigned to its nearest
+reference node by Euclidean distance, with no transport involved. Use
+this group for reference-node assignment and cross-batch composition
+summaries.
 
-The OT plan then contributes two sets of auxiliary columns.
+The OT plan then contributes label-transfer columns. `transferred_label`
+is the top label from `correspondence %*% reference$label_prob`;
+confidence is the top transported-label posterior probability;
+`transferred_label_margin` is the top posterior minus the runner-up
+posterior. `transferred_label_accepted` requires both enough transported
+mass and enough label confidence. Check the acceptance, confidence, and
+margin columns before using transferred labels downstream.
+
+The corrected-projection columns are auxiliary diagnostics.
 `corrected_som_unit`, `corrected_som_distance`,
 `corrected_som_distance_threshold`,
 `corrected_outside_reference_distance`, and `correction_norm` describe
@@ -158,12 +190,36 @@ mass-weighted reference target. A large `correction_norm` signals a
 systematic offset between the batches and is worth examining, but the
 corrected assignment should not replace the direct one.
 
-`transferred_label`, `transferred_label_confidence`, and
-`transferred_label_accepted` derive from the same OT correspondence: the
-dominant reference node in each query node’s transport row contributes
-its label, accepted only when transported mass and label confidence both
-clear their thresholds. Check `transferred_label_accepted` before using
-any transferred label downstream.
+## Cross-batch composition and abundance
+
+When the goal is to compare cell-type composition across batches, two
+choices improve cross-batch reproducibility. First, use the direct
+projection (`old_som_unit`, `old_som_label`) or
+[`somalign_soft_frequencies()`](https://mdmanurung.github.io/somalign/reference/somalign_soft_frequencies.md)
+rather than the corrected columns: the barycentric correction can
+over-merge populations (see
+[`somalign_topology_audit()`](https://mdmanurung.github.io/somalign/reference/somalign_topology_audit.md))
+and does not improve reproducibility of composition. Second, quantify
+abundance compositionally. Cluster frequencies sum to one, so a
+raw-frequency comparison is dominated by the largest clusters and
+understates how well rarer ones are recovered. A centred log-ratio (CLR)
+transform of per-sample cluster counts, as implemented in the `crumblr`
+package, maps the composition to log-ratio space and downweights
+low-count clusters, and is the transform used by downstream
+differential-abundance models:
+
+``` r
+
+# counts: a samples-by-cluster integer matrix (e.g. table(sample, old_som_label))
+library(crumblr)
+cobj <- crumblr(counts)      # CLR values in cobj$E, precision weights in cobj$weights
+```
+
+For softer abundance estimates, aggregate with
+[`somalign_soft_frequencies()`](https://mdmanurung.github.io/somalign/reference/somalign_soft_frequencies.md)
+before downstream compositional modelling. Absolute per-cluster
+proportions and node-level frequencies remain approximate; the CLR
+profile is the reproducible quantity.
 
 ## Diagnostic plots
 
@@ -280,11 +336,11 @@ somalign_worst_nodes(fit, n = 10)
 #> V3          3      0.175       0.16011653      0.9149516               TRUE
 #> V1          1      0.300       0.35245983      1.0000000               TRUE
 #> V4          4      0.050       0.05309817      1.0000000               TRUE
-#>    correction_norm top_ref_label
-#> V2       0.4970407          high
-#> V3       0.8539725          high
-#> V1       0.4712927           low
-#> V4       1.3540493          high
+#>    correction_norm transport_entropy top_ref_label
+#> V2       0.4970407      1.424552e+00          high
+#> V3       0.8539725      7.478739e-01          high
+#> V1       0.4712927      6.806472e-05           low
+#> V4       1.3540493      1.290350e-02          high
 ```
 
 ## Next steps
@@ -311,9 +367,9 @@ Useful when the batch offset is large relative to the local OT problem
 scale.
 
 [`vignette("algorithm", package = "somalign")`](https://mdmanurung.github.io/somalign/articles/algorithm.md)
-walks through each pipeline stage — direct projection, OT
-correspondence, correction vectors, label transfer — and explains how
-they produce the output columns.
+walks through each pipeline stage (direct projection, OT correspondence,
+correction vectors, label transfer, and soft abundance projection) and
+explains how they produce the output columns.
 
 For preprocessing,
 [`somalign_normalize()`](https://mdmanurung.github.io/somalign/reference/somalign_normalize.md)
@@ -357,7 +413,7 @@ at once during nearest-reference-node searches.
     #> [1] stats     graphics  grDevices utils     datasets  methods   base     
     #> 
     #> other attached packages:
-    #> [1] somalign_0.99.1  kohonen_3.0.13   BiocStyle_2.40.0
+    #> [1] somalign_0.99.4  kohonen_3.0.13   BiocStyle_2.40.0
     #> 
     #> loaded via a namespace (and not attached):
     #>  [1] gtable_0.3.6        jsonlite_2.0.0      dplyr_1.2.1        

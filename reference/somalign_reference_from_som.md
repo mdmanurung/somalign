@@ -13,7 +13,8 @@ somalign_reference_from_som(
   codebook_space,
   labels = c("codebook", "none"),
   quantile_probs = c(0.5, 0.9, 0.95, 0.99),
-  distance_chunk_size = 1000000L
+  distance_chunk_size = 1000000L,
+  compute_node_var = TRUE
 )
 ```
 
@@ -61,6 +62,13 @@ somalign_reference_from_som(
   Number of cells to process per chunk when computing X-space
   cell-to-node distances. Reduce if memory is tight; increase for faster
   throughput. Default 1e6.
+
+- compute_node_var:
+
+  Logical; if `TRUE` (default) per-node per-marker variances are
+  computed from the embedded SOM training data and stored as
+  `reference$node_var`. See
+  [`somalign_train_reference`](https://mdmanurung.github.io/somalign/reference/somalign_train_reference.md).
 
 ## Value
 

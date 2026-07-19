@@ -13,7 +13,8 @@ somalign_reference(
   center = NULL,
   scale = NULL,
   codebook_space = NULL,
-  quantile_probs = c(0.5, 0.9, 0.95, 0.99)
+  quantile_probs = c(0.5, 0.9, 0.95, 0.99),
+  compute_node_var = TRUE
 )
 ```
 
@@ -55,6 +56,12 @@ somalign_reference(
 - quantile_probs:
 
   Distance quantiles used for outside-reference flags.
+
+- compute_node_var:
+
+  Logical; if `TRUE` (default) per-node per-marker variances are
+  computed from `data` and stored as `reference$node_var`. See
+  [`somalign_train_reference()`](https://mdmanurung.github.io/somalign/reference/somalign_train_reference.md).
 
 ## Value
 

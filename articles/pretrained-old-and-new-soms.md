@@ -8,13 +8,12 @@ rather than letting `somalign` train everything from scratch.
 
 ## Coordinate-space requirements
 
-The single constraint that ties the whole approach together is that both
-the reference and query codebooks must live in the same feature
-coordinate system: z-scored with the **old/reference** data’s mean and
+Both the reference and query codebooks must live in the same feature
+coordinate system, z-scored with the **old/reference** data’s mean and
 standard deviation. When the reference SOM was trained on old data
 scaled to $`\mu_\text{ref}`$ and $`\sigma_\text{ref}`$, the query SOM
-must be trained on new samples transformed by those same parameters —
-not by new-data z-scores, and not in raw units.
+must be trained on new samples transformed by those same parameters, not
+by new-data z-scores and not in raw units.
 
 ``` r
 
@@ -197,8 +196,8 @@ head(results[, c(
 
 ## Quality control and tuning
 
-Before acting on label transfer or corrected node assignments, inspect
-the solver and OT diagnostics:
+Before using label transfer or corrected node assignments, inspect the
+solver and OT diagnostics:
 
 ``` r
 
@@ -237,9 +236,9 @@ diagnostics$projection              # direct/corrected outside fractions
 #> [1] 0.07894737
 ```
 
-`diagnostics$ot$match_fraction` is the most actionable single number: a
+`diagnostics$ot$match_fraction` is the most informative single number: a
 query node with low match fraction transported little mass to any
-reference node, which typically means a novel population, a
+reference node, which typically indicates a novel population, a
 codebook-space mismatch, or both. Labels transferred from such nodes
 should be treated as provisional. `diagnostics$ot$match_mass_ratio`
 stores the unclipped transported-mass ratio; values above 1 can occur in
@@ -308,7 +307,7 @@ assignments into downstream analyses.
 
 ## Before relying on results
 
-Feature names and order must match exactly —
+Feature names and order must match exactly:
 [`somalign_query()`](https://mdmanurung.github.io/somalign/reference/somalign_query.md)
 reorders columns to `reference$features` and will error if any are
 missing. Both codebooks must live in the same feature space; the query
@@ -354,7 +353,7 @@ at once.
     #> [1] stats     graphics  grDevices utils     datasets  methods   base     
     #> 
     #> other attached packages:
-    #> [1] somalign_0.99.1  kohonen_3.0.13   BiocStyle_2.40.0
+    #> [1] somalign_0.99.4  kohonen_3.0.13   BiocStyle_2.40.0
     #> 
     #> loaded via a namespace (and not attached):
     #>  [1] digest_0.6.39       desc_1.4.3          R6_2.6.1           

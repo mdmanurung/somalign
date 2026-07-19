@@ -1,11 +1,20 @@
 # Anchor-regularized alignment with remeasured samples
 
+> **Scope.** Anchor regularisation shapes the *correction* (the per-node
+> shift), which `somalign` treats as a diagnostic rather than a product.
+> The anchor machinery still helps label transfer indirectly, because
+> the anchor cost bonus also biases the transport plan that labels are
+> read from, but the corrected coordinates it produces can over-merge
+> populations (see
+> [`somalign_topology_audit()`](https://mdmanurung.github.io/somalign/reference/somalign_topology_audit.md))
+> and are not a batch-corrected expression matrix.
+
 In many longitudinal and multi-site studies, a small set of
-quality-control samples – control cell lines, reference bead
-populations, or proficiency panel specimens – gets run alongside every
-batch. When those same samples appear in both the old batch (from which
-the reference SOM was trained) and the new batch (from which the query
-SOM was trained), they carry direct information about the per-node batch
+quality-control samples (control cell lines, reference bead populations,
+or proficiency panel specimens) gets run alongside every batch. When
+those same samples appear in both the old batch (from which the
+reference SOM was trained) and the new batch (from which the query SOM
+was trained), they carry direct information about the per-node batch
 displacement: wherever an anchor sample lands in the reference codebook,
 the corresponding query measurement tells you how far that region has
 shifted.
@@ -17,8 +26,8 @@ measurement onto the reference SOM. (The query SOM was trained on
 new-batch data, so projecting the old-batch anchor onto it identifies
 which query node that anchor occupied before the batch shift; projecting
 the new-batch anchor onto the reference SOM identifies the corresponding
-reference node after the shift.) This produces a node-pair count matrix
-– how many anchor pairs link query node *k* to reference node *l*. Pairs
+reference node after the shift.) This produces a node-pair count matrix:
+how many anchor pairs link query node *k* to reference node *l*. Pairs
 with anchor support get reduced transport cost, so the OT plan
 preferentially routes mass through those node combinations. Uncovered
 nodes remain unaffected; their cost is identical to the standard
@@ -55,7 +64,7 @@ reference
 #>   labelled nodes: 0
 ```
 
-The new batch carries a modest uniform batch offset – realistic for
+The new batch carries a modest uniform batch offset, realistic for
 reagent lot changes or inter-instrument calibration drift.
 
 ``` r
@@ -78,8 +87,8 @@ query
 
 ## Identifying anchor samples
 
-Suppose 25 samples from a quality-control pool – the same biological
-material measured under both batch conditions – are spread across both
+Suppose 25 samples from a quality-control pool (the same biological
+material measured under both batch conditions) are spread across both
 phenotypic populations.
 
 ``` r
@@ -114,17 +123,13 @@ Printing either object gives a concise summary:
 
 fit_plain
 #> <somalign_fit>
-#>   solver: internal
-#>   query nodes: 16
-#>   reference nodes: 16
-#>   transport mass: 1.166
+#>   label transfer: disabled (reference has no labels)
+#>   solver: internal  |  query nodes: 16  |  reference nodes: 16  |  transport mass: 1.166
 fit_anc
 #> <somalign_anchored_fit>
-#>   solver: internal
-#>   query nodes: 16
-#>   reference nodes: 16
-#>   transport mass: 1.175
-#>   anchors: 25 (68.8% node coverage)
+#>   label transfer: disabled (reference has no labels)
+#>   solver: internal  |  query nodes: 16  |  reference nodes: 16  |  transport mass: 1.175
+#>   anchors: 25 (68.8% node coverage) -- correction is a diagnostic, not a corrected-expression product
 ```
 
 The anchored fit reports how many query nodes had at least one anchor
@@ -149,6 +154,40 @@ fit_anc$anchors
 #> [1] 0.6875
 #> 
 #> $batch_subspace
+#> NULL
+#> 
+#> $variance_threshold
+#> [1] 0.9
+#> 
+#> $displacements
+#>               CD1         CD2         CD3         CD4         CD5
+#>  [1,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#>  [2,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#>  [3,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#>  [4,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#>  [5,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#>  [6,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#>  [7,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#>  [8,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#>  [9,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [10,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [11,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [12,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [13,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [14,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [15,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [16,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [17,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [18,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [19,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [20,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [21,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [22,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [23,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [24,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> [25,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815
+#> 
+#> $feature_weights
 #> NULL
 ```
 
@@ -228,16 +267,16 @@ identical to
 [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
 As `rho_anchor` grows, anchor-supported pairs become progressively
 cheaper. Once the bonus exceeds the normalized cost for a pair, that
-pair’s effective cost is clamped to zero – the plan then spreads mass
+pair’s effective cost is clamped to zero. The plan then spreads mass
 among all zero-cost pairs according to entropic regularization rather
 than differential anchor support, so very large values do not continue
 to concentrate mass.
 
 A practical upper bound is `rho_anchor * max_A / n_anchors <= 1`, where
 `max_A` is the highest anchor count for any single node pair. Values in
-the range 0.5–2 are a reasonable starting point. When coverage is sparse
-(\< 30% of nodes) or anchor pairs are unevenly distributed, a smaller
-value avoids over-weighting a few node pairs.
+the range 0.5 to 2 are a reasonable starting point. When coverage is
+sparse (\< 30% of nodes) or anchor pairs are unevenly distributed, a
+smaller value avoids over-weighting a few node pairs.
 
 ``` r
 
@@ -278,17 +317,17 @@ consistent with your biological expectations.
 
 The default `correction = "cost_bonus"` applies the OT-derived shift
 across all features. For most reagent- or calibration-driven batch
-effects this is correct — the displacement is genuinely technical and
+effects this is correct: the displacement is genuinely technical and
 should be removed. The assumption breaks when the new batch contains
-populations or activation states absent from the reference: a full-space
-shift pushes those cells toward reference coordinates and erases their
-distinguishing biology.
+populations or activation states absent from the reference, because a
+full-space shift pushes those cells toward reference coordinates and
+erases their distinguishing biology.
 
 Because each anchor pair links *the same biological unit* measured in
 both batches, the row vector `anchor_old - anchor_new` is a direct
 observation of the batch displacement with no biological contribution.
 SVD of the n_anchors × p displacement matrix isolates the true batch
-directions — call this `V_batch`. Restricting node shifts to `V_batch`
+directions; call this `V_batch`. Restricting node shifts to `V_batch`
 corrects only the batch component; biology orthogonal to `V_batch` is
 preserved.
 
@@ -362,11 +401,43 @@ produce similar corrected positions; the difference becomes meaningful
 when anchor coverage is uneven or when the query carries populations not
 represented in the reference.
 
+## Corrected marker expression for downstream analysis
+
+Label transfer is the primary product, but some downstream steps (a
+UMAP, a differential-expression contrast) want a corrected expression
+matrix rather than a per-cell label.
+[`somalign_correct_expression()`](https://mdmanurung.github.io/somalign/reference/somalign_correct_expression.md)
+returns one: a cells-by-markers matrix in which the correction is
+confined to the anchor-estimated batch subspace and smoothed across each
+cell’s nearest SOM nodes, so variation orthogonal to the batch direction
+is left intact. It requires a subspace-aware fit
+(`correction = "subspace"` or `"both"`, or
+[`somalign_fit_two_pass()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_two_pass.md));
+a plain fit carries no batch subspace and is rejected.
+
+``` r
+
+expr_corrected <- somalign_correct_expression(fit_sub)   # raw marker units
+head(expr_corrected[, 1:4])
+```
+
+This output is an aid for visualisation and differential expression, not
+the primary product. The correction preserves orthogonal structure, but
+within the batch subspace it reduces rather than fully removes the
+distance between populations, so run `somalign_topology_audit(fit_sub)`
+first to confirm that correction is warranted; populations that sit
+close together along the batch direction can be drawn toward one
+another. For comparing cell-type composition or abundance across
+batches, prefer the direct projection columns from
+[`somalign_results()`](https://mdmanurung.github.io/somalign/reference/somalign_results.md)
+with a compositional (centred log-ratio) transform rather than corrected
+expression.
+
 ## When to use `somalign_fit_anchored()`
 
 [`somalign_fit_anchored()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_anchored.md)
-is appropriate when a set of samples — QC pools, reference standards,
-proficiency panels — was physically run in both the old and new batches,
+is appropriate when a set of samples (QC pools, reference standards,
+proficiency panels) was physically run in both the old and new batches,
 providing ground-truth node-pair correspondences. Anchor pairs need not
 cover the full codebook; even sparse coverage meaningfully constrains
 the OT plan for the covered node pairs, while uncovered nodes fall back
@@ -378,8 +449,8 @@ directly. Fabricated or imputed anchor pairs add no information and will
 misguide the transport.
 
 When query-only biology must be preserved, use `correction = "subspace"`
-or `"both"`. When the full-space shift is appropriate — the batch
-dominates and no signal-preservation is needed — the default
+or `"both"`. When the full-space shift is appropriate (the batch
+dominates and no signal-preservation is needed), the default
 `"cost_bonus"` is sufficient. See
 [`vignette("two-pass", package = "somalign")`](https://mdmanurung.github.io/somalign/articles/two-pass.md)
 for the two-pass decomposition approach, which handles large global
@@ -408,7 +479,7 @@ offsets without requiring remeasured anchors.
     #> [1] stats     graphics  grDevices utils     datasets  methods   base     
     #> 
     #> other attached packages:
-    #> [1] somalign_0.99.1  kohonen_3.0.13   BiocStyle_2.40.0
+    #> [1] somalign_0.99.4  kohonen_3.0.13   BiocStyle_2.40.0
     #> 
     #> loaded via a namespace (and not attached):
     #>  [1] digest_0.6.39       desc_1.4.3          R6_2.6.1           

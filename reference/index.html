@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -24,18 +24,19 @@
     <li><a class="dropdown-item" href="../articles/anchor-samples.html">Anchor-regularized alignment</a></li>
     <li><a class="dropdown-item" href="../articles/two-pass.html">Two-pass global and local alignment</a></li>
     <li><a class="dropdown-item" href="../articles/algorithm.html">Algorithm and interpretation</a></li>
+    <li><a class="dropdown-item" href="../articles/validating-label-transfer.html">Validating and tuning label transfer</a></li>
     <li><a class="dropdown-item" href="../articles/function-coverage.html">API smoke test</a></li>
   </ul></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-news" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">News</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-news"><li><h6 class="dropdown-header" data-toc-skip>Releases</h6></li>
-    <li><a class="dropdown-item" href="../news/index.html">Version 0.1.0</a></li>
+    <li><a class="dropdown-item" href="../news/index.html">Version 0.99.4</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../news/index.html">Changelog</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign"><span class="fa fab fa-github fa-lg"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/mdmanurung/somalign" aria-label="GitHub repository"><span class="fa fab fa-github fa-lg"></span></a></li>
       </ul></div>
 
 
@@ -152,6 +153,22 @@
         </dt>
         <dd>Two-pass alignment decomposing correction into global and local components</dd>
       </dl></div><div class="section level2">
+      <h2 id="correcting-expression">Correcting expression<a class="anchor" aria-label="anchor" href="#correcting-expression"></a></h2>
+
+      <div class="section-desc"><p>Dedicated auxiliary expression correction paths for anchored or two-pass fits.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="somalign_correct_expression.html">somalign_correct_expression()</a></code>
+
+        </dt>
+        <dd>Batch-correct query marker expression for downstream analysis</dd>
+      </dl></div><div class="section level2">
       <h2 id="results">Results<a class="anchor" aria-label="anchor" href="#results"></a></h2>
 
 
@@ -167,6 +184,73 @@
 
         </dt>
         <dd>Return per-sample somalign results</dd>
+      </dl></div><div class="section level2">
+      <h2 id="soft-labels-and-abundance">Soft labels and abundance<a class="anchor" aria-label="anchor" href="#soft-labels-and-abundance"></a></h2>
+
+      <div class="section-desc"><p>Probabilistic reference projection for label probabilities and per-sample frequencies.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="somalign_soft_labels.html">somalign_soft_labels()</a></code>
+
+        </dt>
+        <dd>Soft (probabilistic) label projection for query cells</dd>
+
+        <dt>
+
+          <code><a href="somalign_soft_frequencies.html">somalign_soft_frequencies()</a></code>
+
+        </dt>
+        <dd>Per-group soft label frequencies for query cells</dd>
+      </dl></div><div class="section level2">
+      <h2 id="validation-and-tuning">Validation and tuning<a class="anchor" aria-label="anchor" href="#validation-and-tuning"></a></h2>
+
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="somalign_label_metrics.html">somalign_label_metrics()</a></code>
+
+        </dt>
+        <dd>Label-transfer accuracy metrics</dd>
+
+        <dt>
+
+          <code><a href="somalign_calibration.html">somalign_calibration()</a></code>
+
+        </dt>
+        <dd>Confidence calibration of label transfer</dd>
+
+        <dt>
+
+          <code><a href="somalign_cross_validate.html">somalign_cross_validate()</a></code>
+
+        </dt>
+        <dd>Cross-validate label transfer on held-out cells</dd>
+
+        <dt>
+
+          <code><a href="somalign_tune.html">somalign_tune()</a></code>
+
+        </dt>
+        <dd>Tune transport-plan knobs against label-transfer accuracy</dd>
+
+        <dt>
+
+          <code><a href="somalign_anchor_benefit.html">somalign_anchor_benefit()</a></code>
+
+        </dt>
+        <dd>Quantify the label-transfer benefit of anchor (repeat) samples</dd>
       </dl></div><div class="section level2">
       <h2 id="diagnostics-and-sensitivity">Diagnostics and sensitivity<a class="anchor" aria-label="anchor" href="#diagnostics-and-sensitivity"></a></h2>
 
@@ -186,6 +270,20 @@
 
         <dt>
 
+          <code><a href="somalign_epsilon_sweep.html">somalign_epsilon_sweep()</a></code>
+
+        </dt>
+        <dd>Epsilon phase-transition sweep for principled epsilon selection</dd>
+
+        <dt>
+
+          <code><a href="somalign_select_epsilon.html">somalign_select_epsilon()</a></code>
+
+        </dt>
+        <dd>Select epsilon from an epsilon-sweep curve</dd>
+
+        <dt>
+
           <code><a href="somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code>
 
         </dt>
@@ -197,6 +295,27 @@
 
         </dt>
         <dd>Assess alignment stability across query SOM random seeds</dd>
+
+        <dt>
+
+          <code><a href="somalign_topology_audit.html">somalign_topology_audit()</a></code>
+
+        </dt>
+        <dd>Compute a persistent-homology topology audit for a somalign fit</dd>
+
+        <dt>
+
+          <code><a href="somalign_subspace_sensitivity.html">somalign_subspace_sensitivity()</a></code>
+
+        </dt>
+        <dd>Subspace sensitivity analysis for anchored batch correction</dd>
+
+        <dt>
+
+          <code><a href="somalign_exclusion_test.html">somalign_exclusion_test()</a></code>
+
+        </dt>
+        <dd>Anchor exclusion-restriction test</dd>
 
         <dt>
 
@@ -306,6 +425,34 @@
 
         </dt>
         <dd>Print a somalign_reference object</dd>
+
+        <dt>
+
+          <code><a href="print.somalign_subspace_sensitivity.html">print(<i>&lt;somalign_subspace_sensitivity&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print a somalign_subspace_sensitivity object</dd>
+
+        <dt>
+
+          <code><a href="print.somalign_topology.html">print(<i>&lt;somalign_topology&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print a somalign_topology object</dd>
+
+        <dt>
+
+          <code><a href="print.somalign_exclusion_test.html">print(<i>&lt;somalign_exclusion_test&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print a somalign_exclusion_test object</dd>
+
+        <dt>
+
+          <code><a href="summary.somalign_fit.html">summary(<i>&lt;somalign_fit&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Summarise a somalign_fit's label transfer</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

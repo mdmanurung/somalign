@@ -11,7 +11,7 @@ somalign_fit(
   epsilon = 0.1,
   rho_query = 1,
   rho_ref = 1,
-  solver = c("internal", "log_domain", "auto"),
+  solver = c("internal", "log_domain", "auto", "annealing"),
   min_match_fraction = 0.05,
   confidence_threshold = 0.6,
   correction_min_mass = 1e-08,
@@ -19,7 +19,12 @@ somalign_fit(
   tol = 1e-07,
   chunk_size = 10000L,
   diagonal_boost = 0,
-  label_guided = FALSE
+  label_guided = FALSE,
+  anneal_start = 10,
+  anneal_stages = 10L,
+  anneal_factor = NULL,
+  feature_weights = NULL,
+  laplacian_lambda = 0
 )
 ```
 
@@ -63,6 +68,13 @@ somalign_fit(
   stable log-potential variant that avoids kernel underflow for small
   `epsilon` or high-dimensional codebooks; it is slower per iteration
   but tolerates cost/epsilon ratios that cause `"internal"` to warn.
+  `"annealing"` runs the log-domain solver across a geometric epsilon
+  cooling schedule (starting at `anneal_start * epsilon`, cooling to
+  `epsilon` over `anneal_stages` stages), warm-starting each stage from
+  the previous stage's dual potentials. Recommended for `label_guided`
+  fits or any fit with small `epsilon` (\< 0.05) where cold-start
+  Sinkhorn is slow or non-convergent; never underflows, since it never
+  exponentiates the kernel.
 
 - min_match_fraction:
 
@@ -114,6 +126,62 @@ somalign_fit(
   maximum label probability is below 0.5 are treated as unlabeled and
   are never penalized. Errors if `label_guided = TRUE` but either
   `label_prob` is `NULL`.
+
+- anneal_start:
+
+  Positive scalar \>= 1. When `solver = "annealing"`, the starting
+  epsilon is `anneal_start * epsilon`. Default `10`. Ignored when
+  `solver != "annealing"`.
+
+- anneal_stages:
+
+  Positive integer. Number of cooling stages in the annealing schedule,
+  including the final stage at the target `epsilon`. Default `10L`. A
+  value of `1` degenerates to a cold-start log-domain solve. Ignored
+  when `solver != "annealing"`.
+
+- anneal_factor:
+
+  Positive scalar \< 1, or `NULL` (default). When not `NULL`, overrides
+  the auto-computed per-stage cooling ratio. Ignored when
+  `solver != "annealing"`.
+
+- feature_weights:
+
+  Either `NULL` (default, squared-Euclidean cost) or a named
+  non-negative numeric vector with one entry per feature (explicit
+  diagonal Mahalanobis weights on the OT cost). Weights are applied as
+  `sqrt(w_f)` per-column scaling of both codebooks before the squared
+  Euclidean distance is computed, yielding cost \\\sum_f w_f (q\_{if} -
+  r\_{jf})^2\\. The resolved vector is stored in
+  `fit$diagnostics$cost_metric$feature_weights`. Projection and
+  threshold distances
+  ([`somalign_results()`](https://mdmanurung.github.io/somalign/reference/somalign_results.md))
+  are unaffected – weighting applies only to the OT cost. See
+  [`somalign_fit_anchored()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_anchored.md)
+  for `"anchor"`, which auto-estimates weights from anchor
+  displacements.
+
+- laplacian_lambda:
+
+  Non-negative scalar. Graph-Laplacian regularisation strength for the
+  node-shift field. When greater than zero, the M x p raw node shifts
+  are smoothed by solving \\(W + \lambda L)\\s^\* = W\\s\\, where \\W =
+  \mathrm{diag}(\text{node\\masses})\\ (with
+  `correction_allowed == FALSE` nodes zeroed out) and \\L\\ is the graph
+  Laplacian of the query SOM's hexagonal or rectangular neighbor graph.
+  This penalises squared differences between adjacent-node shifts,
+  producing a spatially coherent correction field instead of one where
+  neighboring nodes can receive wildly different shifts from
+  finite-sample OT noise. Default `0` (no smoothing, exact current
+  behaviour). A natural starting range is `0.1`–`1.0` (same
+  cost/squared-distance scale as `epsilon`); larger values increasingly
+  collapse the field toward its mass-weighted mean. Requires the query
+  SOM to carry 2-D grid coordinates (`query$som_query$grid$pts`, present
+  for any
+  [`kohonen::som()`](https://rdrr.io/pkg/kohonen/man/supersom.html)- or
+  [`kohonen::supersom()`](https://rdrr.io/pkg/kohonen/man/supersom.html)-trained
+  SOM); errors otherwise.
 
 ## Value
 
