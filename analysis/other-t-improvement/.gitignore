@@ -1,0 +1,4 @@
+*.rds
+*.csv
+*.log
+session_info.txt
