@@ -18,29 +18,36 @@ knitr::opts_chunk$set(
 ```
 
 `somalign` aligns a query SOM to a fixed reference SOM using codebook-level
-KL-unbalanced entropic optimal transport. This page walks through each stage
-of the pipeline, explaining how direct projection, the OT correspondence,
-correction vectors, and label transfer each contribute to the output columns.
+KL-unbalanced entropic optimal transport. This page walks through each stage of
+the pipeline, explaining how direct projection, the OT correspondence,
+correction vectors, label transfer, and soft abundance estimates each contribute
+to the current API.
 
-The OT stage uses the internal pure-R Sinkhorn solver. There is no external
-transport backend to configure. Two outputs are primary: the direct projection,
-which assigns each cell to its nearest reference node, and label transfer
-(stage 5), which carries a reference label and confidence onto each cell through
-the transport correspondence. The correction columns (stages 3 and 4) are a
-diagnostic, shown muted in the diagram below.
+The OT stage is implemented inside the package. `solver = "internal"` is the
+default primal-domain Sinkhorn iteration, while `solver = "log_domain"` and
+`solver = "annealing"` provide more stable log-potential paths for small
+`epsilon`, label-guided fits, or difficult cost matrices.
 
-> **Correction vectors are a diagnostic, not a product.** The barycentric
-> correction (stages 3 and 4 below) can over-merge distinct populations at larger
-> epsilon: a conditional-expectation contraction that
-> `somalign_topology_audit()` quantifies. Use the corrected coordinates for
-> triage and visualisation, not as a batch-corrected expression matrix. Label
+The primary outputs depend on the task. For query-cell annotation, use the
+transferred label, confidence, margin, and acceptance flag from stage 5. For
+reference-node assignment and cross-batch composition, use direct projection
+from stage 1. For abundance profiles, prefer the soft frequency estimator from
+stage 6. The corrected projection columns from stages 3 and 4 are auxiliary
+diagnostics, shown muted in the diagram below.
+
+> **Correction vectors are a diagnostic path.** The barycentric correction
+> (stages 3 and 4 below) can over-merge distinct populations at larger epsilon:
+> a conditional-expectation contraction that `somalign_topology_audit()`
+> quantifies. Use the corrected projection columns for triage and
+> visualisation. If you need a cell-by-marker corrected expression matrix, use
+> the dedicated `somalign_correct_expression()` path on an anchored
+> subspace-restricted fit or a two-pass fit, and audit topology first. Label
 > transfer (stage 5) is computed from the transport correspondence and never
-> uses the correction vectors, so it is unaffected by that over-merging.
+> uses corrected coordinates.
 
 ## Pipeline overview
 
-```{r overview, echo = FALSE, fig.height = 6,
-    eval = requireNamespace("DiagrammeR", quietly = TRUE)}
+```{r overview, echo = FALSE, fig.height = 6, eval = requireNamespace("DiagrammeR", quietly = TRUE)}
 DiagrammeR::mermaid("
 graph TD
   OD[Old data] --> NS[z-score normalise]
@@ -55,14 +62,19 @@ graph TD
   TP --> S5[Stage 5: Label Transfer]
   S5 --> LAB[transferred_label<br/>confidence, margin<br/>PRODUCT]
   S1 --> DIR[old_som_unit<br/>old_som_label<br/>final_status]
+  RS --> S6[Stage 6: Soft Projection]
+  RT --> S6
+  S6 --> SOFT[soft labels<br/>soft frequencies<br/>ABUNDANCE PRODUCT]
   TP --> S3[Stage 3: Correction Vectors]
   RS --> S3
   S3 --> S4[Stage 4: Corrected Projection]
   S4 --> CORR[corrected_som_unit<br/>correction_norm<br/>DIAGNOSTIC ONLY]
   style LAB fill:#d4edda,stroke:#28a745,color:#155724
   style DIR fill:#d4edda,stroke:#28a745,color:#155724
+  style SOFT fill:#d4edda,stroke:#28a745,color:#155724
   style CORR fill:#f2f2f2,stroke:#adb5bd,color:#6c757d
   style S5 fill:#d1ecf1,stroke:#0c5460
+  style S6 fill:#d1ecf1,stroke:#0c5460
   style S1 fill:#fff3cd,stroke:#856404
   style S2 fill:#fff3cd,stroke:#856404
   style S3 fill:#f2f2f2,stroke:#adb5bd,color:#6c757d
@@ -146,14 +158,16 @@ mtext("(unlabelled)", side = 1, line = 0, cex = 0.7, col = "grey40")
 
 ***
 
-## Stage 1: Direct projection (primary result)
+## Stage 1: Direct projection (reference-node assignment)
 
 Every new sample $x_s$ is assigned to its nearest reference node by Euclidean
 distance:
 $$k^* = \arg\min_k \|x_s - C_{\text{ref},k}\|$$
 
 No transport is involved. The assignment is deterministic given the reference
-codebook and is the result to use for downstream analysis.
+codebook. Use it when the question is "which reference node is this cell nearest
+to?" and for composition or abundance summaries (`old_som_unit` /
+`old_som_label`). Label transfer is handled separately in stage 5.
 
 ```{r stage1, echo = FALSE}
 par(mar = c(4, 4, 3, 2))
@@ -200,8 +214,10 @@ legend("bottomright",
 ```
 
 **Output:** `old_som_unit = k*`, `old_som_distance`,
-`old_som_distance_threshold`, `outside_reference_distance`, `final_status`,
-`old_som_label`, `old_som_label_confidence`.
+`old_som_distance_threshold`, `outside_reference_distance`,
+`outside_reference_surprisal`, `outside_reference_pvalue`,
+`outside_reference_top_marker`, `final_status`, `old_som_label`,
+`old_som_label_confidence`.
 
 ***
 
@@ -239,7 +255,7 @@ axis(1, at = seq_len(K_n), labels = paste0("r", seq_len(K_n)), cex.axis = 0.8)
 axis(2, at = seq_len(M_n), labels = paste0("q", seq_len(M_n)), las = 1, cex.axis = 0.8)
 mtext("Reference node  j", side = 1, line = 2.5, cex = 0.8)
 mtext("Query node  i",     side = 2, line = 3.2, cex = 0.8)
-title("Cost matrix  D [M × K]\nD[i,j]  =  ‖ C_query[i] − C_ref[j] ‖²",
+title("Cost matrix  C [M × K]\nC[i,j]  =  ‖ C_query[i] − C_ref[j] ‖²",
       cex.main = 0.82)
 
 legend("right",
@@ -252,20 +268,27 @@ legend("right",
 
 The transport plan $P$ minimises:
 
-$$\sum_{ij} P_{ij} D_{ij}
+$$\sum_{ij} P_{ij} C_{ij}
   + \varepsilon \cdot \mathrm{KL}(P \,\|\, \mathbf{1})
   + \rho_q \cdot \mathrm{KL}(P\mathbf{1} \,\|\, \mathbf{a})
   + \rho_r \cdot \mathrm{KL}(P^\top\!\mathbf{1} \,\|\, \mathbf{b})$$
 
 where $\mathbf{a}$ and $\mathbf{b}$ are the query and reference node masses.
-The entropic term $\varepsilon \cdot \mathrm{KL}(P \,\|\, \mathbf{1})$ is the
-negentropy regulariser of Cuturi (2013), which yields the Gibbs kernel
-$K_{ij} = \exp(-D_{ij}/\varepsilon)$ used by the solver.
+Before the solve, the squared-distance cost matrix is divided by its median
+positive entry, so `epsilon` is on a roughly stable scale across marker panels.
+Optional feature weights rescale marker columns before computing the cost.
+Optional diagonal boost, anchor cost bonuses, and label-guided penalties then
+modify the normalised cost.
+
+The entropic term $\varepsilon \cdot \mathrm{KL}(P \,\|\, \mathbf{1})$ yields
+the Gibbs kernel $K_{ij} = \exp(-C_{ij}/\varepsilon)$ used by the primal-domain
+solver. The log-domain and annealing solvers use equivalent log-potential
+updates and avoid explicitly materialising an underflowing kernel.
 The KL marginal penalties relax the balance constraint: mass can be destroyed
 rather than transported, so a query node with no good reference counterpart
 routes only a small fraction of its mass rather than forcing an artificial
 match. The plan is found by the internal pure-R Sinkhorn scaling
-implementation.
+implementation selected by `solver`.
 
 ### 2c: Transport plan
 
@@ -443,17 +466,29 @@ legend("bottomright",
 ```
 
 Both assignments are reported in the results table. `old_som_unit` (blue) is
-the primary result; `corrected_som_unit` (red), `corrected_som_distance`, and
-`corrected_outside_reference_distance` are intended for visualisation and
-triage, not as replacement assignments.
+the conservative direct reference-node assignment; `corrected_som_unit` (red),
+`corrected_som_distance`, and `corrected_outside_reference_distance` are
+intended for visualisation and triage, not as replacement assignments.
 
 ***
 
-## Stage 5: Label transfer (auxiliary)
+## Stage 5: Label transfer (query-cell annotation)
 
-For each query node $i$, the reference node with the highest transported mass
-in row $P[i, \cdot]$ is identified as the dominant match, and its label is
-transferred when both acceptance thresholds are passed.
+For each query node $i$, the raw transport row is first normalised over
+reference nodes:
+
+$$T_{ij} = \frac{P_{ij}}{\sum_l P_{il}}.$$
+
+The query-node label posterior is then the full transported mixture of
+reference-node label probabilities:
+
+$$\pi_i = T_i L_{\text{ref}},$$
+
+where $L_{\text{ref}}[j,c] = \Pr(c \mid \text{reference node } j)$. The
+transferred label is `argmax_c pi_i[c]`; confidence is the top posterior
+probability; the second label and margin expose close calls. This is more
+accurate than treating the single highest-mass reference node as the only
+donor.
 
 ```{r stage5, echo = FALSE, fig.height = 3.8}
 par(mar = c(5, 4.5, 3, 2))
@@ -461,46 +496,94 @@ par(mar = c(5, 4.5, 3, 2))
 i  <- 1    # illustrate for query node q1
 Pi <- P[i, ]
 
-# Sort descending; reverse so highest bar appears at top
-ord      <- order(Pi, decreasing = TRUE)
-Pi_plot  <- rev(Pi[ord])
-lab_plot <- rev(ref$label[ord])
-nm_plot  <- rev(paste0("r", ord))
+# Reference-node label probability matrix for this toy example.
+L_ref <- model.matrix(~ ref$label - 1)
+colnames(L_ref) <- sub("^ref\\$label", "", colnames(L_ref))
+T <- P
+T[rowSums(T) > 0, ] <- T[rowSums(T) > 0, , drop = FALSE] / rowSums(T)[rowSums(T) > 0]
+post <- as.numeric(T[i, ] %*% L_ref)
+names(post) <- colnames(L_ref)
 
-bp <- barplot(Pi_plot,
-              names.arg = nm_plot,
+# Sort descending; reverse so highest bar appears at top
+ord      <- order(post, decreasing = TRUE)
+post_plot <- rev(post[ord])
+lab_plot <- rev(names(post)[ord])
+
+bp <- barplot(post_plot,
+              names.arg = lab_plot,
               col       = pal[lab_plot],
               border    = "white",
               horiz     = TRUE,
               las       = 1,
-              xlab      = "Transport mass  P[1, j]",
+              xlab      = "Transported label posterior  pi[1, c]",
               main      = "Stage 5: Label Transfer  (query node q1)")
 
 # Annotate dominant bar
-text(Pi_plot[length(Pi_plot)] * 0.5,
+text(post_plot[length(post_plot)] * 0.5,
      bp[length(bp)],
-     paste("dominant →", lab_plot[length(lab_plot)]),
+     paste("top label ->", lab_plot[length(lab_plot)]),
      col = "white", font = 2, cex = 0.75)
 
 # Acceptance gate verdict
-gate_ok <- match_frac[i] >= 0.05
+conf <- max(post)
+second <- sort(post, decreasing = TRUE)[2]
+margin <- conf - second
+gate_ok <- match_frac[i] >= 0.05 && conf >= 0.60
 mtext(sprintf(
-        "match_fraction = %.2f  ≥ 0.05  ⇒  transferred_label_accepted = %s",
-        match_frac[i], gate_ok),
+        "match_fraction = %.2f >= 0.05; confidence = %.2f >= 0.60; margin = %.2f -> accepted = %s",
+        match_frac[i], conf, margin, gate_ok),
       side = 1, line = 3.8, cex = 0.75,
       col  = if (gate_ok) "darkgreen" else "firebrick")
 ```
 
 Transfer is rejected at two gates: `match_fraction < 0.05` (node has no
 meaningful reference overlap) and `transferred_label_confidence < 0.60` (the
-dominant reference node is too mixed to assign a clean label).
+transported label posterior is too mixed to assign a clean label). The result
+table also exposes `transferred_label_second`,
+`transferred_label_second_confidence`, and `transferred_label_margin` so
+borderline cells can be triaged without discarding the posterior information.
 
 ***
 
-## Limitations of the OT correction
+## Stage 6: Soft label and frequency projection
 
-The OT-derived columns are auxiliary. Three structural limitations govern when
-they should and should not be trusted.
+`somalign_soft_labels()` and `somalign_soft_frequencies()` are separate from
+OT label transfer. They project each query cell directly to the reference
+codebook with a Gaussian kernel over its `k` nearest reference nodes, then
+average the corresponding reference label probabilities or user-supplied
+node-group indicators. No acceptance gate or out-of-reference gate is applied:
+every query cell contributes to the soft distribution unless all of its
+neighbouring reference nodes are unlabelled.
+
+This is the soft analogue of hard direct projection. It is mainly useful for
+per-sample cluster or metacluster abundance, where hard nearest-node counts are
+sensitive to small boundary shifts. Soft projection changes the frequency
+estimate; it does not change the most-likely hard label in
+`somalign_results()`.
+
+```{r stage6, eval = FALSE}
+soft_labels <- somalign_soft_labels(fit, k = 8)
+
+# sample_id: one group label per query cell
+soft_freq <- somalign_soft_frequencies(fit, group = sample_id, k = 8)
+
+# node2metacluster: one metacluster label per reference node
+soft_meta <- somalign_soft_frequencies(
+  fit,
+  group = sample_id,
+  node_groups = node2metacluster,
+  normalize = FALSE
+)
+```
+
+***
+
+## Limitations of the OT correction and uncertainty scores
+
+Three structural limitations govern when corrected projection columns and
+uncertainty scores should and should not be trusted. These limitations do not
+change the direct projection, and label transfer should be interpreted through
+its own confidence, margin, and calibration diagnostics.
 
 ### Barycentric contraction (F1)
 
@@ -521,20 +604,23 @@ increases, because a larger entropic penalty spreads each transport row $P[i,
 `correction_norm`: a large shift ($\|\Delta_i\|$) in a high-epsilon fit is the
 most suspect combination.
 
-### Unpaired OT (F2)
+### Unpaired OT without anchors (F2)
 
 OT operates on **node mass distributions**, not on individual samples. If the
 query batch consists of literally remeasured biological units (the same cells
 or patients measured again), that ground-truth sample-level correspondence is
 available but unused here. Anchor-based methods such as CytoNorm exploit
 exactly this pairing, using anchor controls measured in both old and new
-batches to identify the batch map with minimal ambiguity. `somalign` is
-designed for the common case where no such anchors exist: only the phenotypic
-structure of the populations (encoded in the codebooks) is shared. If you do
-have remeasured anchor controls, incorporate them at the reference-building
-stage rather than relying on the OT correction.
+batches to identify the batch map with less ambiguity. The plain
+`somalign_fit()` path is designed for the common case where no such anchors
+exist: only the phenotypic structure of the populations, encoded in the
+codebooks, is shared. If you do have remeasured anchor controls, use
+`somalign_fit_anchored()`. The `correction = "cost_bonus"` mode biases the OT
+cost toward anchor-supported routes; `correction = "subspace"` and `"both"`
+estimate an anchor-derived batch subspace and restrict correction vectors to
+that subspace.
 
-### Uncalibrated novelty score (F3)
+### Novelty and confidence are parameter-dependent (F3)
 
 `match_fraction` (and the derived label-transfer gate) reflects the
 $\varepsilon$/$\rho$ regime as much as any biological novelty. A low
@@ -542,17 +628,26 @@ $\varepsilon$/$\rho$ regime as much as any biological novelty. A low
 can happen because (a) the query contains a genuinely novel population, or (b)
 `rho_query` is small, (c) `epsilon` is large, or (d) the query SOM topology
 differs from the reference. There is no null model calibrating how much
-destroyed mass constitutes evidence of novelty. Use `somalign_sensitivity_grid()`
-to assess whether low-match nodes are stable across $\varepsilon$/$\rho$ values
-before interpreting them as novel populations.
+destroyed mass constitutes evidence of novelty.
+
+`outside_reference_surprisal` and `outside_reference_pvalue` provide a separate
+per-cell anomaly score under a diagonal-Gaussian reference-node model. That
+p-value is useful for ranking unusual cells and flagging large marker-level
+deviations, but it is approximate and can be anti-conservative for heavy-tailed
+marker distributions. Use `somalign_sensitivity_grid()`,
+`somalign_epsilon_sweep()`, and `somalign_calibration()` to assess whether low
+match, high surprisal, and low confidence are stable before interpreting them
+as novel populations.
 
 ***
 
 ## Output columns
 
-Direct projection columns are the primary result. OT-derived columns are
-auxiliary and should always be read alongside the direct assignment and the
-`somalign_diagnostics()` output.
+The results table contains direct projection columns, transferred-label columns,
+and auxiliary corrected-projection columns. Use the direct columns for
+reference-node assignment and abundance, the transferred-label columns for
+query-cell annotation, and the corrected columns only as correction diagnostics
+alongside `somalign_diagnostics()`.
 
 | Column | Stage | Purpose |
 |---|---|---|
@@ -562,6 +657,10 @@ auxiliary and should always be read alongside the direct assignment and the
 | `old_som_distance` | 1 | Distance to that node |
 | `old_som_distance_threshold` | 1 | Direct distance threshold |
 | `outside_reference_distance` | 1 | Novelty flag |
+| `outside_reference_surprisal` | 1 | Diagonal-Gaussian anomaly score for the assigned reference node |
+| `outside_reference_pvalue` | 1 | Approximate p-value for the anomaly score |
+| `outside_reference_pvalue_flag` | 1 | Optional p-value flag when `outside_pvalue_threshold` is supplied |
+| `outside_reference_top_marker` | 1 | Marker contributing most to the anomaly score |
 | `final_status` | 1 | inside / outside / unknown |
 | `old_som_label` | 1 | Primary label |
 | `old_som_label_confidence` | 1 | Label purity at node |
@@ -570,9 +669,12 @@ auxiliary and should always be read alongside the direct assignment and the
 | `corrected_som_distance_threshold` | 4 | Corrected distance threshold |
 | `corrected_outside_reference_distance` | 4 | Novelty flag after correction |
 | `correction_norm` | 3/4 | Shift magnitude $\|\Delta_i\|$ |
-| `transferred_label` | 5 | OT-derived label |
-| `transferred_label_confidence` | 5 | Purity at dominant ref node |
+| `transferred_label` | 5 | Top label from `correspondence %*% reference$label_prob` |
+| `transferred_label_confidence` | 5 | Top transported-label posterior probability |
 | `transferred_label_accepted` | 5 | Gate result (TRUE / FALSE) |
+| `transferred_label_second` | 5 | Runner-up transported label |
+| `transferred_label_second_confidence` | 5 | Runner-up transported-label posterior probability |
+| `transferred_label_margin` | 5 | Top confidence minus runner-up confidence |
 
 OT runs once on the $M \times K$ codebook matrix. The per-sample cost is an
 $O(n \cdot K)$ nearest-node search, performed in configurable chunks by

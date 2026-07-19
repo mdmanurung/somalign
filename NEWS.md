@@ -9,9 +9,10 @@
   rather than a single hard nearest-node label. Aggregated per sample, this
   reduces the quantisation/boundary variance of hard cluster proportions and
   improves cross-batch reproducibility of cluster-abundance profiles (validated:
-  repeat-sample CLR weighted-r 0.93 to 0.96, robust across `k`). The most-likely
-  label is unchanged; only the frequency estimate is smoothed. Reuses the k-NN
-  kernel machinery from `somalign_correct_expression()`.
+  20 pilot-vs-BMV repeat samples improved from 0.932 to 0.957 median
+  metacluster CLR weighted-r, robust across `k`). The most-likely label is
+  unchanged; only the frequency estimate is smoothed. Reuses the k-NN kernel
+  machinery from `somalign_correct_expression()`.
 
 * `somalign_correct_expression()` returns a cell-level (cells by markers)
   batch-corrected marker expression matrix for downstream visualisation and

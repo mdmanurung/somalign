@@ -29,10 +29,13 @@ navbar:
         href: articles/two-pass.html
       - text: Algorithm and interpretation
         href: articles/algorithm.html
+      - text: "Validating and tuning label transfer"
+        href: articles/validating-label-transfer.html
       - text: API smoke test
         href: articles/function-coverage.html
     github:
       icon: fab fa-github fa-lg
+      aria-label: GitHub repository
       href: https://github.com/mdmanurung/somalign
 
 reference:
@@ -53,14 +56,35 @@ reference:
   - somalign_fit
   - somalign_fit_anchored
   - somalign_fit_two_pass
+- title: Correcting expression
+  desc: Dedicated auxiliary expression correction paths for anchored or two-pass fits.
+  contents:
+  - somalign_correct_expression
 - title: Results
   contents:
   - somalign_results
+- title: Soft labels and abundance
+  desc: Probabilistic reference projection for label probabilities and per-sample frequencies.
+  contents:
+  - somalign_soft_labels
+  - somalign_soft_frequencies
+- title: Validation and tuning
+  contents:
+  - somalign_label_metrics
+  - somalign_calibration
+  - somalign_cross_validate
+  - somalign_tune
+  - somalign_anchor_benefit
 - title: Diagnostics and sensitivity
   contents:
   - somalign_diagnostics
+  - somalign_epsilon_sweep
+  - somalign_select_epsilon
   - somalign_sensitivity_grid
   - somalign_som_stability
+  - somalign_topology_audit
+  - somalign_subspace_sensitivity
+  - somalign_exclusion_test
   - somalign_worst_nodes
   - somalign_check_codebook_alignment
 - title: Plots
@@ -78,6 +102,10 @@ reference:
   - print.somalign_fit
   - print.somalign_query
   - print.somalign_reference
+  - print.somalign_subspace_sensitivity
+  - print.somalign_topology
+  - print.somalign_exclusion_test
+  - summary.somalign_fit
 
 articles:
 - title: Articles
@@ -86,10 +114,11 @@ articles:
   - pretrained-old-and-new-soms
   - anchor-samples
   - two-pass
-  - function-coverage
   - algorithm
+  - validating-label-transfer
+  - function-coverage
 
 news:
   releases:
-  - text: "Version 0.1.0"
+  - text: "Version 0.99.4"
     href: news/index.html
