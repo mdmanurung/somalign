@@ -99,3 +99,37 @@ test_that("soft frequencies checks group length and supports raw counts", {
   expect_equal(as.numeric(rowSums(counts))[order(rownames(counts))],
                as.numeric(table(grp))[order(names(table(grp)))], tolerance = 1e-8)
 })
+
+test_that("node_groups matrix rejects non-finite and negative memberships", {
+  skip_if_not_installed("kohonen")
+  fx <- soft_fixture()
+  n_nodes <- nrow(fx$fit$reference$codebook)
+  bad_na <- matrix(0, n_nodes, 2); bad_na[1, 1] <- NA_real_
+  bad_neg <- matrix(0, n_nodes, 2); bad_neg[1, 1] <- -1
+  expect_error(somalign_soft_labels(fx$fit, node_groups = bad_na),
+               regexp = "missing values")
+  expect_error(somalign_soft_labels(fx$fit, node_groups = bad_neg),
+               regexp = "negative")
+})
+
+test_that("print methods for soft outputs do not error", {
+  skip_if_not_installed("kohonen")
+  fx <- soft_fixture()
+  soft <- somalign_soft_labels(fx$fit, bandwidth = 0.5)
+  grp <- rep(c("s1", "s2"), length.out = nrow(fx$x))
+  freq <- somalign_soft_frequencies(fx$fit, grp, bandwidth = 0.5)
+  expect_output(print(soft), "somalign_soft_labels")
+  expect_output(print(freq), "somalign_soft_frequencies")
+})
+
+test_that("node_groups accepts a logical indicator matrix", {
+  skip_if_not_installed("kohonen")
+  fx <- soft_fixture()
+  n_nodes <- nrow(fx$fit$reference$codebook)
+  ind <- matrix(FALSE, n_nodes, 2, dimnames = list(NULL, c("A", "B")))
+  ind[seq_len(n_nodes) %% 2 == 0, 1] <- TRUE
+  ind[seq_len(n_nodes) %% 2 == 1, 2] <- TRUE
+  expect_no_error(soft <- somalign_soft_labels(fx$fit, node_groups = ind,
+                                               bandwidth = 0.5))
+  expect_equal(colnames(soft), c("A", "B"))
+})

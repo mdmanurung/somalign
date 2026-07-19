@@ -136,7 +136,9 @@ somalign_soft_frequencies <- function(fit, group, node_groups = NULL, k = 8L,
 
   agg <- .somalign_soft_project(fit, node_groups, k, bandwidth, chunk_size,
                                 group = group)
-  k_eff <- attr(agg, "k"); h <- attr(agg, "bandwidth")
+  # Arithmetic below strips custom attributes, so capture and re-attach them.
+  k_eff <- attr(agg, "k")
+  h <- attr(agg, "bandwidth")
   if (normalize) agg <- agg / pmax(rowSums(agg), .Machine$double.eps)
   attr(agg, "k") <- k_eff
   attr(agg, "bandwidth") <- h
@@ -160,6 +162,12 @@ somalign_soft_frequencies <- function(fit, group, node_groups = NULL, k = 8L,
   if (is.matrix(node_groups)) {
     if (nrow(node_groups) != n_nodes)
       stop("`node_groups` matrix must have one row per reference node.", call. = FALSE)
+    if (!is.numeric(node_groups) && !is.logical(node_groups))
+      stop("`node_groups` matrix must be numeric or logical.", call. = FALSE)
+    if (any(!is.finite(node_groups)))
+      stop("`node_groups` matrix must not contain missing values.", call. = FALSE)
+    if (any(node_groups < 0))
+      stop("`node_groups` matrix must not contain negative memberships.", call. = FALSE)
     if (is.null(colnames(node_groups)))
       colnames(node_groups) <- paste0("group", seq_len(ncol(node_groups)))
     return(node_groups)
@@ -174,7 +182,7 @@ somalign_soft_frequencies <- function(fit, group, node_groups = NULL, k = 8L,
 }
 
 # Resolve the node-level target, row-normalise it, and project query cells onto
-# it with the shared fused k-NN kernel smoother (.somalign_knn_smooth, R/correct.R).
+# it with the shared fused k-NN kernel smoother (.somalign_knn_smooth, R/utils.R).
 # `group = NULL` returns a per-cell N x C matrix; `group` supplied returns
 # per-group soft counts (groups x C) without ever materialising the N x C matrix.
 # Nodes with no label mass are gated out; cells whose k neighbours are all
