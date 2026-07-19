@@ -51,8 +51,8 @@ somalign_diagnostics <- function(fit, topology = FALSE, ...) {
 #' @param tol Sinkhorn convergence tolerance. Default `1e-7`.
 #' @param chunk_size Integer. Number of samples per projection chunk.
 #'   `NULL` processes all samples at once. Default `10000L`.
-#' @param diagonal_boost Non-negative scalar added to same-node OT costs to
-#'   discourage self-transport. Default `0`.
+#' @param diagonal_boost Non-negative scalar subtracted from each query node's
+#'   nearest-reference OT cost to encourage identity-like routing. Default `0`.
 #' @param parallel Logical. When `TRUE`, grid rows are evaluated in parallel
 #'   using [BiocParallel::bplapply()] with the registered
 #'   `BiocParallel` back-end (see [BiocParallel::register()]). Configure the
@@ -169,9 +169,19 @@ somalign_sensitivity_grid <- function(query,
         call. = FALSE
       )
     }
-    rows <- BiocParallel::bplapply(
-      seq_len(n),
-      run_one
+    bp <- tryCatch(BiocParallel::bpparam(), error = function(e) NULL)
+    if (is.null(bp)) bp <- BiocParallel::SerialParam()
+    rows <- tryCatch(
+      BiocParallel::bplapply(seq_len(n), run_one, BPPARAM = bp),
+      error = function(e) {
+        msg <- conditionMessage(e)
+        if (grepl("BPPARAM|bpparam|get1index", msg)) {
+          BiocParallel::bplapply(seq_len(n), run_one,
+                                 BPPARAM = BiocParallel::SerialParam())
+        } else {
+          stop(e)
+        }
+      }
     )
   } else {
     rows <- vector("list", n)

@@ -2,6 +2,28 @@
 
 ## New features
 
+* `somalign_soft_labels()` and `somalign_soft_frequencies()` add **soft
+  (probabilistic) projection**: each query cell is projected onto its k nearest
+  reference nodes with a Gaussian kernel and given a distribution over labels (or
+  any node-level grouping via `node_groups`, e.g. a node-to-metacluster map),
+  rather than a single hard nearest-node label. Aggregated per sample, this
+  reduces the quantisation/boundary variance of hard cluster proportions and
+  improves cross-batch reproducibility of cluster-abundance profiles (validated:
+  20 pilot-vs-BMV repeat samples improved from 0.932 to 0.957 median
+  metacluster CLR weighted-r, robust across `k`). The most-likely label is
+  unchanged; only the frequency estimate is smoothed. Reuses the k-NN kernel
+  machinery from `somalign_correct_expression()`.
+
+* `somalign_correct_expression()` returns a cell-level (cells by markers)
+  batch-corrected marker expression matrix for downstream visualisation and
+  differential expression. The correction is confined to the anchor-estimated
+  batch subspace and smoothed across each cell's nearest SOM nodes with a
+  Gaussian kernel, preserving variation orthogonal to the batch direction.
+  Requires a subspace-aware fit from `somalign_fit_anchored(correction =
+  "subspace"/"both")` or `somalign_fit_two_pass()`. It is an auxiliary
+  correction aid, not the primary label-transfer product; see
+  `?somalign_correct_expression` and `vignette("anchor-samples")`.
+
 * `somalign_reference()`, `somalign_train_reference()`, and
   `somalign_reference_from_som()` now compute and store `reference$node_var`
   (per-node per-marker variance in reference-scaled space) by default

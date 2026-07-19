@@ -84,7 +84,7 @@
 # downstream from anchor displacements; only valid where anchors exist), or
 # an explicit non-negative numeric vector with one entry per feature.
 .somalign_check_feature_weights <- function(fw, features) {
-  if (is.null(fw) || identical(fw, "anchor")) return(invisible(fw))
+  if (is.null(fw) || identical(fw, "anchor")) return(fw)
   if (!is.numeric(fw) || !all(is.finite(fw)) || any(fw < 0))
     stop("`feature_weights` must be NULL, \"anchor\", or a non-negative numeric vector.",
          call. = FALSE)
@@ -102,7 +102,7 @@
   } else {
     names(fw) <- features
   }
-  invisible(fw)
+  fw
 }
 
 # Per-marker weights from anchor displacements D (n_anchors x p, scaled):
@@ -341,6 +341,12 @@
   sweep(sweep(x, 2, center, "-"), 2, scale, "/")
 }
 
+# Inverse of .somalign_scale_matrix: map reference-scaled coordinates back to
+# raw feature units (multiply by scale, add center).
+.somalign_unscale_matrix <- function(x, center, scale) {
+  sweep(sweep(x, 2, scale, "*"), 2, center, "+")
+}
+
 .somalign_prepare_feature_matrix <- function(x, features = NULL, what = "data") {
   x <- .somalign_as_matrix(x, what = what)
   .somalign_validate_feature_names(x, what = what)
@@ -447,6 +453,90 @@
 .somalign_pairwise_distance <- function(x, y) {
   d2 <- outer(rowSums(x * x), rowSums(y * y), "+") - 2 * tcrossprod(x, y)
   pmax(d2, 0)
+}
+
+# Square root of the median nearest-neighbour squared distance of a codebook.
+# Sets the default Gaussian kernel bandwidth so it adapts to the lattice spacing
+# in reference-scaled space. Falls back to 1 (a conservatively wide bandwidth in
+# scaled space) when nodes coincide or the median is non-finite/zero.
+.somalign_default_bandwidth <- function(codebook) {
+  if (nrow(codebook) < 2L) return(1)
+  d2 <- .somalign_pairwise_distance(codebook, codebook)
+  diag(d2) <- Inf
+  h <- sqrt(stats::median(apply(d2, 1, min)))
+  if (!is.finite(h) || h <= 0) 1 else h
+}
+
+# Indices and squared distances of the k nearest codebook nodes for each row of
+# `d2` (an L x m matrix of squared distances), by partial selection: k rounds of
+# a vectorised column-min, so neighbours come out in ascending-distance order
+# without a full O(m log m) sort per row and column 1 is always the row minimum.
+.somalign_knn_select <- function(d2, k) {
+  L <- nrow(d2)
+  indices <- matrix(0L, L, k)
+  sq_dist <- matrix(0, L, k)
+  rows <- seq_len(L)
+  for (j in seq_len(k)) {
+    nn <- max.col(-d2, ties.method = "first")   # nearest remaining node per row
+    indices[, j] <- nn
+    sel <- cbind(rows, nn)
+    sq_dist[, j] <- d2[sel]
+    d2[sel] <- Inf                               # exclude for the next round
+  }
+  list(indices = indices, sq_dist = sq_dist)
+}
+
+# Fused k-NN kernel smoother: for each query cell, a Gaussian-kernel-weighted,
+# gated average of `node_matrix` over its k nearest `codebook` nodes. Distances,
+# neighbours, weights and accumulation are all computed chunk-locally, so
+# `chunk_size` genuinely bounds peak memory (no full-N k-NN intermediates). With
+# `group = NULL` the result is one row per cell (N x C); with `group` supplied,
+# per-cell rows are summed into their group, giving a groups x C matrix without
+# ever materialising the N x C matrix. `node_gate` (length m) zeroes a node's
+# contribution; cells whose k neighbours are all gated out get a zero row.
+.somalign_knn_smooth <- function(scaled_data, codebook, node_matrix, node_gate,
+                                 bandwidth, k, chunk_size, group = NULL) {
+  x <- as.matrix(scaled_data)
+  n <- nrow(x)
+  cols <- ncol(node_matrix)
+  k <- min(as.integer(k), nrow(codebook))
+  denom <- 2 * bandwidth^2
+  per_cell <- is.null(group)
+  if (per_cell) {
+    out <- matrix(0, n, cols)
+  } else {
+    glev <- sort(unique(group))
+    gidx <- match(group, glev)
+    out <- matrix(0, length(glev), cols, dimnames = list(as.character(glev), NULL))
+  }
+  cs <- if (is.null(chunk_size) || is.infinite(chunk_size)) n else max(1L, as.integer(chunk_size))
+  for (s in seq(1L, n, by = cs)) {
+    idx <- s:min(s + cs - 1L, n)
+    d2 <- .somalign_pairwise_distance(x[idx, , drop = FALSE], codebook)
+    sel <- .somalign_knn_select(d2, k)
+    ind <- sel$indices
+    w <- exp(-(sel$sq_dist - sel$sq_dist[, 1L]) / denom)   # col 1 is the row min
+    w <- w * matrix(node_gate[ind], nrow(ind), k)
+    wsum <- rowSums(w)
+    acc <- matrix(0, length(idx), cols)
+    for (j in seq_len(k))
+      acc <- acc + w[, j] * node_matrix[ind[, j], , drop = FALSE]
+    # A degenerate bandwidth can underflow denom to 0, giving NaN weights and a
+    # NaN row sum; is.finite() routes those rows to the zero-row branch instead
+    # of erroring on an NA subscript.
+    keep <- is.finite(wsum) & wsum > 0
+    acc[keep, ] <- acc[keep, , drop = FALSE] / wsum[keep]
+    acc[!keep, ] <- 0
+    if (per_cell) {
+      out[idx, ] <- acc
+    } else {
+      rs <- rowsum(acc, gidx[idx])
+      gi <- as.integer(rownames(rs))
+      out[gi, ] <- out[gi, ] + rs
+    }
+  }
+  colnames(out) <- colnames(node_matrix)
+  out
 }
 
 .somalign_normalize_masses <- function(x, n, what) {

@@ -145,3 +145,34 @@ print.somalign_exclusion_test <- function(x, ...) {
   )
   invisible(x)
 }
+
+#' @method print somalign_soft_labels
+#' @export
+print.somalign_soft_labels <- function(x, ...) {
+  cat(sprintf(
+    "<somalign_soft_labels> [%d cells x %d labels]  k = %s  bandwidth = %.4g\n",
+    nrow(x), ncol(x), format(attr(x, "k")), attr(x, "bandwidth")))
+  invisible(x)
+}
+
+#' @method print somalign_soft_frequencies
+#' @export
+print.somalign_soft_frequencies <- function(x, ...) {
+  cat(sprintf(
+    "<somalign_soft_frequencies> [%d groups x %d labels]  %s  k = %s  bandwidth = %.4g\n",
+    nrow(x), ncol(x),
+    if (isTRUE(attr(x, "normalized"))) "frequencies" else "soft counts",
+    format(attr(x, "k")), attr(x, "bandwidth")))
+  invisible(x)
+}
+
+#' @method print somalign_corrected_expression
+#' @export
+print.somalign_corrected_expression <- function(x, ...) {
+  cat(sprintf(
+    "<somalign_corrected_expression> [%d cells x %d markers]  units = %s  smooth = %s  k = %s  bandwidth = %s\n",
+    nrow(x), ncol(x), attr(x, "units"), attr(x, "smooth"),
+    format(attr(x, "k")),
+    if (is.na(attr(x, "bandwidth"))) "NA" else sprintf("%.4g", attr(x, "bandwidth"))))
+  invisible(x)
+}

@@ -1,14 +1,14 @@
 Package: somalign
 Title: Align Query SOMs to Fixed Kohonen Reference SOMs
-Version: 0.99.1
+Version: 0.99.4
 Authors@R: person("Mikhael", "Manurung", role = c("aut", "cre"),
-    email = "mikhael.manurung@gmail.com",
-    comment = c(ORCID = "0000-0000-0000-0000"))
+    email = "mikhael.manurung@gmail.com")
 Description: Aligns query self-organising maps to fixed 'kohonen' reference maps
-    using codebook-level unbalanced entropic optimal transport. Direct
-    reference projection is kept as the conservative primary result, with
-    auxiliary transport-corrected projection columns for annotation and
-    visualisation.
+    using codebook-level unbalanced entropic optimal transport. Label transfer
+    is reported with confidence, margin, and acceptance diagnostics; direct
+    reference projection provides conservative node assignment and abundance
+    summaries; transport-corrected projection columns are auxiliary
+    visualisation and triage diagnostics.
 URL: https://mdmanurung.github.io/somalign, https://github.com/mdmanurung/somalign
 BugReports: https://github.com/mdmanurung/somalign/issues
 License: MIT + file LICENSE
@@ -20,7 +20,8 @@ Depends:
 Imports:
     ggplot2,
     kohonen,
-    stats
+    stats,
+    withr
 Suggests:
     BiocParallel,
     BiocStyle,
@@ -29,8 +30,7 @@ Suggests:
     pkgdown,
     rmarkdown,
     TDA,
-    testthat (>= 3.0.0),
-    withr
+    testthat (>= 3.0.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Config/roxygen2/version: 8.0.0

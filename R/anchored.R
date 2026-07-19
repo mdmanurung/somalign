@@ -230,7 +230,7 @@ somalign_fit_anchored <- function(query,
   .somalign_check_unit_scalar(variance_threshold, "variance_threshold")
   if (identical(solver, "annealing"))
     .somalign_check_anneal_params(anneal_start, anneal_factor, anneal_stages)
-  .somalign_check_feature_weights(feature_weights, colnames(query$codebook))
+  feature_weights <- .somalign_check_feature_weights(feature_weights, colnames(query$codebook))
   .somalign_check_nonneg_scalar(laplacian_lambda, "laplacian_lambda")
   anchors_scaled <- .somalign_validate_anchors(anchor_old, anchor_new, reference)
   .somalign_anchored_dispatch(
