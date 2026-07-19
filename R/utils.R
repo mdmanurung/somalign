@@ -521,7 +521,10 @@
     acc <- matrix(0, length(idx), cols)
     for (j in seq_len(k))
       acc <- acc + w[, j] * node_matrix[ind[, j], , drop = FALSE]
-    keep <- wsum > 0
+    # A degenerate bandwidth can underflow denom to 0, giving NaN weights and a
+    # NaN row sum; is.finite() routes those rows to the zero-row branch instead
+    # of erroring on an NA subscript.
+    keep <- is.finite(wsum) & wsum > 0
     acc[keep, ] <- acc[keep, , drop = FALSE] / wsum[keep]
     acc[!keep, ] <- 0
     if (per_cell) {
