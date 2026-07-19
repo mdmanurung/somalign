@@ -84,7 +84,7 @@
 # downstream from anchor displacements; only valid where anchors exist), or
 # an explicit non-negative numeric vector with one entry per feature.
 .somalign_check_feature_weights <- function(fw, features) {
-  if (is.null(fw) || identical(fw, "anchor")) return(invisible(fw))
+  if (is.null(fw) || identical(fw, "anchor")) return(fw)
   if (!is.numeric(fw) || !all(is.finite(fw)) || any(fw < 0))
     stop("`feature_weights` must be NULL, \"anchor\", or a non-negative numeric vector.",
          call. = FALSE)
@@ -102,7 +102,7 @@
   } else {
     names(fw) <- features
   }
-  invisible(fw)
+  fw
 }
 
 # Per-marker weights from anchor displacements D (n_anchors x p, scaled):

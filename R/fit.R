@@ -175,7 +175,7 @@ somalign_fit <- function(query,
 }
 
 .somalign_resolve_plain_feature_weights <- function(feature_weights, features) {
-  .somalign_check_feature_weights(feature_weights, features)
+  feature_weights <- .somalign_check_feature_weights(feature_weights, features)
   if (identical(feature_weights, "anchor"))
     stop("`feature_weights = \"anchor\"` requires anchor data; use somalign_fit_anchored().",
          call. = FALSE)
@@ -263,7 +263,7 @@ somalign_fit <- function(query,
     cost_normalized <- pmax(cost_normalized - cost_bonus, 0)
   }
   if (!is.null(label_mask)) {
-    penalty <- max(cost_normalized) * 1e4
+    penalty <- max(max(cost_normalized), 1) * 1e4
     cost_normalized[label_mask] <- cost_normalized[label_mask] + penalty
   }
   list(cost_normalized = cost_normalized, cost_scale = cost_scale)
@@ -330,6 +330,9 @@ somalign_fit <- function(query,
                                    anneal_start = 10,
                                    anneal_factor = NULL,
                                    anneal_stages = 10L) {
+  feature_weights <- .somalign_resolve_plain_feature_weights(
+    feature_weights, colnames(query$codebook)
+  )
   if (!is.null(feature_weights)) {
     qcb <- .somalign_weighted_codebook(query$codebook, feature_weights)
     rcb <- .somalign_weighted_codebook(reference$codebook, feature_weights)
