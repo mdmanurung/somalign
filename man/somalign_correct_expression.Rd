@@ -25,9 +25,10 @@ carries no batch subspace and is rejected.}
 
 \item{smooth}{Logical. When \code{TRUE} (default), smooths the correction across
 the k nearest SOM nodes with a Gaussian kernel. When \code{FALSE}, each cell
-takes its nearest node's shift directly (piecewise constant); this
-reproduces the correction \code{somalign} uses internally and is provided as a
-diagnostic baseline, not recommended for downstream analysis.}
+takes its nearest node's shift directly (piecewise constant, still confined
+to the batch subspace); for anchored fits this reproduces the correction
+\code{somalign} uses internally. Provided as a diagnostic baseline, not
+recommended for downstream analysis.}
 
 \item{k}{Integer. Number of nearest SOM nodes used for smoothing, clamped to
 the number of query SOM nodes. Default \code{8L}.}
@@ -39,7 +40,8 @@ distance of the SOM codebook, which adapts to the lattice spacing.}
 \item{confidence_gate}{Logical. When \code{TRUE} (default), each node's kernel
 weight is multiplied by its transported match fraction, down-weighting nodes
 the transport plan could not align. Nodes whose correction is disallowed
-contribute zero weight in either case.}
+contribute zero weight in either case. Has no effect when \code{smooth = FALSE},
+where each cell simply takes its nearest node's shift with no kernel weighting.}
 
 \item{chunk_size}{Positive integer. Cells are processed in blocks of this size
 to bound peak memory. Default \code{10000L}.}

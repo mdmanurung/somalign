@@ -47,9 +47,10 @@
 #'   `"scaled"` (reference-scaled units).
 #' @param smooth Logical. When `TRUE` (default), smooths the correction across
 #'   the k nearest SOM nodes with a Gaussian kernel. When `FALSE`, each cell
-#'   takes its nearest node's shift directly (piecewise constant); this
-#'   reproduces the correction `somalign` uses internally and is provided as a
-#'   diagnostic baseline, not recommended for downstream analysis.
+#'   takes its nearest node's shift directly (piecewise constant, still confined
+#'   to the batch subspace); for anchored fits this reproduces the correction
+#'   `somalign` uses internally. Provided as a diagnostic baseline, not
+#'   recommended for downstream analysis.
 #' @param k Integer. Number of nearest SOM nodes used for smoothing, clamped to
 #'   the number of query SOM nodes. Default `8L`.
 #' @param bandwidth Positive scalar or `NULL`. Gaussian kernel bandwidth in
