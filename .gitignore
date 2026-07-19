@@ -5,3 +5,11 @@
 # Benchmark data and regenerable outputs
 /data/
 benchmarks/*.log
+
+# R CMD check artifacts and built tarballs
+*.Rcheck/
+/..Rcheck/
+*.tar.gz
+
+# Agent tooling
+/.claude/
