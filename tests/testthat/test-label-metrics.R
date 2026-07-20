@@ -81,6 +81,8 @@ test_that("calibration errors on empty input and filters NA", {
   expect_error(somalign_calibration(numeric(0), logical(0)), "No non-missing")
   cal <- somalign_calibration(c(0.9, NA, 0.8), c(TRUE, TRUE, NA))
   expect_equal(cal$n, 1L)
+  expect_equal(cal$n_total, 3L)
+  expect_equal(cal$coverage, 1 / 3)
 })
 
 test_that("print methods return their objects invisibly", {

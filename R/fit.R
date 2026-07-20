@@ -263,7 +263,11 @@ somalign_fit <- function(query,
     cost_normalized <- pmax(cost_normalized - cost_bonus, 0)
   }
   if (!is.null(label_mask)) {
-    penalty <- max(max(cost_normalized), 1) * 1e4
+    # Finite-safe base: codebooks are validated finite upstream, but guard here
+    # too so a stray non-finite cost cannot silently turn `penalty` into NaN and
+    # disable label guidance.
+    finite_cost <- cost_normalized[is.finite(cost_normalized)]
+    penalty <- max(if (length(finite_cost)) max(finite_cost) else 1, 1) * 1e4
     cost_normalized[label_mask] <- cost_normalized[label_mask] + penalty
   }
   list(cost_normalized = cost_normalized, cost_scale = cost_scale)
@@ -835,7 +839,15 @@ somalign_fit_two_pass <- function(query,
   )
 
   total_shifts <- ns2 + g_mat
-  attr(total_shifts, "correction_allowed") <- attr(ns2, "correction_allowed")
+  # Enforce the same invariant the single-pass Laplacian smoother documents
+  # (see .somalign_smooth_shifts): .somalign_project_pair() applies node_shifts
+  # to every cell regardless of correction_allowed, so a disallowed node must
+  # keep an *exact* zero shift. Without this, disallowed pass-2 nodes would
+  # still receive the global shift g, contradicting correction_allowed == FALSE
+  # and disagreeing with somalign_correct_expression(), which zeroes them.
+  allowed2 <- attr(ns2, "correction_allowed")
+  if (!is.null(allowed2)) total_shifts[!allowed2, ] <- 0
+  attr(total_shifts, "correction_allowed") <- allowed2
 
   label_transfer <- .somalign_transfer_labels(
     correspondence     = t2$correspondence,

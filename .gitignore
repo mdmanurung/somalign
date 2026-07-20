@@ -13,3 +13,6 @@ benchmarks/*.log
 
 # Agent tooling
 /.claude/
+
+# knitr vignette figure artifacts (generated during local knit checks)
+figure/

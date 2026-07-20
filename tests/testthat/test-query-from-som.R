@@ -227,4 +227,8 @@ test_that("masses and codebook match somalign_query() when codebook is identical
   expect_identical(qry_from$sample_unit,  qry_std$sample_unit)
   expect_equal(qry_from$node_masses, qry_std$node_masses, tolerance = 1e-10)
   expect_equal(qry_from$codebook,    qry_std$codebook,    tolerance = 1e-10)
+  # Both constructors must expose label_prob (identical structure); for an
+  # unlabelled SOM both are empty matrices.
+  expect_true("label_prob" %in% names(qry_from))
+  expect_equal(qry_from$label_prob, qry_std$label_prob)
 })

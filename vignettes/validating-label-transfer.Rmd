@@ -16,7 +16,8 @@ every query cell. This vignette covers how to check that those labels are
 correct and that the confidence is honest, and how to choose transport
 parameters that maximise label accuracy rather than an unsupervised proxy. The
 corrected coordinates are a separate, diagnostic output and are not used here;
-see the algorithm vignette for why they can over-merge populations.
+see `vignette("algorithm", package = "somalign")` for why they can over-merge
+populations.
 
 ## Scoring labels against a known truth
 
@@ -59,6 +60,12 @@ somalign_calibration(score, correct)
 A well-calibrated model has mean confidence close to accuracy in every bin, so
 its ECE is near zero. A model that reports 0.99 on cells it gets right only half
 the time has an ECE near 0.49.
+
+`somalign_calibration()` scores only non-abstained predictions and reports
+`coverage`, the fraction of cells scored, alongside the ECE and Brier score. Read
+`coverage` first when comparing methods that abstain at different rates: a method
+that abstains on its hard cells can look better calibrated only because it scored
+an easier subset.
 
 ## Held-out cross-validation
 
@@ -167,9 +174,9 @@ per-cluster proportions are only approximate.
 
 For the abundance step specifically, prefer **soft** projection over hard
 nearest-node counts. Hard assignment sends each cell to a single node and counts
-it once for that node's cluster, so a cell near a cluster boundary contributes a
-whole unit to one side and a small batch shift can flip it — inflating the
-sampling variance of per-sample cluster proportions. `somalign_soft_frequencies()`
+it once for that node's cluster. A cell near a cluster boundary therefore
+contributes a whole unit to one side, and a small batch shift can flip which side
+it falls on, inflating the sampling variance of per-sample cluster proportions. `somalign_soft_frequencies()`
 instead spreads each cell over its nearest reference nodes, giving a smoother
 per-sample frequency profile that reproduces better across batches. Pass a
 node-to-cluster map through `node_groups` when the grouping of interest is
@@ -189,3 +196,9 @@ cobj <- crumblr::crumblr(counts)   # CLR in cobj$E, precision weights in cobj$we
 
 The most-likely label is unchanged by softening; only the abundance estimate is
 smoothed.
+
+## Session info
+
+```{r sessionInfo, echo = FALSE}
+sessionInfo()
+```

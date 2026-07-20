@@ -19,11 +19,12 @@ everything from scratch.
 
 ## Coordinate-space requirements
 
-Both the reference and query codebooks must live in the same feature coordinate
-system, z-scored with the **old/reference** data's mean and standard deviation. When
-the reference SOM was trained on old data scaled to $\mu_\text{ref}$ and
-$\sigma_\text{ref}$, the query SOM must be trained on new samples transformed
-by those same parameters, not by new-data z-scores and not in raw units.
+The one requirement that trips people up: **the reference and query codebooks
+must live in the same coordinate system**, z-scored with the old/reference data's
+mean and standard deviation. When the reference SOM was trained on old data scaled
+to $\mu_\text{ref}$ and $\sigma_\text{ref}$, train the query SOM on new samples
+transformed by those same parameters. Do not use new-data z-scores, and do not use
+raw units.
 
 ```{r, eval = FALSE}
 new_scaled_for_som <- sweep(
@@ -140,23 +141,25 @@ fit <- somalign_fit(query, reference)
 sample_metadata <- data.frame(batch = rep("new_batch", nrow(new_data)))
 results <- somalign_results(fit, data = sample_metadata)
 
+# A focused view: the transferred label alongside the direct-projection status.
+# The Quick start vignette documents the full column set.
 head(results[, c(
   "sample_id",
-  "query_som_unit",
-  "old_som_unit",
   "old_som_label",
-  "old_som_distance_threshold",
-  "outside_reference_distance",
   "final_status",
-  "corrected_som_unit",
-  "corrected_som_distance_threshold",
-  "corrected_outside_reference_distance",
-  "correction_norm",
+  "outside_reference_distance",
   "transferred_label",
   "transferred_label_confidence",
   "transferred_label_accepted"
 )])
 ```
+
+The eight `mean = 4` samples are a population the reference never saw. They land
+far from every reference node, so `final_status` marks them `outside_reference`
+and any label transferred to them should be read as provisional. Most real
+samples project inside with confident labels, though a few of the batch-shifted
+ones also cross the distance threshold, which is exactly what `final_status` is
+there to surface.
 
 ## Quality control and tuning
 
@@ -229,10 +232,13 @@ codebooks must live in the same feature space; the query SOM must be trained
 with `reference$center` and `reference$scale` unless you supply a raw saved SOM
 with `codebook_space = "raw"`.
 
-`old_som_unit`, `outside_reference_distance`, `final_status`, and `old_som_label`
-are the primary result; corrected projection and transferred labels are auxiliary.
-Use `somalign_results(fit, data = sample_metadata)` to attach one metadata row
-per query sample. Examine `somalign_diagnostics()` before trusting label
+Label transfer (`transferred_label`, with its confidence, margin, and acceptance)
+is the primary result. The direct-projection columns (`old_som_unit`,
+`outside_reference_distance`, `final_status`, `old_som_label`) give a conservative
+reference-node assignment and are the ones to use for cross-batch composition; the
+corrected-projection columns are auxiliary diagnostics. Use
+`somalign_results(fit, data = sample_metadata)` to attach one metadata row per
+query sample. Examine `somalign_diagnostics()` before trusting label
 transfer, and run `somalign_sensitivity_grid()` whenever conclusions rest on
 corrected nodes or transferred labels.
 

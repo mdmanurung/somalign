@@ -16,7 +16,13 @@ Default \code{10L}.}
 }
 \value{
 A list of class \code{somalign_calibration} with \code{table} (per-bin
-\code{score_mean}, \code{accuracy}, \code{n}), \code{ece}, \code{mce}, \code{brier}, and \code{n}.
+\code{score_mean}, \code{accuracy}, \code{n}), \code{ece}, \code{mce}, \code{brier}, \code{n}
+(predictions actually scored, after dropping \code{NA} score/correct pairs),
+\code{n_total} (all supplied predictions), and \code{coverage} (\code{n / n_total}).
+Abstentions (whose score/correct are \code{NA}) are dropped, so
+\code{ece}/\code{mce}/\code{brier} describe the scored subset only; compare
+\code{coverage} before comparing calibration across methods that abstain at
+different rates.
 }
 \description{
 Bins predictions by a confidence-like score in [0, 1] (e.g. the transfer

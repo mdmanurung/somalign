@@ -253,10 +253,20 @@ somalign_subspace_sensitivity <- function(fit, n_boot = 200L,
 # leave-one-out V_{-i}.
 .somalign_anchor_leverage <- function(D, V, variance_threshold) {
   n_a <- nrow(D)
+  r <- ncol(V)
+  p <- nrow(V)
   lev <- numeric(n_a)
   for (i in seq_len(n_a)) {
     sub_loo <- .somalign_subspace_svd(D[-i, , drop = FALSE], variance_threshold)
-    lev[i] <- max(.somalign_principal_angles(V, sub_loo$V))
+    # Pad the leave-one-out subspace to exactly r columns before comparing:
+    # .somalign_principal_angles() sizes its output to ncol(V) and indexes it
+    # with a length-ncol(sub_loo$V) logical, so a rank change between the full
+    # and LOO fits would otherwise recycle a mismatched index. Mirrors the
+    # zero-padding in .somalign_bootstrap_subspace().
+    r_use <- min(r, sub_loo$rank)
+    v_loo <- matrix(0, nrow = p, ncol = r)
+    v_loo[, seq_len(r_use)] <- sub_loo$V[, seq_len(r_use), drop = FALSE]
+    lev[i] <- max(.somalign_principal_angles(V, v_loo))
   }
   lev
 }

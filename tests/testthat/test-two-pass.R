@@ -71,3 +71,17 @@ test_that("somalign_fit_two_pass produces valid results via somalign_results", {
   expect_s3_class(res, "data.frame")
   expect_equal(nrow(res), nrow(fx$qry_data))
 })
+
+test_that("somalign_fit_two_pass zeroes total_shifts for disallowed nodes", {
+  skip_if_not_installed("kohonen")
+  fx <- make_anchored_fixture()
+  # A large correction_min_mass forces low-mass nodes to fail the pass-2 strong
+  # criterion; those nodes must carry an *exact* zero shift (not the global g),
+  # matching the single-pass smoother invariant.
+  fit <- somalign_fit_two_pass(fx$qry, fx$ref,
+                               epsilon_global = 0.3, epsilon_local = 0.1,
+                               correction_min_mass = 0.2)
+  allowed <- attr(fit$node_shifts, "correction_allowed")
+  expect_true(any(!allowed))
+  expect_true(all(fit$node_shifts[!allowed, , drop = FALSE] == 0))
+})

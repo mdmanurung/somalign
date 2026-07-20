@@ -131,7 +131,12 @@ print.somalign_label_metrics <- function(x, ...) {
 #'   Default `10L`.
 #'
 #' @return A list of class `somalign_calibration` with `table` (per-bin
-#'   `score_mean`, `accuracy`, `n`), `ece`, `mce`, `brier`, and `n`.
+#'   `score_mean`, `accuracy`, `n`), `ece`, `mce`, `brier`, `n` (predictions
+#'   actually scored, after dropping `NA` score/correct pairs), `n_total` (all
+#'   supplied predictions), and `coverage` (`n / n_total`). Abstentions (whose
+#'   score/correct are `NA`) are dropped, so `ece`/`mce`/`brier` describe the
+#'   scored subset only; compare `coverage` before comparing calibration across
+#'   methods that abstain at different rates.
 #' @examples
 #' set.seed(1)
 #' score <- runif(200)
@@ -139,6 +144,7 @@ print.somalign_label_metrics <- function(x, ...) {
 #' somalign_calibration(score, correct)
 #' @export
 somalign_calibration <- function(score, correct, n_bins = 10L) {
+  n_total <- length(score)
   ok <- !is.na(score) & !is.na(correct)
   score <- pmin(pmax(as.numeric(score)[ok], 0), 1)
   correct <- as.numeric(as.logical(correct)[ok])
@@ -157,7 +163,9 @@ somalign_calibration <- function(score, correct, n_bins = 10L) {
   gap <- abs(tbl$accuracy - tbl$score_mean)
   structure(
     list(table = tbl, ece = sum(w * gap), mce = max(gap),
-         brier = mean((score - correct)^2), n = length(score)),
+         brier = mean((score - correct)^2), n = length(score),
+         n_total = n_total,
+         coverage = if (n_total > 0) length(score) / n_total else NA_real_),
     class = "somalign_calibration"
   )
 }
@@ -166,8 +174,8 @@ somalign_calibration <- function(score, correct, n_bins = 10L) {
 #' @export
 print.somalign_calibration <- function(x, ...) {
   cat("<somalign_calibration>\n")
-  cat(sprintf("  ECE = %.4f  MCE = %.4f  Brier = %.4f  (n = %d)\n",
-              x$ece, x$mce, x$brier, x$n))
+  cat(sprintf("  ECE = %.4f  MCE = %.4f  Brier = %.4f  (scored n = %d, coverage = %.1f%%)\n",
+              x$ece, x$mce, x$brier, x$n, 100 * x$coverage))
   cat("  reliability (score_mean -> accuracy, n):\n")
   for (i in seq_len(nrow(x$table))) {
     cat(sprintf("    %.2f -> %.2f  (%d)\n",
@@ -290,8 +298,8 @@ print.somalign_cross_validation <- function(x, ...) {
   cat(sprintf("  pooled: accuracy = %.4f  macro_f1 = %.4f  MCC = %.4f  coverage = %.1f%%\n",
               x$metrics$accuracy, x$metrics$macro_f1, x$metrics$mcc,
               100 * x$metrics$coverage))
-  cat(sprintf("  calibration: ECE = %.4f  Brier = %.4f\n",
-              x$calibration$ece, x$calibration$brier))
+  cat(sprintf("  calibration: ECE = %.4f  Brier = %.4f  (scored on %.1f%% of predictions)\n",
+              x$calibration$ece, x$calibration$brier, 100 * x$calibration$coverage))
   invisible(x)
 }
 

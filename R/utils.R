@@ -2,6 +2,8 @@
   if (!inherits(reference, "somalign_reference")) {
     stop("`reference` must be a somalign_reference object.", call. = FALSE)
   }
+  if (!is.null(reference$codebook))
+    .somalign_validate_finite(reference$codebook, what = "reference$codebook")
   invisible(reference)
 }
 
@@ -9,6 +11,8 @@
   if (!inherits(query, "somalign_query")) {
     stop("`query` must be a somalign_query object.", call. = FALSE)
   }
+  if (!is.null(query$codebook))
+    .somalign_validate_finite(query$codebook, what = "query$codebook")
   invisible(query)
 }
 
@@ -774,25 +778,30 @@
 # ---------------------------------------------------------------------------
 
 # Extract the Y-layer (label) codebook from a kohonen xyf/supersom object.
-# Returns NULL with a message when no second code layer is present (plain som).
-.somalign_extract_label_codes <- function(som) {
+# Returns NULL when no second code layer is present (plain som). `quiet = TRUE`
+# suppresses the messages: query constructors call it that way, since a query
+# SOM without labels is normal (query label codes only feed `label_guided`,
+# and label transfer itself reads reference labels, not query ones).
+.somalign_extract_label_codes <- function(som, quiet = FALSE) {
   if (!is.list(som)) {
     return(NULL)
   }
   codes <- som$codes
   if (is.null(codes) || !is.list(codes) || length(codes) < 2L) {
-    message(
-      "somalign_reference_from_som: SOM has no second code layer; ",
-      "label transfer will be disabled."
-    )
+    if (!quiet)
+      message(
+        "somalign_reference_from_som: SOM has no second code layer; ",
+        "label transfer will be disabled."
+      )
     return(NULL)
   }
   yc <- codes[[2L]]
   if (!is.matrix(yc) && !is.data.frame(yc)) {
-    message(
-      "somalign_reference_from_som: second code layer is not a matrix; ",
-      "label transfer will be disabled."
-    )
+    if (!quiet)
+      message(
+        "somalign_reference_from_som: second code layer is not a matrix; ",
+        "label transfer will be disabled."
+      )
     return(NULL)
   }
   yc <- as.matrix(yc)

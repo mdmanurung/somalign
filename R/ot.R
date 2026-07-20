@@ -190,10 +190,18 @@
   plan[!is.finite(plan)] <- 0
   plan <- pmax(plan, 0)
 
-  # Dual free energy (log partition function), from the log-sum-exp
-  # accumulator already computed on the last outer iteration:
-  # log_Z = epsilon * sum_i logsumexp_j((g_j - C_ij) / eps).
-  log_Z <- epsilon * sum(lse_g[is.finite(lse_g)])
+  # Entropic (Sinkhorn) dual objective, symmetric in both marginals:
+  #   log_Z = <a, f> + <b, g> - epsilon * sum_ij P_ij.
+  # This is exact for balanced transport and an approximation under strong
+  # unbalancing (it omits the rho KL-relaxation terms of the unbalanced dual);
+  # it replaces the earlier row-only `epsilon * sum_i logsumexp_j(...)`, which
+  # dropped the g/column-marginal contribution entirely. Zero-mass marginals
+  # carry -Inf potentials, so guard the 0 * -Inf = NaN product by summing only
+  # over positive-mass entries (the a>0/b>0 subsetting does this; sum() over an
+  # empty vector is 0); `plan` is already finite (non-finite -> 0).
+  fa <- sum(a[a > 0] * f[a > 0])
+  gb <- sum(b[b > 0] * g[b > 0])
+  log_Z <- fa + gb - epsilon * sum(plan)
 
   list(plan = plan, iterations = iterations, converged = converged,
        final_delta = final_delta, f = f, g = g, log_Z = log_Z)
