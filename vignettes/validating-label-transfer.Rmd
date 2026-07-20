@@ -7,7 +7,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
+```{r vl_1, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
@@ -162,7 +162,7 @@ centred log-ratio (CLR) transform of per-sample cluster counts instead. The
 `crumblr` package computes the CLR together with count-based precision weights
 suitable for differential-abundance models:
 
-```{r, eval = FALSE}
+```{r vl_2, eval = FALSE}
 library(crumblr)
 counts <- table(sample_id, transferred_label)   # samples x clusters, integer
 cobj <- crumblr(as.matrix(counts))               # CLR in cobj$E, weights in cobj$weights
@@ -182,7 +182,7 @@ per-sample frequency profile that reproduces better across batches. Pass a
 node-to-cluster map through `node_groups` when the grouping of interest is
 coarser than the reference labels:
 
-```{r, eval = FALSE}
+```{r vl_3, eval = FALSE}
 # node2cluster: length-n_nodes map from reference node to metacluster.
 # Use normalize = FALSE for crumblr, which models counts, not frequencies.
 counts <- somalign_soft_frequencies(fit, group = sample_id,

@@ -185,15 +185,9 @@ somalign_subspace_sensitivity <- function(fit, n_boot = 200L,
 # Runs the bootstrap with a seed local to this call: the caller's global RNG
 # state is saved before seeding and restored on exit.
 .somalign_seeded_bootstrap_subspace <- function(D, V, r, n_boot, variance_threshold, seed) {
-  old_seed <- if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
-    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE) else NULL
-  on.exit({
-    if (!is.null(old_seed))
-      assign(".Random.seed", old_seed, envir = .GlobalEnv)
-    else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
-      rm(".Random.seed", envir = .GlobalEnv)
-  }, add = TRUE)
-  if (!is.null(seed)) set.seed(seed)
+  # Seed locally and restore the caller's RNG stream on exit (withr::local_seed);
+  # with no seed, still preserve the caller's RNG state across the bootstrap.
+  if (is.null(seed)) withr::local_preserve_seed() else withr::local_seed(seed)
   .somalign_bootstrap_subspace(D, V, r, n_boot, variance_threshold)
 }
 

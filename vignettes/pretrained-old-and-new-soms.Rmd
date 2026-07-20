@@ -7,7 +7,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
+```{r pt_1, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
@@ -26,7 +26,7 @@ to $\mu_\text{ref}$ and $\sigma_\text{ref}$, train the query SOM on new samples
 transformed by those same parameters. Do not use new-data z-scores, and do not use
 raw units.
 
-```{r, eval = FALSE}
+```{r pt_2, eval = FALSE}
 new_scaled_for_som <- sweep(
   sweep(new_data[, reference$features], 2, reference$center, "-"),
   2,
@@ -43,7 +43,7 @@ codebook. The default is `"reference_scaled"`, which is correct for the query
 SOM trained above. Use `"raw"` only when the saved query SOM codebook is in raw
 feature units:
 
-```{r, eval = FALSE}
+```{r pt_3, eval = FALSE}
 query <- somalign_query(
   new_data,
   reference,
@@ -58,7 +58,7 @@ query <- somalign_query(
 and the old sample matrix. It recomputes node masses, per-node label
 probabilities, and reference-distance thresholds from the data:
 
-```{r, eval = FALSE}
+```{r pt_4, eval = FALSE}
 reference <- somalign_reference(
   old_som,
   old_data,
@@ -73,7 +73,7 @@ scaling to the codebook before use.
 `somalign_reference_from_nodes()` covers the case where neither the SOM object
 nor the original samples are available, but node-level summaries were archived:
 
-```{r, eval = FALSE}
+```{r pt_5, eval = FALSE}
 reference <- somalign_reference_from_nodes(
   codebook = old_codebook,
   features = feature_names,
@@ -91,7 +91,7 @@ Direct node assignment continues to work in both cases.
 
 ## Full existing-SOM example
 
-```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
+```{r pt_6, eval = requireNamespace("kohonen", quietly = TRUE)}
 library(kohonen)
 library(somalign)
 
@@ -166,7 +166,7 @@ there to surface.
 Before using label transfer or corrected node assignments, inspect the
 solver and OT diagnostics:
 
-```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
+```{r pt_7, eval = requireNamespace("kohonen", quietly = TRUE)}
 diagnostics <- somalign_diagnostics(fit)
 
 diagnostics$solver[c(
@@ -198,7 +198,7 @@ thresholds before and after the OT-derived correction.
 Use `somalign_sensitivity_grid()` to confirm that auxiliary outputs hold
 across OT hyperparameters before drawing conclusions:
 
-```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
+```{r pt_8, eval = requireNamespace("kohonen", quietly = TRUE)}
 sensitivity <- somalign_sensitivity_grid(
   query, reference,
   epsilon   = c(0.05, 0.1),

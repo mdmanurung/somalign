@@ -499,9 +499,9 @@ Pi <- P[i, ]
 # Reference-node label probability matrix for this toy example.
 L_ref <- model.matrix(~ ref$label - 1)
 colnames(L_ref) <- sub("^ref\\$label", "", colnames(L_ref))
-T <- P
-T[rowSums(T) > 0, ] <- T[rowSums(T) > 0, , drop = FALSE] / rowSums(T)[rowSums(T) > 0]
-post <- as.numeric(T[i, ] %*% L_ref)
+Tn <- P
+Tn[rowSums(Tn) > 0, ] <- Tn[rowSums(Tn) > 0, , drop = FALSE] / rowSums(Tn)[rowSums(Tn) > 0]
+post <- as.numeric(Tn[i, ] %*% L_ref)
 names(post) <- colnames(L_ref)
 
 # Sort descending; reverse so highest bar appears at top
