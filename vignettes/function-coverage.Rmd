@@ -436,7 +436,8 @@ metrics
 ## `somalign_calibration`
 
 Bins predictions by a confidence score and compares mean confidence to
-empirical accuracy, returning the expected calibration error and Brier score.
+empirical accuracy, returning the expected calibration error, Brier score, and
+the coverage (fraction of non-abstained predictions actually scored).
 
 ```{r calibration}
 calib <- somalign_calibration(runif(50), runif(50) < 0.5)

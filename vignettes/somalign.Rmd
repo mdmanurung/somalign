@@ -11,43 +11,58 @@ vignette: >
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
-`somalign` aligns a query self-organising map to a fixed reference SOM using
-codebook-level unbalanced entropic optimal transport. The example below trains
-a reference SOM on labelled old samples, then projects a shifted query dataset
-into that reference.
+`somalign` transfers cell labels from a labelled reference dataset onto a new,
+unlabelled query dataset when the two were measured under different conditions
+(a batch effect). It works at the level of self-organising maps (SOMs): you
+train one reference SOM once, then align each new query SOM to it with
+codebook-level unbalanced entropic optimal transport. The alignment carries the
+reference labels onto the query, with a per-cell confidence and margin so you
+can tell which transfers to trust.
 
-**The primary product is label transfer**, which carries reference labels (and a
-per-cell confidence and margin) onto the query via the transport plan. The
-*corrected coordinates* (`corrected_som_*`, `correction_norm`) are a secondary,
-diagnostic output: they are useful for triage and visualisation, but the
-barycentric correction can over-merge distinct populations (see
-`somalign_topology_audit()`), so they should not be treated as a
-batch-corrected expression matrix for downstream re-clustering or differential
-testing. Call `summary()` on a fit for the label-transfer headline, or
-`somalign_results(fit, include_correction = FALSE)` for a label-focused table.
+Label transfer is the product to reach for first. The package also reports
+*corrected coordinates* (`corrected_som_*`, `correction_norm`), but those are a
+diagnostic aid, not a batch-corrected expression matrix: the correction can
+over-merge distinct populations (`somalign_topology_audit()` flags this), so do
+not re-cluster or run differential tests on them. This vignette walks through
+the three-step workflow, shows how to read the output, and points to the
+diagnostics and follow-up vignettes.
 
-## Quick start
+## The workflow in three steps
+
+Aligning a query to a reference takes three calls: build the reference,
+prepare the query, and fit. The example uses a small simulated dataset with two
+populations, `low` and `high`. The query is the same two populations remeasured
+in a second batch that offsets each population differently, the kind of shift a
+single global recentring cannot undo but node-level alignment can.
 
 ```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
 library(kohonen)
 library(somalign)
 
 set.seed(1)
+
+# Reference: two labelled populations
 old <- rbind(
   matrix(rnorm(80, mean = -1), ncol = 4),
-  matrix(rnorm(80, mean = 1), ncol = 4)
+  matrix(rnorm(80, mean =  1), ncol = 4)
 )
 colnames(old) <- paste0("f", seq_len(ncol(old)))
 labels <- rep(c("low", "high"), each = 20)
 
+# Query: same populations, second batch, each population offset differently
+query <- old
+query[labels == "low", ]  <- query[labels == "low", ]  + 0.8
+query[labels == "high", ] <- query[labels == "high", ] - 0.6
+
+# 1. Train the reference SOM (labels attach the classes to transfer)
 reference <- somalign_train_reference(
   old,
   labels = labels,
-  grid = kohonen::somgrid(2, 2, "hexagonal"),
-  rlen = 5
+  grid   = kohonen::somgrid(2, 2, "hexagonal"),
+  rlen   = 5
 )
 
-query <- old + 0.2
+# 2. Prepare the query (scaled with the reference centre and scale)
 query_obj <- somalign_query(
   query,
   reference,
@@ -55,124 +70,118 @@ query_obj <- somalign_query(
   rlen = 5
 )
 
+# 3. Fit: align the query and reference SOMs, transfer labels
 fit <- somalign_fit(query_obj, reference)
+```
+
+## The label-transfer headline
+
+`summary()` on a fit gives the label-transfer summary: how many cells were
+accepted, the confidence quartiles, the median margin, and the accepted class
+mix. Read this first to gauge whether the transfer is trustworthy before pulling
+the per-sample table.
+
+```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
+summary(fit)
+```
+
+## Reading the per-sample table
+
+`somalign_results()` returns one row per query sample. The four columns most
+users need are the transferred label, its confidence, whether it was accepted,
+and the direct-projection reference label to compare against:
+
+```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
 results <- somalign_results(fit)
-results_with_meta <- somalign_results(
+
+head(results[, c(
+  "sample_id",
+  "transferred_label",
+  "transferred_label_confidence",
+  "transferred_label_accepted",
+  "old_som_label"
+)])
+```
+
+To append per-sample metadata (one row per query sample), pass it as `data`:
+
+```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
+results_meta <- somalign_results(
   fit,
   data = data.frame(batch = rep("query_1", nrow(query)))
 )
 ```
 
-## Current API surface
+For a label-only table without the corrected-projection columns, use
+`somalign_results(fit, include_correction = FALSE)`.
 
-The user-facing workflow is built around a small set of exported functions:
+## The full column set
 
-- Build a reference with `somalign_train_reference()`, or wrap saved
-  artifacts with `somalign_reference()` / `somalign_reference_from_nodes()`.
-- Prepare query data with `somalign_query()`. Query samples are always scaled
-  with the reference center and scale.
-- Align query and reference SOM nodes with `somalign_fit()`. The default
-  internal solver is used for both `solver = "internal"` and the compatibility
-  alias `solver = "auto"`.
-- Extract per-sample output with `somalign_results()`. Pass
-  `somalign_results(fit, data = sample_metadata)` to append one metadata row
-  per query sample.
-- Inspect fit quality with `somalign_diagnostics()` and tune OT parameters with
-  `somalign_sensitivity_grid()`.
-- Validate the transferred labels and tune for accuracy with
-  `somalign_cross_validate()`, `somalign_label_metrics()`,
-  `somalign_calibration()`, and `somalign_tune()`. See the "Validating and
-  tuning label transfer" vignette.
+The table carries more columns than the four above, in three groups.
+`?somalign_results` documents every column; the map below covers the ones you
+reach for most.
 
-## What to look at first
+The **direct projection** columns assign each sample to its nearest reference
+node by Euclidean distance, with no transport involved: `query_som_unit`,
+`old_som_unit`, `old_som_distance`, `old_som_distance_threshold`,
+`outside_reference_distance`, `outside_reference_surprisal`,
+`outside_reference_pvalue`, `outside_reference_top_marker`, `final_status`,
+`old_som_label`, and `old_som_label_confidence`. Use this group for
+reference-node assignment and cross-batch composition summaries.
 
-`somalign_results()` returns one row per query sample. Start with these columns:
+The **label-transfer** columns come from the optimal-transport plan.
+`transferred_label` is the top label from
+`correspondence %*% reference$label_prob`; `transferred_label_confidence` is the
+top transported-label posterior; `transferred_label_margin` is that posterior
+minus the runner-up. `transferred_label_second` and
+`transferred_label_second_confidence` name the runner-up itself, for triaging
+close calls. `transferred_label_accepted` is `TRUE` only when a node received
+both enough transported mass and enough label confidence. Check acceptance,
+confidence, and margin before using a transferred label downstream.
 
-```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
-head(results[, c(
-  "sample_id",
-  "query_som_unit",
-  "old_som_unit",
-  "old_som_distance",
-  "old_som_distance_threshold",
-  "outside_reference_distance",
-  "outside_reference_surprisal",
-  "outside_reference_top_marker",
-  "final_status",
-  "old_som_label",
-  "corrected_som_unit",
-  "correction_norm",
-  "transferred_label",
-  "transferred_label_confidence",
-  "transferred_label_margin",
-  "transferred_label_accepted"
-)])
-```
+The **corrected-projection** columns are the diagnostic group:
+`corrected_som_unit`, `corrected_som_distance`,
+`corrected_som_distance_threshold`, `corrected_outside_reference_distance`, and
+`correction_norm`. They describe where a sample lands after each query SOM node
+is shifted toward its mass-weighted reference target. A large `correction_norm`
+signals a systematic offset between the batches and is worth examining, but the
+corrected assignment should not replace the direct one.
 
-## Interpreting the result
+## Comparing composition across batches
 
-The columns split into three groups. `old_som_unit`, `old_som_distance`,
-`old_som_distance_threshold`, `outside_reference_distance`,
-`outside_reference_surprisal`, `outside_reference_top_marker`, `final_status`,
-`old_som_label`, and `old_som_label_confidence` describe the direct reference
-projection: each sample is assigned to its nearest reference node by Euclidean
-distance, with no transport involved. Use this group for reference-node
-assignment and cross-batch composition summaries.
-
-The OT plan then contributes label-transfer columns. `transferred_label` is the
-top label from `correspondence %*% reference$label_prob`; confidence is the top
-transported-label posterior probability; `transferred_label_margin` is the top
-posterior minus the runner-up posterior. `transferred_label_accepted` requires
-both enough transported mass and enough label confidence. Check the acceptance,
-confidence, and margin columns before using transferred labels downstream.
-
-The corrected-projection columns are auxiliary diagnostics. `corrected_som_unit`,
-`corrected_som_distance`, `corrected_som_distance_threshold`,
-`corrected_outside_reference_distance`, and `correction_norm` describe where
-samples land after each query SOM node is shifted toward its mass-weighted
-reference target. A large `correction_norm` signals a systematic offset between
-the batches and is worth examining, but the corrected assignment should not
-replace the direct one.
-
-## Cross-batch composition and abundance
-
-When the goal is to compare cell-type composition across batches, two choices
-improve cross-batch reproducibility. First, use the direct projection
-(`old_som_unit`, `old_som_label`) or `somalign_soft_frequencies()` rather than
-the corrected columns: the
-barycentric correction can over-merge populations (see
-`somalign_topology_audit()`) and does not improve reproducibility of
-composition. Second, quantify abundance compositionally. Cluster frequencies
-sum to one, so a raw-frequency comparison is dominated by the largest clusters
-and understates how well rarer ones are recovered. A centred log-ratio (CLR)
-transform of per-sample cluster counts, as implemented in the `crumblr`
-package, maps the composition to log-ratio space and downweights low-count
-clusters, and is the transform used by downstream differential-abundance
-models:
+To compare cell-type composition across batches, two choices improve
+cross-batch reproducibility. First, count from the direct projection
+(`old_som_unit`, `old_som_label`) or from `somalign_soft_frequencies()` rather
+than the corrected columns: the barycentric correction can over-merge
+populations and does not improve composition reproducibility. Second, quantify
+abundance compositionally. Cluster frequencies sum to one, so a raw-frequency
+comparison is dominated by the largest clusters and understates how well rarer
+ones are recovered. A centred log-ratio (CLR) transform of per-sample cluster
+counts, as implemented in the `crumblr` package, maps the composition to
+log-ratio space, downweights low-count clusters, and is the transform the
+downstream differential-abundance models expect:
 
 ```{r, eval = FALSE}
-# counts: a samples-by-cluster integer matrix (e.g. table(sample, old_som_label))
+# counts: a samples-by-cluster integer matrix, e.g. table(sample, old_som_label)
 library(crumblr)
 cobj <- crumblr(counts)      # CLR values in cobj$E, precision weights in cobj$weights
 ```
 
 For softer abundance estimates, aggregate with `somalign_soft_frequencies()`
-before downstream compositional modelling. Absolute per-cluster proportions and
-node-level frequencies remain approximate; the CLR profile is the reproducible
-quantity.
+before compositional modelling. Absolute per-cluster proportions stay
+approximate; the CLR profile is the reproducible quantity.
 
 ## Diagnostic plots
 
-The package ships a set of `somalign_plot_*()` functions covering both
-before-projection compatibility checks and after-projection quality assessment.
-Each returns a single `ggplot` object you can print directly or compose further
-with `patchwork` or `cowplot`.
+The `somalign_plot_*()` functions cover both before-projection compatibility
+checks and after-projection quality assessment. Each returns a single `ggplot`
+you can print directly or compose with `patchwork` or `cowplot`.
 
 ### Before projection: are the datasets compatible?
 
-Before aligning, use `somalign_check_codebook_alignment()` to test whether the
-query and reference SOM code ranges overlap sufficiently. Then visualise the
-result with `somalign_plot_codebook_range()`.
+`somalign_check_codebook_alignment()` tests whether the query and reference SOM
+code ranges overlap enough to align; `somalign_plot_codebook_range()` shows the
+result.
 
 ```{r plot-before, fig.width = 7, fig.height = 4, eval = requireNamespace("kohonen", quietly = TRUE)}
 chk <- somalign_check_codebook_alignment(query_obj$codebook, reference,
@@ -181,19 +190,19 @@ print(chk)
 somalign_plot_codebook_range(chk)
 ```
 
-`somalign_plot_marker_distributions()` shows per-marker cell-level densities of
-the query data in reference-scaled space, with reference SOM node prototypes
-overlaid as a rug. Passing `reference_data` (reference cells in reference-scaled
-coordinates) draws a true second density curve instead.
+`somalign_plot_marker_distributions()` shows per-marker query densities in
+reference-scaled space, with reference node prototypes as a rug. Passing
+`reference_data` (reference cells in reference-scaled coordinates) draws a true
+second density instead.
 
 ```{r plot-dists, fig.width = 7, fig.height = 4, eval = requireNamespace("kohonen", quietly = TRUE)}
 somalign_plot_marker_distributions(query_obj, reference = reference)
 ```
 
-### After projection: OT solver quality
+### After projection: solver quality
 
-`match_fraction` near 1 means a query node's mass arrived at the reference;
-values well below 1 indicate nodes the solver could not route.
+A `match_fraction` near 1 means a query node's mass reached the reference;
+values well below 1 mark nodes the solver could not route.
 
 ```{r plot-ot-quality, fig.width = 7, fig.height = 3.5, eval = requireNamespace("kohonen", quietly = TRUE)}
 somalign_plot_mass_balance(fit)
@@ -202,67 +211,67 @@ somalign_plot_match_fraction(fit)
 
 ### After projection: correction quality
 
-Each query node is shifted by a correction vector derived from its OT transport
-row. Large `correction_norm` values relative to the typical inter-node spacing
-signal a systematic batch offset.
+Each query node is shifted by a correction vector derived from its transport
+row. A `correction_norm` large relative to the typical inter-node spacing
+signals a systematic batch offset.
 
 ```{r plot-correction, fig.width = 7, fig.height = 3.5, eval = requireNamespace("kohonen", quietly = TRUE)}
 somalign_plot_correction(fit)
 somalign_plot_outside_fraction(fit)
 ```
 
-### After projection: label transfer quality
+### After projection: label-transfer quality
 
-The confusion heatmap is row-normalised: each row sums to 100%. High diagonal
-values indicate coherent transfer; strong off-diagonal entries warrant
-re-examination of the corresponding query node.
+The confusion heatmap is row-normalised, so each row sums to 100%. High diagonal
+values indicate coherent transfer; strong off-diagonal entries flag a query node
+worth re-examining.
 
 ```{r plot-labels, fig.width = 5, fig.height = 4, eval = requireNamespace("kohonen", quietly = TRUE)}
 somalign_plot_label_confusion(fit)
 ```
 
-### Worst-projecting nodes
-
-`somalign_worst_nodes()` returns the nodes with the lowest match fraction as a
-data frame, making it easy to inspect or pass downstream.
+`somalign_worst_nodes()` returns the lowest-match-fraction nodes as a data frame
+for inspection or downstream use.
 
 ```{r worst-nodes, eval = requireNamespace("kohonen", quietly = TRUE)}
 somalign_worst_nodes(fit, n = 10)
 ```
 
-## Next steps
+## Where to go next
 
-`vignette("pretrained-old-and-new-soms", package = "somalign")` covers the
-workflow for existing reference or query SOMs: reference-scaled codebooks,
-node-level artifacts, diagnostics, and hyperparameter tuning.
+Once the quick-start workflow makes sense, the other vignettes cover specific
+situations:
 
-`vignette("anchor-samples", package = "somalign")` covers
-`somalign_fit_anchored()`: supplying remeasured QC samples as anchor pairs,
-tuning `rho_anchor`, inspecting anchor node coverage, and the
-signal-preserving `correction = "subspace"` mode that restricts node shifts
-to the batch subspace estimated from anchor displacements.
+- `vignette("pretrained-old-and-new-soms")` reuses reference or query SOMs you
+  already trained: reference-scaled codebooks, node-level artifacts,
+  diagnostics, and hyperparameter tuning.
+- `vignette("anchor-samples")` covers `somalign_fit_anchored()`: supplying
+  remeasured QC samples as anchor pairs, tuning `rho_anchor`, inspecting anchor
+  coverage, and the signal-preserving `correction = "subspace"` mode that
+  restricts node shifts to the batch subspace estimated from anchor
+  displacements.
+- `vignette("two-pass")` covers `somalign_fit_two_pass()`, which splits the
+  correction into a global shift (a first coarse-epsilon pass) and a residual
+  per-node correction (a second pass). Useful when the batch offset is large
+  relative to the local OT problem scale.
+- `vignette("validating-label-transfer")` covers `somalign_cross_validate()`,
+  `somalign_label_metrics()`, `somalign_calibration()`, and `somalign_tune()`
+  for validating and tuning transferred labels for accuracy.
+- `vignette("algorithm")` walks through each pipeline stage (direct projection,
+  OT correspondence, correction vectors, label transfer, and soft abundance) and
+  how each produces its output columns.
 
-`vignette("two-pass", package = "somalign")` covers `somalign_fit_two_pass()`:
-decomposing the batch correction into a global shift (first OT pass at a coarser
-epsilon) and a residual per-node correction (second pass). Useful when the batch
-offset is large relative to the local OT problem scale.
+Two preprocessing helpers feed `somalign_query()`: `somalign_normalize()`
+subtracts the per-marker mean deviation between query and reference in z-scored
+space, and `somalign_quantile_normalize()` scales raw values by their upper
+quantile. Both return a raw-unit matrix.
 
-`vignette("algorithm", package = "somalign")` walks through each pipeline
-stage (direct projection, OT correspondence, correction vectors, label
-transfer, and soft abundance projection) and explains how they produce the
-output columns.
-
-For preprocessing, `somalign_normalize()` subtracts the per-marker mean
-deviation between query and reference in z-scored space, and
-`somalign_quantile_normalize()` scales raw values by their upper quantile.
-Both return a raw-unit matrix to pass as `data` to `somalign_query()`.
-
-For fitted objects, `somalign_diagnostics()` reports solver convergence, OT
-mass behaviour, node-level match fractions, and direct/corrected outside
-reference fractions. `somalign_sensitivity_grid()` sweeps OT hyperparameters to
-check whether corrected projection and label transfer are stable. For large
-query matrices, `somalign_fit(chunk_size = ...)` controls how many samples are
-projected at once during nearest-reference-node searches.
+For fitted objects, `somalign_diagnostics()` reports solver convergence, OT mass
+behaviour, node-level match fractions, and outside-reference fractions;
+`somalign_sensitivity_grid()` sweeps OT hyperparameters to check whether the
+corrected projection and label transfer are stable. For large query matrices,
+`somalign_fit(chunk_size = ...)` sets how many samples are projected at once
+during nearest-node searches.
 
 ## Session info
 
