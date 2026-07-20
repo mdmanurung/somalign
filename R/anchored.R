@@ -568,14 +568,8 @@ somalign_exclusion_test <- function(fit, n_perm = 999L, seed = 1L) {
 # caller's global RNG state is saved before seeding and restored on exit, so
 # somalign_exclusion_test() does not leak RNG state into the session.
 .somalign_seeded_permutation_null <- function(r_obs, n_perm, seed) {
-  old_seed <- if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
-    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE) else NULL
-  on.exit({
-    if (!is.null(old_seed))
-      assign(".Random.seed", old_seed, envir = .GlobalEnv)
-    else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
-      rm(".Random.seed", envir = .GlobalEnv)
-  }, add = TRUE)
-  if (!is.null(seed)) set.seed(seed)
+  # Seed locally and restore the caller's RNG stream on exit (withr::local_seed);
+  # with no seed, still preserve the caller's RNG state across the sampling.
+  if (is.null(seed)) withr::local_preserve_seed() else withr::local_seed(seed)
   .somalign_permutation_null(r_obs, n_perm)
 }

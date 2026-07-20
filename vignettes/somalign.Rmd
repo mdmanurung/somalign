@@ -7,7 +7,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
+```{r qs_1, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
@@ -35,7 +35,7 @@ populations, `low` and `high`. The query is the same two populations remeasured
 in a second batch that offsets each population differently, the kind of shift a
 single global recentring cannot undo but node-level alignment can.
 
-```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
+```{r qs_2, eval = requireNamespace("kohonen", quietly = TRUE)}
 library(kohonen)
 library(somalign)
 
@@ -81,7 +81,7 @@ accepted, the confidence quartiles, the median margin, and the accepted class
 mix. Read this first to gauge whether the transfer is trustworthy before pulling
 the per-sample table.
 
-```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
+```{r qs_3, eval = requireNamespace("kohonen", quietly = TRUE)}
 summary(fit)
 ```
 
@@ -91,7 +91,7 @@ summary(fit)
 users need are the transferred label, its confidence, whether it was accepted,
 and the direct-projection reference label to compare against:
 
-```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
+```{r qs_4, eval = requireNamespace("kohonen", quietly = TRUE)}
 results <- somalign_results(fit)
 
 head(results[, c(
@@ -105,7 +105,7 @@ head(results[, c(
 
 To append per-sample metadata (one row per query sample), pass it as `data`:
 
-```{r, eval = requireNamespace("kohonen", quietly = TRUE)}
+```{r qs_5, eval = requireNamespace("kohonen", quietly = TRUE)}
 results_meta <- somalign_results(
   fit,
   data = data.frame(batch = rep("query_1", nrow(query)))
@@ -162,7 +162,7 @@ counts, as implemented in the `crumblr` package, maps the composition to
 log-ratio space, downweights low-count clusters, and is the transform the
 downstream differential-abundance models expect:
 
-```{r, eval = FALSE}
+```{r qs_6, eval = FALSE}
 # counts: a samples-by-cluster integer matrix, e.g. table(sample, old_som_label)
 library(crumblr)
 cobj <- crumblr(counts)      # CLR values in cobj$E, precision weights in cobj$weights

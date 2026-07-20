@@ -266,7 +266,7 @@ somalign_som_stability <- function(query_data,
 
   .run_one <- function(i) {
     seed <- som_seeds[i]
-    set.seed(seed)
+    withr::local_seed(seed)
     qry <- somalign_query(query_data, reference, grid = grid,
                           rlen = rlen, alpha = alpha, ...)
     fit <- somalign_fit(qry, reference, epsilon = epsilon,

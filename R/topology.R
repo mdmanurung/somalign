@@ -170,6 +170,9 @@ utils::globalVariables(c("persistence"))
 
 .somalign_topology_warn <- function(nc, nq) {
   direction <- if (nc < nq) "merged/erased" else "split"
+  # The 'topology_warning:' tag mirrors the `topology_warning` field and is
+  # matched by test-topology.R, so it is intentional despite BiocCheck's
+  # redundant-signal-word note.
   warning(sprintf(
     "topology_warning: corrected codebook has %d H0 component(s) vs %d in query ", nc, nq),
     sprintf("(delta = %+d; populations may have been %s). ", nc - nq, direction),

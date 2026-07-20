@@ -12,14 +12,8 @@ utils::globalVariables(c(
 
 .somalign_downsample_rows <- function(x, n, seed = 1L) {
   if (nrow(x) <= n) return(x)
-  old <- if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
-    get(".Random.seed", envir = .GlobalEnv, inherits = FALSE) else NULL
-  on.exit({
-    if (!is.null(old)) assign(".Random.seed", old, envir = .GlobalEnv)
-    else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
-      rm(".Random.seed", envir = .GlobalEnv)
-  }, add = TRUE)
-  set.seed(seed)
+  # Seed locally and restore the caller's RNG stream on exit.
+  withr::local_seed(seed)
   x[sample(nrow(x), n), , drop = FALSE]
 }
 
