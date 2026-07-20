@@ -84,7 +84,6 @@ if (requireNamespace("kohonen", quietly = TRUE)) {
   sample_id <- rep(c("s1", "s2", "s3"), length.out = nrow(x))
   somalign_soft_frequencies(fit, sample_id)
 }
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 7 query node(s) have match_mass_ratio > 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 #> <somalign_soft_frequencies> [3 groups x 2 labels]  frequencies  k = 8  bandwidth = 0.2356
 ```

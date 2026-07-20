@@ -106,7 +106,6 @@ if (requireNamespace("kohonen", quietly = TRUE)) {
   soft <- somalign_soft_labels(fit)
   head(soft)
 }
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 7 query node(s) have match_mass_ratio > 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 #>           high low
 #> 1 2.378258e-34   1

@@ -131,7 +131,6 @@ reference.
 ``` r
 
 qry <- somalign_query(new_data, ref, grid = grid_small, rlen = 20)
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 stopifnot(inherits(qry, "somalign_query"))
 qry
 #> <somalign_query>
@@ -462,11 +461,8 @@ stab <- somalign_som_stability(
   grid = grid_small,
   rlen = 20
 )
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.27); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.22); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.14); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 stopifnot(is.data.frame(stab))
 stopifnot(nrow(stab) == 3L)
@@ -547,15 +543,16 @@ metrics
 ## `somalign_calibration`
 
 Bins predictions by a confidence score and compares mean confidence to
-empirical accuracy, returning the expected calibration error and Brier
-score.
+empirical accuracy, returning the expected calibration error, Brier
+score, and the coverage (fraction of non-abstained predictions actually
+scored).
 
 ``` r
 
 calib <- somalign_calibration(runif(50), runif(50) < 0.5)
 calib
 #> <somalign_calibration>
-#>   ECE = 0.2827  MCE = 0.7356  Brier = 0.3287  (n = 50)
+#>   ECE = 0.2827  MCE = 0.7356  Brier = 0.3287  (scored n = 50, coverage = 100.0%)
 #>   reliability (score_mean -> accuracy, n):
 #>     0.05 -> 0.57  (7)
 #>     0.16 -> 0.67  (3)
@@ -577,15 +574,13 @@ Held-out k-fold cross-validation of label transfer.
 cv <- somalign_cross_validate(
   old_data, labels_old, grid = grid_small, k = 2, rlen = 15
 )
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.30); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.23); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 stopifnot(inherits(cv, "somalign_cross_validation"))
 cv
 #> <somalign_cross_validation> (2 folds)
 #>   pooled: accuracy = 1.0000  macro_f1 = 1.0000  MCC = 1.0000  coverage = 100.0%
-#>   calibration: ECE = 0.0000  Brier = 0.0000
+#>   calibration: ECE = 0.0000  Brier = 0.0000  (scored on 100.0% of predictions)
 ```
 
 ## `somalign_tune`
@@ -598,8 +593,6 @@ tuned <- somalign_tune(
   old_data, labels_old, grid = grid_small,
   param_grid = data.frame(epsilon = c(0.1, 0.2)), k = 2, rlen = 15
 )
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 stopifnot(inherits(tuned, "somalign_tune"))
 tuned$grid
 #>   epsilon rho_query rho_ref diagonal_boost feature_weights accuracy macro_f1
@@ -735,7 +728,7 @@ invisible(print(metrics))
 #>   scored = 20  coverage = 100.0%  accuracy_all = 0.9500
 invisible(print(calib))
 #> <somalign_calibration>
-#>   ECE = 0.2827  MCE = 0.7356  Brier = 0.3287  (n = 50)
+#>   ECE = 0.2827  MCE = 0.7356  Brier = 0.3287  (scored n = 50, coverage = 100.0%)
 #>   reliability (score_mean -> accuracy, n):
 #>     0.05 -> 0.57  (7)
 #>     0.16 -> 0.67  (3)
@@ -749,7 +742,7 @@ invisible(print(calib))
 invisible(print(cv))
 #> <somalign_cross_validation> (2 folds)
 #>   pooled: accuracy = 1.0000  macro_f1 = 1.0000  MCC = 1.0000  coverage = 100.0%
-#>   calibration: ECE = 0.0000  Brier = 0.0000
+#>   calibration: ECE = 0.0000  Brier = 0.0000  (scored on 100.0% of predictions)
 invisible(print(tuned))
 #> <somalign_tune> objective = mcc over 2 combination(s)
 #>   best:
@@ -807,7 +800,7 @@ invisible(summary(fit))
     #> [1] stats     graphics  grDevices utils     datasets  methods   base     
     #> 
     #> other attached packages:
-    #> [1] somalign_0.99.4  kohonen_3.0.13   BiocStyle_2.40.0
+    #> [1] somalign_0.99.5  kohonen_3.0.13   BiocStyle_2.40.0
     #> 
     #> loaded via a namespace (and not attached):
     #>  [1] gtable_0.3.6        jsonlite_2.0.0      dplyr_1.2.1        

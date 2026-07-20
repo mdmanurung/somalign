@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -80,344 +80,337 @@
 
     
     
-<p><code>somalign</code> aligns a query self-organising map to a fixed
-reference SOM using codebook-level unbalanced entropic optimal
-transport. The example below trains a reference SOM on labelled old
-samples, then projects a shifted query dataset into that reference.</p>
-<p><strong>The primary product is label transfer</strong>, which carries
-reference labels (and a per-cell confidence and margin) onto the query
-via the transport plan. The <em>corrected coordinates</em>
-(<code>corrected_som_*</code>, <code>correction_norm</code>) are a
-secondary, diagnostic output: they are useful for triage and
-visualisation, but the barycentric correction can over-merge distinct
-populations (see <code><a href="../reference/somalign_topology_audit.html">somalign_topology_audit()</a></code>), so they should
-not be treated as a batch-corrected expression matrix for downstream
-re-clustering or differential testing. Call <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> on a
-fit for the label-transfer headline, or
-<code>somalign_results(fit, include_correction = FALSE)</code> for a
-label-focused table.</p>
+<p><code>somalign</code> transfers cell labels from a labelled reference
+dataset onto a new, unlabelled query dataset when the two were measured
+under different conditions (a batch effect). It works at the level of
+self-organising maps (SOMs): you train one reference SOM once, then
+align each new query SOM to it with codebook-level unbalanced entropic
+optimal transport. The alignment carries the reference labels onto the
+query, with a per-cell confidence and margin so you can tell which
+transfers to trust.</p>
+<p>Label transfer is the product to reach for first. The package also
+reports <em>corrected coordinates</em> (<code>corrected_som_*</code>,
+<code>correction_norm</code>), but those are a diagnostic aid, not a
+batch-corrected expression matrix: the correction can over-merge
+distinct populations (<code><a href="../reference/somalign_topology_audit.html">somalign_topology_audit()</a></code> flags
+this), so do not re-cluster or run differential tests on them. This
+vignette walks through the three-step workflow, shows how to read the
+output, and points to the diagnostics and follow-up vignettes.</p>
 <div class="section level2">
-<h2 id="quick-start">Quick start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
+<h2 id="the-workflow-in-three-steps">The workflow in three steps<a class="anchor" aria-label="anchor" href="#the-workflow-in-three-steps"></a>
 </h2>
+<p>Aligning a query to a reference takes three calls: build the
+reference, prepare the query, and fit. The example uses a small
+simulated dataset with two populations, <code>low</code> and
+<code>high</code>. The query is the same two populations remeasured in a
+second batch that offsets each population differently, the kind of shift
+a single global recentring cannot undo but node-level alignment can.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">kohonen</span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://mdmanurung.github.io/somalign">somalign</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Reference: two labelled populations</span></span>
 <span><span class="va">old</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">80</span>, mean <span class="op">=</span> <span class="op">-</span><span class="fl">1</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>,</span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">80</span>, mean <span class="op">=</span> <span class="fl">1</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">80</span>, mean <span class="op">=</span>  <span class="fl">1</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">old</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"f"</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">old</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">labels</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"low"</span>, <span class="st">"high"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">20</span><span class="op">)</span></span>
 <span></span>
+<span><span class="co"># Query: same populations, second batch, each population offset differently</span></span>
+<span><span class="va">query</span> <span class="op">&lt;-</span> <span class="va">old</span></span>
+<span><span class="va">query</span><span class="op">[</span><span class="va">labels</span> <span class="op">==</span> <span class="st">"low"</span>, <span class="op">]</span>  <span class="op">&lt;-</span> <span class="va">query</span><span class="op">[</span><span class="va">labels</span> <span class="op">==</span> <span class="st">"low"</span>, <span class="op">]</span>  <span class="op">+</span> <span class="fl">0.8</span></span>
+<span><span class="va">query</span><span class="op">[</span><span class="va">labels</span> <span class="op">==</span> <span class="st">"high"</span>, <span class="op">]</span> <span class="op">&lt;-</span> <span class="va">query</span><span class="op">[</span><span class="va">labels</span> <span class="op">==</span> <span class="st">"high"</span>, <span class="op">]</span> <span class="op">-</span> <span class="fl">0.6</span></span>
+<span></span>
+<span><span class="co"># 1. Train the reference SOM (labels attach the classes to transfer)</span></span>
 <span><span class="va">reference</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_train_reference.html">somalign_train_reference</a></span><span class="op">(</span></span>
 <span>  <span class="va">old</span>,</span>
 <span>  labels <span class="op">=</span> <span class="va">labels</span>,</span>
-<span>  grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span>, <span class="st">"hexagonal"</span><span class="op">)</span>,</span>
-<span>  rlen <span class="op">=</span> <span class="fl">5</span></span>
+<span>  grid   <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span>, <span class="st">"hexagonal"</span><span class="op">)</span>,</span>
+<span>  rlen   <span class="op">=</span> <span class="fl">5</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">query</span> <span class="op">&lt;-</span> <span class="va">old</span> <span class="op">+</span> <span class="fl">0.2</span></span>
+<span><span class="co"># 2. Prepare the query (scaled with the reference centre and scale)</span></span>
 <span><span class="va">query_obj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_query.html">somalign_query</a></span><span class="op">(</span></span>
 <span>  <span class="va">query</span>,</span>
 <span>  <span class="va">reference</span>,</span>
 <span>  grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span>, <span class="st">"hexagonal"</span><span class="op">)</span>,</span>
 <span>  rlen <span class="op">=</span> <span class="fl">5</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
 <span></span>
+<span><span class="co"># 3. Fit: align the query and reference SOMs, transfer labels</span></span>
 <span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit.html">somalign_fit</a></span><span class="op">(</span><span class="va">query_obj</span>, <span class="va">reference</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 2 query node(s) have match_mass_ratio &gt; 1 (max 1.17); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_results.html">somalign_results</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
-<span><span class="va">results_with_meta</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_results.html">somalign_results</a></span><span class="op">(</span></span>
+<span><span class="co">#&gt; somalign_fit: 1 query node(s) have match_mass_ratio &gt; 1 (max 1.01); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="the-label-transfer-headline">The label-transfer headline<a class="anchor" aria-label="anchor" href="#the-label-transfer-headline"></a>
+</h2>
+<p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> on a fit gives the label-transfer summary: how
+many cells were accepted, the confidence quartiles, the median margin,
+and the accepted class mix. Read this first to gauge whether the
+transfer is trustworthy before pulling the per-sample table.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;somalign_fit&gt; label-transfer summary</span></span>
+<span><span class="co">#&gt;   cells: 40  |  accepted: 40 (100.0%)  |  classes: 2</span></span>
+<span><span class="co">#&gt;   confidence quartiles (accepted): 0.85 / 0.91 / 0.91</span></span>
+<span><span class="co">#&gt;   median margin (accepted): 0.83</span></span>
+<span><span class="co">#&gt;   accepted class distribution:</span></span>
+<span><span class="co">#&gt;     high                 23</span></span>
+<span><span class="co">#&gt;     low                  17</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="reading-the-per-sample-table">Reading the per-sample table<a class="anchor" aria-label="anchor" href="#reading-the-per-sample-table"></a>
+</h2>
+<p><code><a href="../reference/somalign_results.html">somalign_results()</a></code> returns one row per query sample. The
+four columns most users need are the transferred label, its confidence,
+whether it was accepted, and the direct-projection reference label to
+compare against:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_results.html">somalign_results</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">results</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>  <span class="st">"sample_id"</span>,</span>
+<span>  <span class="st">"transferred_label"</span>,</span>
+<span>  <span class="st">"transferred_label_confidence"</span>,</span>
+<span>  <span class="st">"transferred_label_accepted"</span>,</span>
+<span>  <span class="st">"old_som_label"</span></span>
+<span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   sample_id transferred_label transferred_label_confidence</span></span>
+<span><span class="co">#&gt; 1         1              high                    0.7436767</span></span>
+<span><span class="co">#&gt; 2         2               low                    0.9998034</span></span>
+<span><span class="co">#&gt; 3         3               low                    0.9998034</span></span>
+<span><span class="co">#&gt; 4         4               low                    0.8537847</span></span>
+<span><span class="co">#&gt; 5         5               low                    0.8537847</span></span>
+<span><span class="co">#&gt; 6         6               low                    0.9998034</span></span>
+<span><span class="co">#&gt;   transferred_label_accepted old_som_label</span></span>
+<span><span class="co">#&gt; 1                       TRUE          high</span></span>
+<span><span class="co">#&gt; 2                       TRUE          high</span></span>
+<span><span class="co">#&gt; 3                       TRUE          high</span></span>
+<span><span class="co">#&gt; 4                       TRUE           low</span></span>
+<span><span class="co">#&gt; 5                       TRUE           low</span></span>
+<span><span class="co">#&gt; 6                       TRUE           low</span></span></code></pre></div>
+<p>To append per-sample metadata (one row per query sample), pass it as
+<code>data</code>:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">results_meta</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_results.html">somalign_results</a></span><span class="op">(</span></span>
 <span>  <span class="va">fit</span>,</span>
 <span>  data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>batch <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"query_1"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">query</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
+<p>For a label-only table without the corrected-projection columns, use
+<code>somalign_results(fit, include_correction = FALSE)</code>.</p>
 </div>
 <div class="section level2">
-<h2 id="current-api-surface">Current API surface<a class="anchor" aria-label="anchor" href="#current-api-surface"></a>
+<h2 id="the-full-column-set">The full column set<a class="anchor" aria-label="anchor" href="#the-full-column-set"></a>
 </h2>
-<p>The user-facing workflow is built around a small set of exported
-functions:</p>
-<ul>
-<li>Build a reference with <code><a href="../reference/somalign_train_reference.html">somalign_train_reference()</a></code>, or
-wrap saved artifacts with <code><a href="../reference/somalign_reference.html">somalign_reference()</a></code> /
-<code><a href="../reference/somalign_reference_from_nodes.html">somalign_reference_from_nodes()</a></code>.</li>
-<li>Prepare query data with <code><a href="../reference/somalign_query.html">somalign_query()</a></code>. Query samples
-are always scaled with the reference center and scale.</li>
-<li>Align query and reference SOM nodes with
-<code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>. The default internal solver is used for
-both <code>solver = "internal"</code> and the compatibility alias
-<code>solver = "auto"</code>.</li>
-<li>Extract per-sample output with <code><a href="../reference/somalign_results.html">somalign_results()</a></code>. Pass
-<code>somalign_results(fit, data = sample_metadata)</code> to append one
-metadata row per query sample.</li>
-<li>Inspect fit quality with <code><a href="../reference/somalign_diagnostics.html">somalign_diagnostics()</a></code> and
-tune OT parameters with <code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code>.</li>
-<li>Validate the transferred labels and tune for accuracy with
-<code><a href="../reference/somalign_cross_validate.html">somalign_cross_validate()</a></code>,
-<code><a href="../reference/somalign_label_metrics.html">somalign_label_metrics()</a></code>,
-<code><a href="../reference/somalign_calibration.html">somalign_calibration()</a></code>, and <code><a href="../reference/somalign_tune.html">somalign_tune()</a></code>.
-See the “Validating and tuning label transfer” vignette.</li>
-</ul>
-</div>
-<div class="section level2">
-<h2 id="what-to-look-at-first">What to look at first<a class="anchor" aria-label="anchor" href="#what-to-look-at-first"></a>
-</h2>
-<p><code><a href="../reference/somalign_results.html">somalign_results()</a></code> returns one row per query sample.
-Start with these columns:</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">results</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>  <span class="st">"sample_id"</span>,</span>
-<span>  <span class="st">"query_som_unit"</span>,</span>
-<span>  <span class="st">"old_som_unit"</span>,</span>
-<span>  <span class="st">"old_som_distance"</span>,</span>
-<span>  <span class="st">"old_som_distance_threshold"</span>,</span>
-<span>  <span class="st">"outside_reference_distance"</span>,</span>
-<span>  <span class="st">"outside_reference_surprisal"</span>,</span>
-<span>  <span class="st">"outside_reference_top_marker"</span>,</span>
-<span>  <span class="st">"final_status"</span>,</span>
-<span>  <span class="st">"old_som_label"</span>,</span>
-<span>  <span class="st">"corrected_som_unit"</span>,</span>
-<span>  <span class="st">"correction_norm"</span>,</span>
-<span>  <span class="st">"transferred_label"</span>,</span>
-<span>  <span class="st">"transferred_label_confidence"</span>,</span>
-<span>  <span class="st">"transferred_label_margin"</span>,</span>
-<span>  <span class="st">"transferred_label_accepted"</span></span>
-<span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   sample_id query_som_unit old_som_unit old_som_distance</span></span>
-<span><span class="co">#&gt; 1         1              4            1        1.6019468</span></span>
-<span><span class="co">#&gt; 2         2              1            4        0.8377855</span></span>
-<span><span class="co">#&gt; 3         3              1            4        1.3090895</span></span>
-<span><span class="co">#&gt; 4         4              3            4        1.9063036</span></span>
-<span><span class="co">#&gt; 5         5              1            4        0.8813879</span></span>
-<span><span class="co">#&gt; 6         6              1            4        0.9746628</span></span>
-<span><span class="co">#&gt;   old_som_distance_threshold outside_reference_distance</span></span>
-<span><span class="co">#&gt; 1                   1.775302                      FALSE</span></span>
-<span><span class="co">#&gt; 2                   1.919417                      FALSE</span></span>
-<span><span class="co">#&gt; 3                   1.919417                      FALSE</span></span>
-<span><span class="co">#&gt; 4                   1.919417                      FALSE</span></span>
-<span><span class="co">#&gt; 5                   1.919417                      FALSE</span></span>
-<span><span class="co">#&gt; 6                   1.919417                      FALSE</span></span>
-<span><span class="co">#&gt;   outside_reference_surprisal outside_reference_top_marker     final_status</span></span>
-<span><span class="co">#&gt; 1                    4.358669                           f3 inside_reference</span></span>
-<span><span class="co">#&gt; 2                    1.862734                           f2 inside_reference</span></span>
-<span><span class="co">#&gt; 3                    4.039242                           f4 inside_reference</span></span>
-<span><span class="co">#&gt; 4                    8.612408                           f2 inside_reference</span></span>
-<span><span class="co">#&gt; 5                    1.759145                           f2 inside_reference</span></span>
-<span><span class="co">#&gt; 6                    2.090646                           f1 inside_reference</span></span>
-<span><span class="co">#&gt;   old_som_label corrected_som_unit correction_norm transferred_label</span></span>
-<span><span class="co">#&gt; 1          high                  1       1.3540493              &lt;NA&gt;</span></span>
-<span><span class="co">#&gt; 2           low                  4       0.4712927               low</span></span>
-<span><span class="co">#&gt; 3           low                  4       0.4712927               low</span></span>
-<span><span class="co">#&gt; 4           low                  4       0.8539725              high</span></span>
-<span><span class="co">#&gt; 5           low                  4       0.4712927               low</span></span>
-<span><span class="co">#&gt; 6           low                  4       0.4712927               low</span></span>
-<span><span class="co">#&gt;   transferred_label_confidence transferred_label_margin</span></span>
-<span><span class="co">#&gt; 1                           NA                0.1991998</span></span>
-<span><span class="co">#&gt; 2                    0.9999969                0.9999938</span></span>
-<span><span class="co">#&gt; 3                    0.9999969                0.9999938</span></span>
-<span><span class="co">#&gt; 4                    0.7376283                0.4752565</span></span>
-<span><span class="co">#&gt; 5                    0.9999969                0.9999938</span></span>
-<span><span class="co">#&gt; 6                    0.9999969                0.9999938</span></span>
-<span><span class="co">#&gt;   transferred_label_accepted</span></span>
-<span><span class="co">#&gt; 1                      FALSE</span></span>
-<span><span class="co">#&gt; 2                       TRUE</span></span>
-<span><span class="co">#&gt; 3                       TRUE</span></span>
-<span><span class="co">#&gt; 4                       TRUE</span></span>
-<span><span class="co">#&gt; 5                       TRUE</span></span>
-<span><span class="co">#&gt; 6                       TRUE</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="interpreting-the-result">Interpreting the result<a class="anchor" aria-label="anchor" href="#interpreting-the-result"></a>
-</h2>
-<p>The columns split into three groups. <code>old_som_unit</code>,
-<code>old_som_distance</code>, <code>old_som_distance_threshold</code>,
+<p>The table carries more columns than the four above, in three groups.
+<code><a href="../reference/somalign_results.html">?somalign_results</a></code> documents every column; the map below
+covers the ones you reach for most. Two identifier columns come first:
+<code>sample_id</code>, and <code>query_som_unit</code>, the query SOM
+node the cell was assigned to.</p>
+<p>The <strong>direct projection</strong> columns assign each sample to
+its nearest reference node by Euclidean distance, with no transport
+involved: <code>old_som_unit</code>, <code>old_som_distance</code>,
+<code>old_som_distance_threshold</code>,
 <code>outside_reference_distance</code>,
 <code>outside_reference_surprisal</code>,
+<code>outside_reference_pvalue</code>,
 <code>outside_reference_top_marker</code>, <code>final_status</code>,
-<code>old_som_label</code>, and <code>old_som_label_confidence</code>
-describe the direct reference projection: each sample is assigned to its
-nearest reference node by Euclidean distance, with no transport
-involved. Use this group for reference-node assignment and cross-batch
-composition summaries.</p>
-<p>The OT plan then contributes label-transfer columns.
-<code>transferred_label</code> is the top label from
-<code>correspondence %*% reference$label_prob</code>; confidence is the
-top transported-label posterior probability;
-<code>transferred_label_margin</code> is the top posterior minus the
-runner-up posterior. <code>transferred_label_accepted</code> requires
-both enough transported mass and enough label confidence. Check the
-acceptance, confidence, and margin columns before using transferred
-labels downstream.</p>
-<p>The corrected-projection columns are auxiliary diagnostics.
-<code>corrected_som_unit</code>, <code>corrected_som_distance</code>,
+<code>old_som_label</code>, and <code>old_som_label_confidence</code>.
+Use this group for reference-node assignment and cross-batch composition
+summaries.</p>
+<p>The <strong>label-transfer</strong> columns come from the
+optimal-transport plan. <code>transferred_label</code> is the top label
+from <code>correspondence %*% reference$label_prob</code>;
+<code>transferred_label_confidence</code> is the top transported-label
+posterior; <code>transferred_label_margin</code> is that posterior minus
+the runner-up. <code>transferred_label_second</code> and
+<code>transferred_label_second_confidence</code> name the runner-up
+itself, for triaging close calls.
+<code>transferred_label_accepted</code> is <code>TRUE</code> only when a
+node received both enough transported mass and enough label confidence.
+Check acceptance, confidence, and margin before using a transferred
+label downstream.</p>
+<p>The <strong>corrected-projection</strong> columns are the diagnostic
+group: <code>corrected_som_unit</code>,
+<code>corrected_som_distance</code>,
 <code>corrected_som_distance_threshold</code>,
 <code>corrected_outside_reference_distance</code>, and
-<code>correction_norm</code> describe where samples land after each
-query SOM node is shifted toward its mass-weighted reference target. A
-large <code>correction_norm</code> signals a systematic offset between
-the batches and is worth examining, but the corrected assignment should
-not replace the direct one.</p>
+<code>correction_norm</code>. They describe where a sample lands after
+each query SOM node is shifted toward its mass-weighted reference
+target. A large <code>correction_norm</code> signals a systematic offset
+between the batches and is worth examining, but the corrected assignment
+should not replace the direct one.</p>
 </div>
 <div class="section level2">
-<h2 id="cross-batch-composition-and-abundance">Cross-batch composition and abundance<a class="anchor" aria-label="anchor" href="#cross-batch-composition-and-abundance"></a>
+<h2 id="comparing-composition-across-batches">Comparing composition across batches<a class="anchor" aria-label="anchor" href="#comparing-composition-across-batches"></a>
 </h2>
-<p>When the goal is to compare cell-type composition across batches, two
-choices improve cross-batch reproducibility. First, use the direct
-projection (<code>old_som_unit</code>, <code>old_som_label</code>) or
+<p>To compare cell-type composition across batches, two choices improve
+cross-batch reproducibility. First, count from the direct projection
+(<code>old_som_unit</code>, <code>old_som_label</code>) or from
 <code><a href="../reference/somalign_soft_frequencies.html">somalign_soft_frequencies()</a></code> rather than the corrected
-columns: the barycentric correction can over-merge populations (see
-<code><a href="../reference/somalign_topology_audit.html">somalign_topology_audit()</a></code>) and does not improve
-reproducibility of composition. Second, quantify abundance
+columns: the barycentric correction can over-merge populations and does
+not improve composition reproducibility. Second, quantify abundance
 compositionally. Cluster frequencies sum to one, so a raw-frequency
 comparison is dominated by the largest clusters and understates how well
 rarer ones are recovered. A centred log-ratio (CLR) transform of
 per-sample cluster counts, as implemented in the <code>crumblr</code>
-package, maps the composition to log-ratio space and downweights
-low-count clusters, and is the transform used by downstream
-differential-abundance models:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># counts: a samples-by-cluster integer matrix (e.g. table(sample, old_som_label))</span></span>
+package, maps the composition to log-ratio space, downweights low-count
+clusters, and is the transform the downstream differential-abundance
+models expect:</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># counts: a samples-by-cluster integer matrix, e.g. table(sample, old_som_label)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">crumblr</span><span class="op">)</span></span>
 <span><span class="va">cobj</span> <span class="op">&lt;-</span> <span class="fu">crumblr</span><span class="op">(</span><span class="va">counts</span><span class="op">)</span>      <span class="co"># CLR values in cobj$E, precision weights in cobj$weights</span></span></code></pre></div>
 <p>For softer abundance estimates, aggregate with
-<code><a href="../reference/somalign_soft_frequencies.html">somalign_soft_frequencies()</a></code> before downstream compositional
-modelling. Absolute per-cluster proportions and node-level frequencies
-remain approximate; the CLR profile is the reproducible quantity.</p>
+<code><a href="../reference/somalign_soft_frequencies.html">somalign_soft_frequencies()</a></code> before compositional modelling.
+Absolute per-cluster proportions stay approximate; the CLR profile is
+the reproducible quantity.</p>
 </div>
 <div class="section level2">
 <h2 id="diagnostic-plots">Diagnostic plots<a class="anchor" aria-label="anchor" href="#diagnostic-plots"></a>
 </h2>
-<p>The package ships a set of <code>somalign_plot_*()</code> functions
-covering both before-projection compatibility checks and
-after-projection quality assessment. Each returns a single
-<code>ggplot</code> object you can print directly or compose further
-with <code>patchwork</code> or <code>cowplot</code>.</p>
+<p>The <code>somalign_plot_*()</code> functions cover both
+before-projection compatibility checks and after-projection quality
+assessment. Each returns a single <code>ggplot</code> you can print
+directly or compose with <code>patchwork</code> or
+<code>cowplot</code>.</p>
 <div class="section level3">
 <h3 id="before-projection-are-the-datasets-compatible">Before projection: are the datasets compatible?<a class="anchor" aria-label="anchor" href="#before-projection-are-the-datasets-compatible"></a>
 </h3>
-<p>Before aligning, use <code><a href="../reference/somalign_check_codebook_alignment.html">somalign_check_codebook_alignment()</a></code>
-to test whether the query and reference SOM code ranges overlap
-sufficiently. Then visualise the result with
-<code><a href="../reference/somalign_plot_codebook_range.html">somalign_plot_codebook_range()</a></code>.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<p><code><a href="../reference/somalign_check_codebook_alignment.html">somalign_check_codebook_alignment()</a></code> tests whether the
+query and reference SOM code ranges overlap enough to align;
+<code><a href="../reference/somalign_plot_codebook_range.html">somalign_plot_codebook_range()</a></code> shows the result.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">chk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_check_codebook_alignment.html">somalign_check_codebook_alignment</a></span><span class="op">(</span><span class="va">query_obj</span><span class="op">$</span><span class="va">codebook</span>, <span class="va">reference</span>,</span>
 <span>                                         stop_if_critical <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; somalign_check_codebook_alignment: 1 feature(s) show partial mismatch (&lt; 50% range overlap or centroid drift &gt; 3 reference SDs): f2. Label transfer accuracy may be reduced for these markers.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">chk</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign codebook alignment check  [verdict: pass]</span></span>
+<span><span class="co">#&gt; somalign codebook alignment check  [verdict: warning]</span></span>
 <span><span class="co">#&gt;   Features checked       : 4</span></span>
 <span><span class="co">#&gt;   Critical (0% overlap)  : 0</span></span>
-<span><span class="co">#&gt;   Warning  (partial)     : 0</span></span>
+<span><span class="co">#&gt;   Warning  (partial)     : 1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Cost matrix (4-feature space):</span></span>
-<span><span class="co">#&gt;   Median pairwise dist²  : 4.8528</span></span>
-<span><span class="co">#&gt;   95th-pctile dist²      : 11.5479</span></span>
-<span><span class="co">#&gt;   Cost normalisation ×   : 4.8528</span></span>
-<span><span class="co">#&gt;   Pairs within 3ε        : 25.0%</span></span>
+<span><span class="co">#&gt;   Median pairwise dist²  : 3.1675</span></span>
+<span><span class="co">#&gt;   95th-pctile dist²      : 7.6400</span></span>
+<span><span class="co">#&gt;   Cost normalisation ×   : 3.1675</span></span>
+<span><span class="co">#&gt;   Pairs within 3ε        : 12.5%</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Flagged features:</span></span>
+<span><span class="co">#&gt;  feature overlap_fraction centroid_drift_sd    flag</span></span>
+<span><span class="co">#&gt;       f2            0.267             -0.12 warning</span></span>
 <span><span class="fu"><a href="../reference/somalign_plot_codebook_range.html">somalign_plot_codebook_range</a></span><span class="op">(</span><span class="va">chk</span><span class="op">)</span></span></code></pre></div>
 <p><img src="somalign_files/figure-html/plot-before-1.png" class="r-plt" alt="" width="672"></p>
 <p><code><a href="../reference/somalign_plot_marker_distributions.html">somalign_plot_marker_distributions()</a></code> shows per-marker
-cell-level densities of the query data in reference-scaled space, with
-reference SOM node prototypes overlaid as a rug. Passing
-<code>reference_data</code> (reference cells in reference-scaled
-coordinates) draws a true second density curve instead.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+query densities in reference-scaled space, with reference node
+prototypes as a rug. Passing <code>reference_data</code> (reference
+cells in reference-scaled coordinates) draws a true second density
+instead.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_plot_marker_distributions.html">somalign_plot_marker_distributions</a></span><span class="op">(</span><span class="va">query_obj</span>, reference <span class="op">=</span> <span class="va">reference</span><span class="op">)</span></span></code></pre></div>
 <p><img src="somalign_files/figure-html/plot-dists-1.png" class="r-plt" alt="" width="672"></p>
 </div>
 <div class="section level3">
-<h3 id="after-projection-ot-solver-quality">After projection: OT solver quality<a class="anchor" aria-label="anchor" href="#after-projection-ot-solver-quality"></a>
+<h3 id="after-projection-solver-quality">After projection: solver quality<a class="anchor" aria-label="anchor" href="#after-projection-solver-quality"></a>
 </h3>
-<p><code>match_fraction</code> near 1 means a query node’s mass arrived
-at the reference; values well below 1 indicate nodes the solver could
+<p>A <code>match_fraction</code> near 1 means a query node’s mass
+reached the reference; values well below 1 mark nodes the solver could
 not route.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_plot_mass_balance.html">somalign_plot_mass_balance</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
 <p><img src="somalign_files/figure-html/plot-ot-quality-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_plot_match_fraction.html">somalign_plot_match_fraction</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
 <p><img src="somalign_files/figure-html/plot-ot-quality-2.png" class="r-plt" alt="" width="672"></p>
 </div>
 <div class="section level3">
 <h3 id="after-projection-correction-quality">After projection: correction quality<a class="anchor" aria-label="anchor" href="#after-projection-correction-quality"></a>
 </h3>
-<p>Each query node is shifted by a correction vector derived from its OT
-transport row. Large <code>correction_norm</code> values relative to the
-typical inter-node spacing signal a systematic batch offset.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<p>Each query node is shifted by a correction vector derived from its
+transport row. A <code>correction_norm</code> large relative to the
+typical inter-node spacing signals a systematic batch offset.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_plot_correction.html">somalign_plot_correction</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
 <p><img src="somalign_files/figure-html/plot-correction-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_plot_outside_fraction.html">somalign_plot_outside_fraction</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
 <p><img src="somalign_files/figure-html/plot-correction-2.png" class="r-plt" alt="" width="672"></p>
 </div>
 <div class="section level3">
-<h3 id="after-projection-label-transfer-quality">After projection: label transfer quality<a class="anchor" aria-label="anchor" href="#after-projection-label-transfer-quality"></a>
+<h3 id="after-projection-label-transfer-quality">After projection: label-transfer quality<a class="anchor" aria-label="anchor" href="#after-projection-label-transfer-quality"></a>
 </h3>
-<p>The confusion heatmap is row-normalised: each row sums to 100%. High
-diagonal values indicate coherent transfer; strong off-diagonal entries
-warrant re-examination of the corresponding query node.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<p>The confusion heatmap is row-normalised, so each row sums to 100%.
+High diagonal values indicate coherent transfer; strong off-diagonal
+entries flag a query node worth re-examining.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_plot_label_confusion.html">somalign_plot_label_confusion</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
 <p><img src="somalign_files/figure-html/plot-labels-1.png" class="r-plt" alt="" width="480"></p>
-</div>
-<div class="section level3">
-<h3 id="worst-projecting-nodes">Worst-projecting nodes<a class="anchor" aria-label="anchor" href="#worst-projecting-nodes"></a>
-</h3>
-<p><code><a href="../reference/somalign_worst_nodes.html">somalign_worst_nodes()</a></code> returns the nodes with the lowest
-match fraction as a data frame, making it easy to inspect or pass
-downstream.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<p><code><a href="../reference/somalign_worst_nodes.html">somalign_worst_nodes()</a></code> returns the lowest-match-fraction
+nodes as a data frame for inspection or downstream use.</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/somalign_worst_nodes.html">somalign_worst_nodes</a></span><span class="op">(</span><span class="va">fit</span>, n <span class="op">=</span> <span class="fl">10</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    query_node query_mass transported_mass match_fraction correction_allowed</span></span>
-<span><span class="co">#&gt; V2          2      0.475       0.42264344      0.8897757               TRUE</span></span>
-<span><span class="co">#&gt; V3          3      0.175       0.16011653      0.9149516               TRUE</span></span>
-<span><span class="co">#&gt; V1          1      0.300       0.35245983      1.0000000               TRUE</span></span>
-<span><span class="co">#&gt; V4          4      0.050       0.05309817      1.0000000               TRUE</span></span>
+<span><span class="co">#&gt; V2          2      0.200        0.1410244      0.7051218               TRUE</span></span>
+<span><span class="co">#&gt; V3          3      0.350        0.3058928      0.8739794               TRUE</span></span>
+<span><span class="co">#&gt; V1          1      0.225        0.2216165      0.9849621               TRUE</span></span>
+<span><span class="co">#&gt; V4          4      0.225        0.2279500      1.0000000               TRUE</span></span>
 <span><span class="co">#&gt;    correction_norm transport_entropy top_ref_label</span></span>
-<span><span class="co">#&gt; V2       0.4970407      1.424552e+00          high</span></span>
-<span><span class="co">#&gt; V3       0.8539725      7.478739e-01          high</span></span>
-<span><span class="co">#&gt; V1       0.4712927      6.806472e-05           low</span></span>
-<span><span class="co">#&gt; V4       1.3540493      1.290350e-02          high</span></span></code></pre></div>
+<span><span class="co">#&gt; V2       1.3005722        0.63358847           low</span></span>
+<span><span class="co">#&gt; V3       0.7374052        0.07598200          high</span></span>
+<span><span class="co">#&gt; V1       1.1059891        0.00297061           low</span></span>
+<span><span class="co">#&gt; V4       0.6077455        0.94623036          high</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
-<h2 id="next-steps">Next steps<a class="anchor" aria-label="anchor" href="#next-steps"></a>
+<h2 id="where-to-go-next">Where to go next<a class="anchor" aria-label="anchor" href="#where-to-go-next"></a>
 </h2>
-<p><code><a href="../articles/pretrained-old-and-new-soms.html">vignette("pretrained-old-and-new-soms", package = "somalign")</a></code>
-covers the workflow for existing reference or query SOMs:
-reference-scaled codebooks, node-level artifacts, diagnostics, and
-hyperparameter tuning.</p>
-<p><code><a href="../articles/anchor-samples.html">vignette("anchor-samples", package = "somalign")</a></code> covers
+<p>Once the quick-start workflow makes sense, the other vignettes cover
+specific situations:</p>
+<ul>
+<li>
+<code><a href="../articles/pretrained-old-and-new-soms.html">vignette("pretrained-old-and-new-soms")</a></code> reuses
+reference or query SOMs you already trained: reference-scaled codebooks,
+node-level artifacts, diagnostics, and hyperparameter tuning.</li>
+<li>
+<code><a href="../articles/anchor-samples.html">vignette("anchor-samples")</a></code> covers
 <code><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored()</a></code>: supplying remeasured QC samples as
-anchor pairs, tuning <code>rho_anchor</code>, inspecting anchor node
+anchor pairs, tuning <code>rho_anchor</code>, inspecting anchor
 coverage, and the signal-preserving <code>correction = "subspace"</code>
 mode that restricts node shifts to the batch subspace estimated from
-anchor displacements.</p>
-<p><code><a href="../articles/two-pass.html">vignette("two-pass", package = "somalign")</a></code> covers
-<code><a href="../reference/somalign_fit_two_pass.html">somalign_fit_two_pass()</a></code>: decomposing the batch correction
-into a global shift (first OT pass at a coarser epsilon) and a residual
-per-node correction (second pass). Useful when the batch offset is large
-relative to the local OT problem scale.</p>
-<p><code><a href="../articles/algorithm.html">vignette("algorithm", package = "somalign")</a></code> walks
-through each pipeline stage (direct projection, OT correspondence,
-correction vectors, label transfer, and soft abundance projection) and
-explains how they produce the output columns.</p>
-<p>For preprocessing, <code><a href="../reference/somalign_normalize.html">somalign_normalize()</a></code> subtracts the
-per-marker mean deviation between query and reference in z-scored space,
-and <code><a href="../reference/somalign_quantile_normalize.html">somalign_quantile_normalize()</a></code> scales raw values by
-their upper quantile. Both return a raw-unit matrix to pass as
-<code>data</code> to <code><a href="../reference/somalign_query.html">somalign_query()</a></code>.</p>
+anchor displacements.</li>
+<li>
+<code><a href="../articles/two-pass.html">vignette("two-pass")</a></code> covers
+<code><a href="../reference/somalign_fit_two_pass.html">somalign_fit_two_pass()</a></code>, which splits the correction into a
+global shift (a first coarse-epsilon pass) and a residual per-node
+correction (a second pass). Useful when the batch offset is large
+relative to the local OT problem scale.</li>
+<li>
+<code><a href="../articles/validating-label-transfer.html">vignette("validating-label-transfer")</a></code> covers
+<code><a href="../reference/somalign_cross_validate.html">somalign_cross_validate()</a></code>,
+<code><a href="../reference/somalign_label_metrics.html">somalign_label_metrics()</a></code>,
+<code><a href="../reference/somalign_calibration.html">somalign_calibration()</a></code>, and <code><a href="../reference/somalign_tune.html">somalign_tune()</a></code>
+for validating and tuning transferred labels for accuracy.</li>
+<li>
+<code><a href="../articles/algorithm.html">vignette("algorithm")</a></code> walks through each pipeline stage
+(direct projection, OT correspondence, correction vectors, label
+transfer, and soft abundance) and how each produces its output
+columns.</li>
+</ul>
+<p>Two preprocessing helpers feed <code><a href="../reference/somalign_query.html">somalign_query()</a></code>:
+<code><a href="../reference/somalign_normalize.html">somalign_normalize()</a></code> subtracts the per-marker mean
+deviation between query and reference in z-scored space, and
+<code><a href="../reference/somalign_quantile_normalize.html">somalign_quantile_normalize()</a></code> scales raw values by their
+upper quantile. Both return a raw-unit matrix.</p>
 <p>For fitted objects, <code><a href="../reference/somalign_diagnostics.html">somalign_diagnostics()</a></code> reports
 solver convergence, OT mass behaviour, node-level match fractions, and
-direct/corrected outside reference fractions.
-<code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code> sweeps OT hyperparameters to
-check whether corrected projection and label transfer are stable. For
-large query matrices, <code>somalign_fit(chunk_size = ...)</code>
-controls how many samples are projected at once during
-nearest-reference-node searches.</p>
+outside-reference fractions; <code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code>
+sweeps OT hyperparameters to check whether the corrected projection and
+label transfer are stable. For large query matrices,
+<code>somalign_fit(chunk_size = ...)</code> sets how many samples are
+projected at once during nearest-node searches.</p>
 </div>
 <div class="section level2">
 <h2 id="session-info">Session info<a class="anchor" aria-label="anchor" href="#session-info"></a>
@@ -443,7 +436,7 @@ nearest-reference-node searches.</p>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] somalign_0.99.4  kohonen_3.0.13   BiocStyle_2.40.0</span></span>
+<span><span class="co">#&gt; [1] somalign_0.99.5  kohonen_3.0.13   BiocStyle_2.40.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
 <span><span class="co">#&gt;  [1] gtable_0.3.6        jsonlite_2.0.0      dplyr_1.2.1        </span></span>

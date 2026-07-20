@@ -30,7 +30,12 @@ somalign_calibration(score, correct, n_bins = 10L)
 ## Value
 
 A list of class `somalign_calibration` with `table` (per-bin
-`score_mean`, `accuracy`, `n`), `ece`, `mce`, `brier`, and `n`.
+`score_mean`, `accuracy`, `n`), `ece`, `mce`, `brier`, `n` (predictions
+actually scored, after dropping `NA` score/correct pairs), `n_total`
+(all supplied predictions), and `coverage` (`n / n_total`). Abstentions
+(whose score/correct are `NA`) are dropped, so `ece`/`mce`/`brier`
+describe the scored subset only; compare `coverage` before comparing
+calibration across methods that abstain at different rates.
 
 ## Examples
 
@@ -40,7 +45,7 @@ score <- runif(200)
 correct <- runif(200) < score        # perfectly calibrated by construction
 somalign_calibration(score, correct)
 #> <somalign_calibration>
-#>   ECE = 0.0693  MCE = 0.1270  Brier = 0.1733  (n = 200)
+#>   ECE = 0.0693  MCE = 0.1270  Brier = 0.1733  (scored n = 200, coverage = 100.0%)
 #>   reliability (score_mean -> accuracy, n):
 #>     0.06 -> 0.00  (12)
 #>     0.15 -> 0.06  (17)

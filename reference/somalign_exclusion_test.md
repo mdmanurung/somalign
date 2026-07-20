@@ -93,7 +93,6 @@ ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
 shifted <- mat + 0.5
 qry <- somalign_query(shifted, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
                       rlen = 5)
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 anc_idx <- 1:10
 fit <- somalign_fit_anchored(qry, ref,
                               anchor_old = mat[anc_idx, , drop = FALSE],

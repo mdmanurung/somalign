@@ -5,8 +5,9 @@ for every query cell. This vignette covers how to check that those
 labels are correct and that the confidence is honest, and how to choose
 transport parameters that maximise label accuracy rather than an
 unsupervised proxy. The corrected coordinates are a separate, diagnostic
-output and are not used here; see the algorithm vignette for why they
-can over-merge populations.
+output and are not used here; see
+[`vignette("algorithm", package = "somalign")`](https://mdmanurung.github.io/somalign/articles/algorithm.md)
+for why they can over-merge populations.
 
 ## Scoring labels against a known truth
 
@@ -57,7 +58,7 @@ score   <- runif(500)
 correct <- runif(500) < score          # calibrated by construction
 somalign_calibration(score, correct)
 #> <somalign_calibration>
-#>   ECE = 0.0509  MCE = 0.1869  Brier = 0.1729  (n = 500)
+#>   ECE = 0.0509  MCE = 0.1869  Brier = 0.1729  (scored n = 500, coverage = 100.0%)
 #>   reliability (score_mean -> accuracy, n):
 #>     0.06 -> 0.05  (38)
 #>     0.15 -> 0.16  (61)
@@ -74,6 +75,13 @@ somalign_calibration(score, correct)
 A well-calibrated model has mean confidence close to accuracy in every
 bin, so its ECE is near zero. A model that reports 0.99 on cells it gets
 right only half the time has an ECE near 0.49.
+
+[`somalign_calibration()`](https://mdmanurung.github.io/somalign/reference/somalign_calibration.md)
+scores only non-abstained predictions and reports `coverage`, the
+fraction of cells scored, alongside the ECE and Brier score. Read
+`coverage` first when comparing methods that abstain at different rates:
+a method that abstains on its hard cells can look better calibrated only
+because it scored an easier subset.
 
 ## Held-out cross-validation
 
@@ -99,16 +107,13 @@ lab <- rep(c("low", "high"), each = 300)
 cv <- somalign_cross_validate(
   x, lab, grid = kohonen::somgrid(3, 3, "hexagonal"), k = 3, rlen = 20
 )
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.16); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.17); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.16); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 cv
 #> <somalign_cross_validation> (3 folds)
 #>   pooled: accuracy = 1.0000  macro_f1 = 1.0000  MCC = 1.0000  coverage = 100.0%
-#>   calibration: ECE = 0.0000  Brier = 0.0000
+#>   calibration: ECE = 0.0000  Brier = 0.0000  (scored on 100.0% of predictions)
 cv$per_fold
 #>   fold accuracy macro_f1 mcc coverage
 #> 1    1        1        1   1        1
@@ -134,9 +139,6 @@ tuned <- somalign_tune(
   param_grid = data.frame(epsilon = c(0.05, 0.1, 0.2)),
   k = 3, rlen = 20, metric = "mcc"
 )
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 tuned$grid
 #>   epsilon rho_query rho_ref diagonal_boost feature_weights accuracy macro_f1
 #> 1    0.05         1       1              0            none        1        1
@@ -177,7 +179,6 @@ ref <- somalign_train_reference(ref_x, labels = ref_lab,
 
 qry_x <- ref_x + shift
 qry <- somalign_query(qry_x, ref, grid = kohonen::somgrid(3, 3, "hexagonal"), rlen = 20)
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 
 anc_idx <- c(1:30, 121:150)
 ab <- somalign_anchor_benefit(
@@ -223,10 +224,10 @@ whereas absolute per-cluster proportions are only approximate.
 
 For the abundance step specifically, prefer **soft** projection over
 hard nearest-node counts. Hard assignment sends each cell to a single
-node and counts it once for that node’s cluster, so a cell near a
-cluster boundary contributes a whole unit to one side and a small batch
-shift can flip it — inflating the sampling variance of per-sample
-cluster proportions.
+node and counts it once for that node’s cluster. A cell near a cluster
+boundary therefore contributes a whole unit to one side, and a small
+batch shift can flip which side it falls on, inflating the sampling
+variance of per-sample cluster proportions.
 [`somalign_soft_frequencies()`](https://mdmanurung.github.io/somalign/reference/somalign_soft_frequencies.md)
 instead spreads each cell over its nearest reference nodes, giving a
 smoother per-sample frequency profile that reproduces better across
@@ -248,3 +249,40 @@ cobj <- crumblr::crumblr(counts)   # CLR in cobj$E, precision weights in cobj$we
 
 The most-likely label is unchanged by softening; only the abundance
 estimate is smoothed.
+
+## Session info
+
+    #> R version 4.6.1 (2026-06-24)
+    #> Platform: x86_64-pc-linux-gnu
+    #> Running under: Ubuntu 24.04.4 LTS
+    #> 
+    #> Matrix products: default
+    #> BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
+    #> LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
+    #> 
+    #> locale:
+    #>  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       
+    #>  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   
+    #>  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          
+    #> [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   
+    #> 
+    #> time zone: UTC
+    #> tzcode source: system (glibc)
+    #> 
+    #> attached base packages:
+    #> [1] stats     graphics  grDevices utils     datasets  methods   base     
+    #> 
+    #> other attached packages:
+    #> [1] somalign_0.99.5  BiocStyle_2.40.0
+    #> 
+    #> loaded via a namespace (and not attached):
+    #>  [1] cli_3.6.6           knitr_1.51          rlang_1.3.0        
+    #>  [4] xfun_0.60           otel_0.2.0          jsonlite_2.0.0     
+    #>  [7] htmltools_0.5.9     sass_0.4.10         rmarkdown_2.31     
+    #> [10] evaluate_1.0.5      jquerylib_0.1.4     fastmap_1.2.0      
+    #> [13] yaml_2.3.12         lifecycle_1.0.5     bookdown_0.47      
+    #> [16] BiocManager_1.30.27 compiler_4.6.1      kohonen_3.0.13     
+    #> [19] fs_2.1.0            htmlwidgets_1.6.4   Rcpp_1.1.2         
+    #> [22] digest_0.6.39       R6_2.6.1            bslib_0.11.0       
+    #> [25] tools_4.6.1         withr_3.0.3         pkgdown_2.2.1      
+    #> [28] cachem_1.1.0        desc_1.4.3

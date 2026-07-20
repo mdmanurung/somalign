@@ -13,7 +13,7 @@ smallest rotation of V that would erase a node's correction."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -174,7 +174,6 @@ does not use the subspace or <code>node_shifts</code>.</p>
 <span class="r-in"><span><span class="va">shifted</span> <span class="op">&lt;-</span> <span class="va">mat</span> <span class="op">+</span> <span class="fl">0.5</span></span></span>
 <span class="r-in"><span><span class="va">qry</span> <span class="op">&lt;-</span> <span class="fu"><a href="somalign_query.html">somalign_query</a></span><span class="op">(</span><span class="va">shifted</span>, <span class="va">ref</span>, grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span>, <span class="st">"hexagonal"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>                      rlen <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span>
 <span class="r-in"><span><span class="va">anc_idx</span> <span class="op">&lt;-</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span></span></span>
 <span class="r-in"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="somalign_fit_anchored.html">somalign_fit_anchored</a></span><span class="op">(</span><span class="va">qry</span>, <span class="va">ref</span>,</span></span>
 <span class="r-in"><span>                              anchor_old <span class="op">=</span> <span class="va">mat</span><span class="op">[</span><span class="va">anc_idx</span>, , drop <span class="op">=</span> <span class="cn">FALSE</span><span class="op">]</span>,</span></span>

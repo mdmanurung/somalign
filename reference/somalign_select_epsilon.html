@@ -13,7 +13,7 @@ smallest epsilon retaining a target fraction of maximum mutual information."></h
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -151,16 +151,15 @@ parameters, used only when <code>solver = "annealing"</code>. See <code><a href=
 <span class="r-in"><span>                                rlen <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">qry</span> <span class="op">&lt;-</span> <span class="fu"><a href="somalign_query.html">somalign_query</a></span><span class="op">(</span><span class="va">mat</span>, <span class="va">ref</span>, grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span>, <span class="st">"hexagonal"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>                      rlen <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span>
 <span class="r-in"><span><span class="fu">somalign_select_epsilon</span><span class="op">(</span><span class="va">qry</span>, <span class="va">ref</span>, epsilon <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.1</span>, <span class="fl">0.2</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $selected_epsilon</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.03</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> $curve</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   epsilon log_epsilon       Phi      log_Z mutual_information</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1    0.05   -2.995732 0.3382930 -0.2430692           1.248706</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2    0.10   -2.302585 0.3503857 -0.3507536           1.204442</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3    0.20   -1.609438 0.3827881 -0.5310249           1.102695</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   epsilon log_epsilon       Phi        log_Z mutual_information</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1    0.05   -2.995732 0.3382930 -0.003142188           1.248706</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2    0.10   -2.302585 0.3503857 -0.138063739           1.204442</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3    0.20   -1.609438 0.3827881 -0.410877619           1.102695</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   conditional_entropy_mean expected_cost transport_mass cost_scale iterations</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 1                0.3746289     0.1096809      0.9818533   2.762185        113</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 2                0.4237985     0.1147550      1.0217716   2.762185         66</span>

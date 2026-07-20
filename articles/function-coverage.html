@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -204,7 +204,6 @@ alignment.</p>
 reference.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">qry</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_query.html">somalign_query</a></span><span class="op">(</span><span class="va">new_data</span>, <span class="va">ref</span>, grid <span class="op">=</span> <span class="va">grid_small</span>, rlen <span class="op">=</span> <span class="fl">20</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">qry</span>, <span class="st">"somalign_query"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">qry</span></span>
 <span><span class="co">#&gt; &lt;somalign_query&gt;</span></span>
@@ -509,11 +508,8 @@ re-training the query SOM from scratch for each seed.</p>
 <span>  grid <span class="op">=</span> <span class="va">grid_small</span>,</span>
 <span>  rlen <span class="op">=</span> <span class="fl">20</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
 <span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.27); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
 <span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.22); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
 <span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.14); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">is.data.frame</a></span><span class="op">(</span><span class="va">stab</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">stab</span><span class="op">)</span> <span class="op">==</span> <span class="fl">3L</span><span class="op">)</span></span>
@@ -592,13 +588,14 @@ multiclass MCC, per-class statistics, and the confusion matrix.</p>
 <code>somalign_calibration</code><a class="anchor" aria-label="anchor" href="#somalign_calibration"></a>
 </h2>
 <p>Bins predictions by a confidence score and compares mean confidence
-to empirical accuracy, returning the expected calibration error and
-Brier score.</p>
+to empirical accuracy, returning the expected calibration error, Brier
+score, and the coverage (fraction of non-abstained predictions actually
+scored).</p>
 <div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">calib</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_calibration.html">somalign_calibration</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">50</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif</a></span><span class="op">(</span><span class="fl">50</span><span class="op">)</span> <span class="op">&lt;</span> <span class="fl">0.5</span><span class="op">)</span></span>
 <span><span class="va">calib</span></span>
 <span><span class="co">#&gt; &lt;somalign_calibration&gt;</span></span>
-<span><span class="co">#&gt;   ECE = 0.2827  MCE = 0.7356  Brier = 0.3287  (n = 50)</span></span>
+<span><span class="co">#&gt;   ECE = 0.2827  MCE = 0.7356  Brier = 0.3287  (scored n = 50, coverage = 100.0%)</span></span>
 <span><span class="co">#&gt;   reliability (score_mean -&gt; accuracy, n):</span></span>
 <span><span class="co">#&gt;     0.05 -&gt; 0.57  (7)</span></span>
 <span><span class="co">#&gt;     0.16 -&gt; 0.67  (3)</span></span>
@@ -619,15 +616,13 @@ Brier score.</p>
 <code class="sourceCode R"><span><span class="va">cv</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_cross_validate.html">somalign_cross_validate</a></span><span class="op">(</span></span>
 <span>  <span class="va">old_data</span>, <span class="va">labels_old</span>, grid <span class="op">=</span> <span class="va">grid_small</span>, k <span class="op">=</span> <span class="fl">2</span>, rlen <span class="op">=</span> <span class="fl">15</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
 <span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.30); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
 <span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.23); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">cv</span>, <span class="st">"somalign_cross_validation"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">cv</span></span>
 <span><span class="co">#&gt; &lt;somalign_cross_validation&gt; (2 folds)</span></span>
 <span><span class="co">#&gt;   pooled: accuracy = 1.0000  macro_f1 = 1.0000  MCC = 1.0000  coverage = 100.0%</span></span>
-<span><span class="co">#&gt;   calibration: ECE = 0.0000  Brier = 0.0000</span></span></code></pre></div>
+<span><span class="co">#&gt;   calibration: ECE = 0.0000  Brier = 0.0000  (scored on 100.0% of predictions)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="somalign_tune">
@@ -640,8 +635,6 @@ accuracy.</p>
 <span>  <span class="va">old_data</span>, <span class="va">labels_old</span>, grid <span class="op">=</span> <span class="va">grid_small</span>,</span>
 <span>  param_grid <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>epsilon <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">0.2</span><span class="op">)</span><span class="op">)</span>, k <span class="op">=</span> <span class="fl">2</span>, rlen <span class="op">=</span> <span class="fl">15</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
-<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/stopifnot.html" class="external-link">stopifnot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">tuned</span>, <span class="st">"somalign_tune"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">tuned</span><span class="op">$</span><span class="va">grid</span></span>
 <span><span class="co">#&gt;   epsilon rho_query rho_ref diagonal_boost feature_weights accuracy macro_f1</span></span>
@@ -765,7 +758,7 @@ breakdown.</p>
 <span><span class="co">#&gt;   scored = 20  coverage = 100.0%  accuracy_all = 0.9500</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">calib</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;somalign_calibration&gt;</span></span>
-<span><span class="co">#&gt;   ECE = 0.2827  MCE = 0.7356  Brier = 0.3287  (n = 50)</span></span>
+<span><span class="co">#&gt;   ECE = 0.2827  MCE = 0.7356  Brier = 0.3287  (scored n = 50, coverage = 100.0%)</span></span>
 <span><span class="co">#&gt;   reliability (score_mean -&gt; accuracy, n):</span></span>
 <span><span class="co">#&gt;     0.05 -&gt; 0.57  (7)</span></span>
 <span><span class="co">#&gt;     0.16 -&gt; 0.67  (3)</span></span>
@@ -779,7 +772,7 @@ breakdown.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">cv</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;somalign_cross_validation&gt; (2 folds)</span></span>
 <span><span class="co">#&gt;   pooled: accuracy = 1.0000  macro_f1 = 1.0000  MCC = 1.0000  coverage = 100.0%</span></span>
-<span><span class="co">#&gt;   calibration: ECE = 0.0000  Brier = 0.0000</span></span>
+<span><span class="co">#&gt;   calibration: ECE = 0.0000  Brier = 0.0000  (scored on 100.0% of predictions)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">tuned</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;somalign_tune&gt; objective = mcc over 2 combination(s)</span></span>
 <span><span class="co">#&gt;   best:</span></span>
@@ -837,7 +830,7 @@ breakdown.</p>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] somalign_0.99.4  kohonen_3.0.13   BiocStyle_2.40.0</span></span>
+<span><span class="co">#&gt; [1] somalign_0.99.5  kohonen_3.0.13   BiocStyle_2.40.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
 <span><span class="co">#&gt;  [1] gtable_0.3.6        jsonlite_2.0.0      dplyr_1.2.1        </span></span>

@@ -153,7 +153,6 @@ ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
                                 rlen = 5)
 qry <- somalign_query(mat + 0.5, ref,
                       grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 5)
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 sw <- somalign_epsilon_sweep(qry, ref, n_grid = 8)
 #> Warning: Sinkhorn solver did not converge after 1000 iterations (final delta = 4.214e-05). Consider increasing max_iter, raising epsilon, or reducing rho_query / rho_ref.
 #> Warning: Sinkhorn solver did not converge after 1000 iterations (final delta = 1.220e-06). Consider increasing max_iter, raising epsilon, or reducing rho_query / rho_ref.

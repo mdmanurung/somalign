@@ -8,12 +8,13 @@ rather than letting `somalign` train everything from scratch.
 
 ## Coordinate-space requirements
 
-Both the reference and query codebooks must live in the same feature
-coordinate system, z-scored with the **old/reference** data’s mean and
-standard deviation. When the reference SOM was trained on old data
-scaled to $`\mu_\text{ref}`$ and $`\sigma_\text{ref}`$, the query SOM
-must be trained on new samples transformed by those same parameters, not
-by new-data z-scores and not in raw units.
+The one requirement that trips people up: **the reference and query
+codebooks must live in the same coordinate system**, z-scored with the
+old/reference data’s mean and standard deviation. When the reference SOM
+was trained on old data scaled to $`\mu_\text{ref}`$ and
+$`\sigma_\text{ref}`$, train the query SOM on new samples transformed by
+those same parameters. Do not use new-data z-scores, and do not use raw
+units.
 
 ``` r
 
@@ -134,65 +135,45 @@ query <- somalign_query(
   som_query = new_som,
   codebook_space = "reference_scaled"
 )
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 
 fit <- somalign_fit(query, reference)
 #> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.26); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 sample_metadata <- data.frame(batch = rep("new_batch", nrow(new_data)))
 results <- somalign_results(fit, data = sample_metadata)
 
+# A focused view: the transferred label alongside the direct-projection status.
+# The Quick start vignette documents the full column set.
 head(results[, c(
   "sample_id",
-  "query_som_unit",
-  "old_som_unit",
   "old_som_label",
-  "old_som_distance_threshold",
-  "outside_reference_distance",
   "final_status",
-  "corrected_som_unit",
-  "corrected_som_distance_threshold",
-  "corrected_outside_reference_distance",
-  "correction_norm",
+  "outside_reference_distance",
   "transferred_label",
   "transferred_label_confidence",
   "transferred_label_accepted"
 )])
-#>   sample_id query_som_unit old_som_unit old_som_label
-#> 1         1              3            1       old_low
-#> 2         2              6            5       old_low
-#> 3         3              2            1       old_low
-#> 4         4              3            1       old_low
-#> 5         5              3            4       old_low
-#> 6         6              3            1       old_low
-#>   old_som_distance_threshold outside_reference_distance     final_status
-#> 1                   2.483497                      FALSE inside_reference
-#> 2                   1.255846                      FALSE inside_reference
-#> 3                   2.483497                      FALSE inside_reference
-#> 4                   2.483497                      FALSE inside_reference
-#> 5                   2.023005                      FALSE inside_reference
-#> 6                   2.483497                      FALSE inside_reference
-#>   corrected_som_unit corrected_som_distance_threshold
-#> 1                  1                         2.483497
-#> 2                  5                         1.255846
-#> 3                  5                         1.255846
-#> 4                  1                         2.483497
-#> 5                  4                         2.023005
-#> 6                  1                         2.483497
-#>   corrected_outside_reference_distance correction_norm transferred_label
-#> 1                                FALSE       0.3356280           old_low
-#> 2                                 TRUE       0.5326595          old_high
-#> 3                                FALSE       1.2331432              <NA>
-#> 4                                FALSE       0.3356280           old_low
-#> 5                                FALSE       0.3356280           old_low
-#> 6                                FALSE       0.3356280           old_low
-#>   transferred_label_confidence transferred_label_accepted
-#> 1                    0.9993081                       TRUE
-#> 2                    0.6031686                       TRUE
-#> 3                           NA                      FALSE
-#> 4                    0.9993081                       TRUE
-#> 5                    0.9993081                       TRUE
-#> 6                    0.9993081                       TRUE
+#>   sample_id old_som_label     final_status outside_reference_distance
+#> 1         1       old_low inside_reference                      FALSE
+#> 2         2       old_low inside_reference                      FALSE
+#> 3         3       old_low inside_reference                      FALSE
+#> 4         4       old_low inside_reference                      FALSE
+#> 5         5       old_low inside_reference                      FALSE
+#> 6         6       old_low inside_reference                      FALSE
+#>   transferred_label transferred_label_confidence transferred_label_accepted
+#> 1           old_low                    0.9993081                       TRUE
+#> 2          old_high                    0.6031686                       TRUE
+#> 3              <NA>                           NA                      FALSE
+#> 4           old_low                    0.9993081                       TRUE
+#> 5           old_low                    0.9993081                       TRUE
+#> 6           old_low                    0.9993081                       TRUE
 ```
+
+The eight `mean = 4` samples are a population the reference never saw.
+They land far from every reference node, so `final_status` marks them
+`outside_reference` and any label transferred to them should be read as
+provisional. Most real samples project inside with confident labels,
+though a few of the batch-shifted ones also cross the distance
+threshold, which is exactly what `final_status` is there to surface.
 
 ## Quality control and tuning
 
@@ -314,9 +295,12 @@ missing. Both codebooks must live in the same feature space; the query
 SOM must be trained with `reference$center` and `reference$scale` unless
 you supply a raw saved SOM with `codebook_space = "raw"`.
 
-`old_som_unit`, `outside_reference_distance`, `final_status`, and
-`old_som_label` are the primary result; corrected projection and
-transferred labels are auxiliary. Use
+Label transfer (`transferred_label`, with its confidence, margin, and
+acceptance) is the primary result. The direct-projection columns
+(`old_som_unit`, `outside_reference_distance`, `final_status`,
+`old_som_label`) give a conservative reference-node assignment and are
+the ones to use for cross-batch composition; the corrected-projection
+columns are auxiliary diagnostics. Use
 `somalign_results(fit, data = sample_metadata)` to attach one metadata
 row per query sample. Examine
 [`somalign_diagnostics()`](https://mdmanurung.github.io/somalign/reference/somalign_diagnostics.md)
@@ -353,7 +337,7 @@ at once.
     #> [1] stats     graphics  grDevices utils     datasets  methods   base     
     #> 
     #> other attached packages:
-    #> [1] somalign_0.99.4  kohonen_3.0.13   BiocStyle_2.40.0
+    #> [1] somalign_0.99.5  kohonen_3.0.13   BiocStyle_2.40.0
     #> 
     #> loaded via a namespace (and not attached):
     #>  [1] digest_0.6.39       desc_1.4.3          R6_2.6.1           

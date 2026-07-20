@@ -91,11 +91,8 @@ ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
                                 rlen = 5)
 somalign_som_stability(mat, ref, som_seeds = 1:3,
                        grid = kohonen::somgrid(2, 2, "hexagonal"), rlen = 5)
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.06); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.02); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 2 query node(s) have match_mass_ratio > 1 (max 1.11); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 #>   som_seed transport_mass mean_match_fraction max_row_mass_error
 #> 1        1       0.992981           0.9665548        0.033445192

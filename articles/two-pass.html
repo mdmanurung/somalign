@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -80,31 +80,35 @@
 
     
     
-<blockquote>
-<p><strong>Scope.</strong> The two-pass procedure refines the
-<em>correction</em> (the per-node shift field), which
-<code>somalign</code> treats as a diagnostic rather than a product. The
-corrected coordinates can over-merge distinct populations (see
-<code><a href="../reference/somalign_topology_audit.html">somalign_topology_audit()</a></code>) and are not a batch-corrected
-expression matrix; the primary deliverable remains label transfer.</p>
-</blockquote>
-<p>Batch effects in cytometry often contain a dominant global component
-(reagent lot changes, instrument calibration drift, or environmental
-factors that shift all populations in roughly the same direction by
-roughly the same amount), layered on top of smaller population-specific
-displacements. A single OT pass at a small epsilon captures fine
-structure well but can be destabilised when the global offset dwarfs the
-typical inter-node distance. A single pass at large epsilon smooths away
-that instability at the cost of resolution.</p>
-<p><code><a href="../reference/somalign_fit_two_pass.html">somalign_fit_two_pass()</a></code> resolves this tension
-explicitly: a first OT pass at a larger <code>epsilon_global</code>
-estimates the mass-weighted mean node displacement (the <em>global
-shift</em>), subtracts it from the query codebook, and then a second
-pass at a finer <code>epsilon_local</code> captures residual
+<div class="section level2">
+<h2 id="when-to-use-this">When to use this<a class="anchor" aria-label="anchor" href="#when-to-use-this"></a>
+</h2>
+<p>Reach for <code><a href="../reference/somalign_fit_two_pass.html">somalign_fit_two_pass()</a></code> when the batch effect
+has a large global component: reagent lot changes, instrument
+calibration drift, or environmental factors that shift every population
+in roughly the same direction, layered on top of smaller
+population-specific displacements. A single OT pass struggles with this
+shape. At a small epsilon it captures fine structure but destabilises
+when the global offset dwarfs the typical inter-node distance; at a
+large epsilon it smooths away that instability but loses
+population-level resolution.</p>
+<p><code><a href="../reference/somalign_fit_two_pass.html">somalign_fit_two_pass()</a></code> splits the problem in two. A
+first pass at a larger <code>epsilon_global</code> estimates the
+mass-weighted mean node displacement, the <em>global shift</em>, and
+subtracts it from the query codebook. A second pass at a finer
+<code>epsilon_local</code> then captures the residual
 population-specific offsets. The final per-node correction is the sum of
-both passes, so the total displacement for each sample is equivalent to
-a direct single-pass alignment at <code>epsilon_local</code>; the global
-subtraction makes the second-pass OT problem better conditioned.</p>
+both passes, so the total displacement per sample matches a direct
+single-pass alignment at <code>epsilon_local</code>. Subtracting the
+global component first is what makes that second-pass problem better
+conditioned.</p>
+<p>The two-pass procedure refines the <em>correction</em> (the per-node
+shift field), which <code>somalign</code> treats as a diagnostic rather
+than a product. The corrected coordinates can over-merge distinct
+populations (see <code><a href="../reference/somalign_topology_audit.html">somalign_topology_audit()</a></code>) and are not a
+batch-corrected expression matrix. The primary deliverable remains label
+transfer.</p>
+</div>
 <div class="section level2">
 <h2 id="setup">Setup<a class="anchor" aria-label="anchor" href="#setup"></a>
 </h2>
@@ -133,22 +137,33 @@ subtraction makes the second-pass OT problem better conditioned.</p>
 <span><span class="co">#&gt;   features: 4</span></span>
 <span><span class="co">#&gt;   reference nodes: 9</span></span>
 <span><span class="co">#&gt;   labelled nodes: 7</span></span></code></pre></div>
-<p>The new batch carries a clear global offset plus smaller
-within-population noise:</p>
+<p>The new batch carries a dominant global offset shared by both
+populations, plus a smaller population-specific residual that only the
+second pass can capture. The two residuals are equal and opposite across
+the balanced populations, so their cell mean is zero. That keeps the
+residual from biasing the estimated global shift, which stays aligned
+with the shared offset even though it is a mass-weighted mean over SOM
+nodes rather than a plain cell average.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">global_shift</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.4</span>, <span class="fl">0.3</span>, <span class="fl">0.35</span>, <span class="fl">0.25</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">global_shift</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0.4</span>, <span class="fl">0.45</span>, <span class="fl">0.35</span><span class="op">)</span>          <span class="co"># shared technical offset</span></span>
+<span><span class="va">pop_delta</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.15</span>, <span class="op">-</span><span class="fl">0.12</span>, <span class="fl">0.10</span>, <span class="op">-</span><span class="fl">0.08</span><span class="op">)</span>      <span class="co"># population-specific residual</span></span>
+<span></span>
+<span><span class="va">pop_shift</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span> <span class="va">pop_delta</span>, <span class="fl">60L</span>, <span class="va">p</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,      <span class="co"># pop_A: +delta</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="op">-</span><span class="va">pop_delta</span>, <span class="fl">60L</span>, <span class="va">p</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>       <span class="co"># pop_B: -delta</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">43</span><span class="op">)</span></span>
-<span><span class="va">local_noise</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">old_data</span><span class="op">)</span> <span class="op">*</span> <span class="va">p</span>, <span class="fl">0</span>, <span class="fl">0.1</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="va">p</span><span class="op">)</span></span>
+<span><span class="va">local_noise</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">old_data</span><span class="op">)</span> <span class="op">*</span> <span class="va">p</span>, <span class="fl">0</span>, <span class="fl">0.08</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="va">p</span><span class="op">)</span></span>
 <span><span class="va">new_data</span>    <span class="op">&lt;-</span> <span class="va">old_data</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">global_shift</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">old_data</span><span class="op">)</span>, <span class="va">p</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">+</span> <span class="va">local_noise</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">global_shift</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">old_data</span><span class="op">)</span>, <span class="va">p</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="va">pop_shift</span> <span class="op">+</span> <span class="va">local_noise</span></span>
 <span></span>
 <span><span class="va">query</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_query.html">somalign_query</a></span><span class="op">(</span></span>
 <span>  <span class="va">new_data</span>, <span class="va">reference</span>,</span>
 <span>  grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">3</span>, <span class="st">"hexagonal"</span><span class="op">)</span>,</span>
 <span>  rlen <span class="op">=</span> <span class="fl">30</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
 <span><span class="va">query</span></span>
 <span><span class="co">#&gt; &lt;somalign_query&gt;</span></span>
 <span><span class="co">#&gt;   samples: 120</span></span>
@@ -164,12 +179,12 @@ within-population noise:</p>
 <span>  epsilon_global <span class="op">=</span> <span class="fl">0.3</span>,</span>
 <span>  epsilon_local  <span class="op">=</span> <span class="fl">0.1</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.53); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.15); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.61); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.16); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="va">fit2</span></span>
 <span><span class="co">#&gt; &lt;somalign_fit&gt;</span></span>
 <span><span class="co">#&gt;   label transfer: 100.0% of cells accepted across 2 class(es); median confidence 1.00, median margin 1.00</span></span>
-<span><span class="co">#&gt;   solver: internal  |  query nodes: 9  |  reference nodes: 9  |  transport mass: 1.12</span></span></code></pre></div>
+<span><span class="co">#&gt;   solver: internal  |  query nodes: 9  |  reference nodes: 9  |  transport mass: 1.114</span></span></code></pre></div>
 <p>The <code>$two_pass</code> slot records the estimated global shift
 and both epsilon values:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
@@ -177,26 +192,25 @@ and both epsilon values:</p>
 <span><span class="co">#&gt; Estimated global shift (correction direction, query -&gt; reference):</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit2</span><span class="op">$</span><span class="va">two_pass</span><span class="op">$</span><span class="va">global_shift</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;    CD1    CD2    CD3    CD4 </span></span>
-<span><span class="co">#&gt; -0.168 -0.133 -0.154 -0.094</span></span>
+<span><span class="co">#&gt; -0.238 -0.184 -0.198 -0.145</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nTrue batch offset (positive = new batch above old):\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; True batch offset (positive = new batch above old):</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">global_shift</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 0.40 0.30 0.35 0.25</span></span>
+<span><span class="co">#&gt; [1] 0.50 0.40 0.45 0.35</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nGlobal shift magnitude:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit2</span><span class="op">$</span><span class="va">two_pass</span><span class="op">$</span><span class="va">global_shift_norm</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Global shift magnitude: 0.28</span></span></code></pre></div>
-<p><code>global_shift</code> points in the <em>correction</em> direction
-(from query codebook toward the reference), so its sign is opposite to
-the true batch offset. Because the node shifts are the mass-weighted
-mean of first-pass OT transport vectors, the magnitude is in
-reference-scaled units, not raw units, and does not directly equal the
-raw feature offset. What matters in practice is the direction: each
+<span><span class="co">#&gt; Global shift magnitude: 0.388</span></span></code></pre></div>
+<p><code>global_shift</code> points in the <em>correction</em>
+direction, from the query codebook toward the reference, so its sign is
+opposite to the true batch offset. The node shifts are the mass-weighted
+mean of first-pass OT transport vectors, so the magnitude is in
+reference-scaled units, not raw units, and does not equal the raw
+feature offset directly. What matters in practice is the direction: each
 feature’s sign should oppose the known batch offset, and features with
 larger displacements should show larger absolute values. The norm
-<code>global_shift_norm</code> gives an overall scalar measure of the
-global batch displacement that can be compared across batches or
-experiments.</p>
+<code>global_shift_norm</code> gives one scalar measure of the global
+displacement, comparable across batches or experiments.</p>
 </div>
 <div class="section level2">
 <h2 id="batch-subspace-diagnostic">Batch subspace diagnostic<a class="anchor" aria-label="anchor" href="#batch-subspace-diagnostic"></a>
@@ -205,28 +219,29 @@ experiments.</p>
 principal directions of the first-pass correction field:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">bs</span> <span class="op">&lt;-</span> <span class="va">fit2</span><span class="op">$</span><span class="va">two_pass</span><span class="op">$</span><span class="va">batch_subspace</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Batch subspace rank (pass 1):        "</span>, <span class="va">bs</span><span class="op">$</span><span class="va">rank</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Batch subspace rank (pass 1):         2</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Batch subspace rank (pass 1):            "</span>, <span class="va">bs</span><span class="op">$</span><span class="va">rank</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Batch subspace rank (pass 1):             3</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Variance explained by leading directions:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">bs</span><span class="op">$</span><span class="va">variance_explained</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Variance explained by leading directions: 0.926</span></span></code></pre></div>
-<p>This is a read-only diagnostic. Rank 1 indicates that pass-1 node
-shifts are nearly collinear, which is expected when a single global
-offset dominates. Higher rank means the first-pass correction has more
-heterogeneous directions across the codebook, pointing toward a
-spatially varied batch effect.</p>
-<p>The subspace is <strong>not</strong> used for correction. Total shift
-= residual pass-2 shift + global shift <code>g</code>. The diagnostic
-may conflate batch effects with biology (first-pass OT sees the original
-unmodified codebook, not controlled anchors), so it should be read
-descriptively, not as a geometric estimate of the true batch direction.
-For an anchor-based analogue that does serve as a geometric estimate,
-see <code><a href="../articles/anchor-samples.html">vignette("anchor-samples", package = "somalign")</a></code>.</p>
+<span><span class="co">#&gt; Variance explained by leading directions: 0.957</span></span></code></pre></div>
+<p>This is a read-only diagnostic. Rank 1 means the pass-1 node shifts
+are nearly collinear, expected when a single global offset dominates.
+Higher rank means the first-pass correction has more heterogeneous
+directions across the codebook, which points toward a spatially varied
+batch effect like the per-population residual here.</p>
+<p>The subspace is <strong>not</strong> used for correction: the total
+shift is the residual pass-2 shift plus the global shift <code>g</code>.
+Because the first-pass OT sees the original unmodified codebook rather
+than controlled anchors, the diagnostic can conflate batch effects with
+biology. Read it descriptively, not as a geometric estimate of the true
+batch direction. For an anchor-based analogue that does serve as a
+geometric estimate, see
+<code><a href="../articles/anchor-samples.html">vignette("anchor-samples", package = "somalign")</a></code>.</p>
 <p>The <code>variance_threshold</code> argument controls rank selection
-for this diagnostic:</p>
+for this diagnostic only:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit2b</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit_two_pass.html">somalign_fit_two_pass</a></span><span class="op">(</span><span class="va">query</span>, <span class="va">reference</span>, variance_threshold <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.53); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.15); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.61); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.16); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Rank at variance_threshold = 1.0:"</span>, <span class="va">fit2b</span><span class="op">$</span><span class="va">two_pass</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">$</span><span class="va">rank</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Rank at variance_threshold = 1.0: 4</span></span>
 <span></span>
@@ -242,14 +257,14 @@ for this diagnostic:</p>
 pass:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit1</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit.html">somalign_fit</a></span><span class="op">(</span><span class="va">query</span>, <span class="va">reference</span>, epsilon <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.16); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 6 query node(s) have match_mass_ratio &gt; 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean node shift -- two-pass: "</span>,</span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean node shift  two-pass: "</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">fit2</span><span class="op">$</span><span class="va">node_shifts</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Mean node shift -- two-pass:  0.317</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean node shift -- one-pass: "</span>,</span>
+<span><span class="co">#&gt; Mean node shift  two-pass:  0.3087</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean node shift  one-pass: "</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">fit1</span><span class="op">$</span><span class="va">node_shifts</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Mean node shift -- one-pass:  0.2246</span></span></code></pre></div>
+<span><span class="co">#&gt; Mean node shift  one-pass:  0.3111</span></span></code></pre></div>
 <p>Both return <code>somalign_fit</code> objects with an identical
 downstream interface:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
@@ -264,7 +279,7 @@ downstream interface:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Solver converged:"</span>, <span class="va">diag2</span><span class="op">$</span><span class="va">solver</span><span class="op">$</span><span class="va">converged</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Solver converged: TRUE</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Transport mass:  "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">diag2</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">transport_mass</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Transport mass:   1.1198</span></span></code></pre></div>
+<span><span class="co">#&gt; Transport mass:   1.1138</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="label-guided-alignment">Label-guided alignment<a class="anchor" aria-label="anchor" href="#label-guided-alignment"></a>
@@ -272,14 +287,14 @@ downstream interface:</p>
 <p>Both <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> and
 <code><a href="../reference/somalign_fit_two_pass.html">somalign_fit_two_pass()</a></code> accept
 <code>label_guided = TRUE</code>, which applies a large cost penalty to
-node pairs with discordant dominant labels. When reference labels are
+node pairs whose dominant labels disagree. When reference labels are
 known and the batch does not scramble population boundaries, the penalty
-concentrates OT transport onto same-label pairs and reduces spurious
+concentrates transport onto same-label pairs and reduces spurious
 cross-cluster mass.</p>
 <p><code>label_guided = TRUE</code> requires
 <code>query$label_prob</code> to be non-NULL. The standard
-<code><a href="../reference/somalign_query.html">somalign_query()</a></code> workflow using <code><a href="https://rdrr.io/pkg/kohonen/man/supersom.html" class="external-link">kohonen::som()</a></code>
-leaves this field as NULL; it is populated only when a
+<code><a href="../reference/somalign_query.html">somalign_query()</a></code> workflow with <code><a href="https://rdrr.io/pkg/kohonen/man/supersom.html" class="external-link">kohonen::som()</a></code>
+leaves that field NULL; it is populated only when a
 <code><a href="https://rdrr.io/pkg/kohonen/man/supersom.html" class="external-link">kohonen::supersom()</a></code> or <code><a href="https://rdrr.io/pkg/kohonen/man/supersom.html" class="external-link">kohonen::xyf()</a></code> SOM with
 a label code layer is passed as <code>som_query</code>. Build the query
 SOM with a one-hot label layer, supply it via <code>som_query</code>,
@@ -308,29 +323,30 @@ then set <code>label_guided = TRUE</code>:</p>
 <span>  <span class="va">query_labeled</span>, <span class="va">reference</span>,</span>
 <span>  label_guided <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>Label-guided alignment works equally for <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>.
-If labels are noisy or the batch shifts populations across label
-boundaries, the cost penalty can destabilise the OT plan; check
-<code><a href="../reference/somalign_diagnostics.html">somalign_diagnostics()</a></code> and compare against
+<p>Label-guided alignment works the same way for
+<code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>. If labels are noisy, or the batch shifts
+populations across label boundaries, the penalty can destabilise the OT
+plan. Check <code><a href="../reference/somalign_diagnostics.html">somalign_diagnostics()</a></code> and compare against
 <code><a href="../reference/somalign_sensitivity_grid.html">somalign_sensitivity_grid()</a></code> before using label-transferred
-assignments in downstream analyses.</p>
+assignments downstream.</p>
 </div>
 <div class="section level2">
-<h2 id="when-to-use-somalign_fit_two_pass">When to use <code>somalign_fit_two_pass()</code><a class="anchor" aria-label="anchor" href="#when-to-use-somalign_fit_two_pass"></a>
+<h2 id="choosing-between-two-pass-and-the-alternatives">Choosing between two-pass and the alternatives<a class="anchor" aria-label="anchor" href="#choosing-between-two-pass-and-the-alternatives"></a>
 </h2>
-<p>Two-pass alignment is most useful when the global batch offset is
-large relative to <code>epsilon_local</code>, large enough that a single
-pass at low epsilon struggles to route mass across the full displacement
-while a single pass at high epsilon loses population-level resolution.
-The explicit global subtraction removes that tension. When the batch
-shift is small or the OT problem is well-conditioned at a single
+<p>Two-pass alignment helps most when the global batch offset is large
+relative to <code>epsilon_local</code>: large enough that a single
+low-epsilon pass struggles to route mass across the full displacement,
+while a single high-epsilon pass loses population-level resolution. The
+explicit global subtraction removes that tension. When the batch shift
+is small or the OT problem is already well-conditioned at a single
 epsilon, <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> is simpler and equally
 effective.</p>
 <p>If remeasured control samples are available,
 <code><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored()</a></code> with
-<code>correction = "subspace"</code> offers geometrically grounded
+<code>correction = "subspace"</code> offers a geometrically grounded,
 signal-preserving correction as an alternative to the two-pass
-decomposition.</p>
+decomposition. See
+<code><a href="../articles/anchor-samples.html">vignette("anchor-samples", package = "somalign")</a></code>.</p>
 </div>
 <div class="section level2">
 <h2 id="session-info">Session info<a class="anchor" aria-label="anchor" href="#session-info"></a>
@@ -356,7 +372,7 @@ decomposition.</p>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] somalign_0.99.4  kohonen_3.0.13   BiocStyle_2.40.0</span></span>
+<span><span class="co">#&gt; [1] somalign_0.99.5  kohonen_3.0.13   BiocStyle_2.40.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
 <span><span class="co">#&gt;  [1] digest_0.6.39       desc_1.4.3          R6_2.6.1           </span></span>

@@ -96,11 +96,8 @@ if (requireNamespace("kohonen", quietly = TRUE)) {
     grid = kohonen::somgrid(2, 2, "hexagonal"), k = 3)
   cv$metrics$accuracy
 }
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.06); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 4 query node(s) have match_mass_ratio > 1 (max 1.11); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> somalign_fit: 3 query node(s) have match_mass_ratio > 1 (max 1.27); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 #> [1] 0.985
 # }

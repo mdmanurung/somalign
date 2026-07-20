@@ -115,9 +115,6 @@ if (requireNamespace("kohonen", quietly = TRUE)) {
     param_grid = data.frame(epsilon = c(0.05, 0.1, 0.2)), k = 3)
   tuned$best_params$epsilon
 }
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> [1] 0.05
 # }
 ```

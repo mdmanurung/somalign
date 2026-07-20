@@ -1,31 +1,34 @@
 # Two-pass global and local alignment
 
-> **Scope.** The two-pass procedure refines the *correction* (the
-> per-node shift field), which `somalign` treats as a diagnostic rather
-> than a product. The corrected coordinates can over-merge distinct
-> populations (see
-> [`somalign_topology_audit()`](https://mdmanurung.github.io/somalign/reference/somalign_topology_audit.md))
-> and are not a batch-corrected expression matrix; the primary
-> deliverable remains label transfer.
+## When to use this
 
-Batch effects in cytometry often contain a dominant global component
-(reagent lot changes, instrument calibration drift, or environmental
-factors that shift all populations in roughly the same direction by
-roughly the same amount), layered on top of smaller population-specific
-displacements. A single OT pass at a small epsilon captures fine
-structure well but can be destabilised when the global offset dwarfs the
-typical inter-node distance. A single pass at large epsilon smooths away
-that instability at the cost of resolution.
+Reach for
+[`somalign_fit_two_pass()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_two_pass.md)
+when the batch effect has a large global component: reagent lot changes,
+instrument calibration drift, or environmental factors that shift every
+population in roughly the same direction, layered on top of smaller
+population-specific displacements. A single OT pass struggles with this
+shape. At a small epsilon it captures fine structure but destabilises
+when the global offset dwarfs the typical inter-node distance; at a
+large epsilon it smooths away that instability but loses
+population-level resolution.
 
 [`somalign_fit_two_pass()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_two_pass.md)
-resolves this tension explicitly: a first OT pass at a larger
-`epsilon_global` estimates the mass-weighted mean node displacement (the
-*global shift*), subtracts it from the query codebook, and then a second
-pass at a finer `epsilon_local` captures residual population-specific
-offsets. The final per-node correction is the sum of both passes, so the
-total displacement for each sample is equivalent to a direct single-pass
-alignment at `epsilon_local`; the global subtraction makes the
-second-pass OT problem better conditioned.
+splits the problem in two. A first pass at a larger `epsilon_global`
+estimates the mass-weighted mean node displacement, the *global shift*,
+and subtracts it from the query codebook. A second pass at a finer
+`epsilon_local` then captures the residual population-specific offsets.
+The final per-node correction is the sum of both passes, so the total
+displacement per sample matches a direct single-pass alignment at
+`epsilon_local`. Subtracting the global component first is what makes
+that second-pass problem better conditioned.
+
+The two-pass procedure refines the *correction* (the per-node shift
+field), which `somalign` treats as a diagnostic rather than a product.
+The corrected coordinates can over-merge distinct populations (see
+[`somalign_topology_audit()`](https://mdmanurung.github.io/somalign/reference/somalign_topology_audit.md))
+and are not a batch-corrected expression matrix. The primary deliverable
+remains label transfer.
 
 ## Setup
 
@@ -57,24 +60,35 @@ reference
 #>   labelled nodes: 7
 ```
 
-The new batch carries a clear global offset plus smaller
-within-population noise:
+The new batch carries a dominant global offset shared by both
+populations, plus a smaller population-specific residual that only the
+second pass can capture. The two residuals are equal and opposite across
+the balanced populations, so their cell mean is zero. That keeps the
+residual from biasing the estimated global shift, which stays aligned
+with the shared offset even though it is a mass-weighted mean over SOM
+nodes rather than a plain cell average.
 
 ``` r
 
-global_shift <- c(0.4, 0.3, 0.35, 0.25)
+global_shift <- c(0.5, 0.4, 0.45, 0.35)          # shared technical offset
+pop_delta    <- c(0.15, -0.12, 0.10, -0.08)      # population-specific residual
+
+pop_shift <- rbind(
+  matrix( pop_delta, 60L, p, byrow = TRUE),      # pop_A: +delta
+  matrix(-pop_delta, 60L, p, byrow = TRUE)       # pop_B: -delta
+)
 
 set.seed(43)
-local_noise <- matrix(rnorm(nrow(old_data) * p, 0, 0.1), ncol = p)
+local_noise <- matrix(rnorm(nrow(old_data) * p, 0, 0.08), ncol = p)
 new_data    <- old_data +
-  matrix(global_shift, nrow(old_data), p, byrow = TRUE) + local_noise
+  matrix(global_shift, nrow(old_data), p, byrow = TRUE) +
+  pop_shift + local_noise
 
 query <- somalign_query(
   new_data, reference,
   grid = kohonen::somgrid(3, 3, "hexagonal"),
   rlen = 30
 )
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 query
 #> <somalign_query>
 #>   samples: 120
@@ -91,12 +105,12 @@ fit2 <- somalign_fit_two_pass(
   epsilon_global = 0.3,
   epsilon_local  = 0.1
 )
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.53); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.15); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.61); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.16); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 fit2
 #> <somalign_fit>
 #>   label transfer: 100.0% of cells accepted across 2 class(es); median confidence 1.00, median margin 1.00
-#>   solver: internal  |  query nodes: 9  |  reference nodes: 9  |  transport mass: 1.12
+#>   solver: internal  |  query nodes: 9  |  reference nodes: 9  |  transport mass: 1.114
 ```
 
 The `$two_pass` slot records the estimated global shift and both epsilon
@@ -108,27 +122,27 @@ cat("Estimated global shift (correction direction, query -> reference):\n")
 #> Estimated global shift (correction direction, query -> reference):
 print(round(fit2$two_pass$global_shift, 3))
 #>    CD1    CD2    CD3    CD4 
-#> -0.168 -0.133 -0.154 -0.094
+#> -0.238 -0.184 -0.198 -0.145
 cat("\nTrue batch offset (positive = new batch above old):\n")
 #> 
 #> True batch offset (positive = new batch above old):
 print(round(global_shift, 3))
-#> [1] 0.40 0.30 0.35 0.25
+#> [1] 0.50 0.40 0.45 0.35
 cat("\nGlobal shift magnitude:", round(fit2$two_pass$global_shift_norm, 3), "\n")
 #> 
-#> Global shift magnitude: 0.28
+#> Global shift magnitude: 0.388
 ```
 
-`global_shift` points in the *correction* direction (from query codebook
-toward the reference), so its sign is opposite to the true batch offset.
-Because the node shifts are the mass-weighted mean of first-pass OT
-transport vectors, the magnitude is in reference-scaled units, not raw
-units, and does not directly equal the raw feature offset. What matters
-in practice is the direction: each feature’s sign should oppose the
-known batch offset, and features with larger displacements should show
-larger absolute values. The norm `global_shift_norm` gives an overall
-scalar measure of the global batch displacement that can be compared
-across batches or experiments.
+`global_shift` points in the *correction* direction, from the query
+codebook toward the reference, so its sign is opposite to the true batch
+offset. The node shifts are the mass-weighted mean of first-pass OT
+transport vectors, so the magnitude is in reference-scaled units, not
+raw units, and does not equal the raw feature offset directly. What
+matters in practice is the direction: each feature’s sign should oppose
+the known batch offset, and features with larger displacements should
+show larger absolute values. The norm `global_shift_norm` gives one
+scalar measure of the global displacement, comparable across batches or
+experiments.
 
 ## Batch subspace diagnostic
 
@@ -138,34 +152,35 @@ directions of the first-pass correction field:
 ``` r
 
 bs <- fit2$two_pass$batch_subspace
-cat("Batch subspace rank (pass 1):        ", bs$rank, "\n")
-#> Batch subspace rank (pass 1):         2
+cat("Batch subspace rank (pass 1):            ", bs$rank, "\n")
+#> Batch subspace rank (pass 1):             3
 cat("Variance explained by leading directions:", round(bs$variance_explained, 3), "\n")
-#> Variance explained by leading directions: 0.926
+#> Variance explained by leading directions: 0.957
 ```
 
-This is a read-only diagnostic. Rank 1 indicates that pass-1 node shifts
-are nearly collinear, which is expected when a single global offset
-dominates. Higher rank means the first-pass correction has more
-heterogeneous directions across the codebook, pointing toward a
-spatially varied batch effect.
+This is a read-only diagnostic. Rank 1 means the pass-1 node shifts are
+nearly collinear, expected when a single global offset dominates. Higher
+rank means the first-pass correction has more heterogeneous directions
+across the codebook, which points toward a spatially varied batch effect
+like the per-population residual here.
 
-The subspace is **not** used for correction. Total shift = residual
-pass-2 shift + global shift `g`. The diagnostic may conflate batch
-effects with biology (first-pass OT sees the original unmodified
-codebook, not controlled anchors), so it should be read descriptively,
-not as a geometric estimate of the true batch direction. For an
-anchor-based analogue that does serve as a geometric estimate, see
+The subspace is **not** used for correction: the total shift is the
+residual pass-2 shift plus the global shift `g`. Because the first-pass
+OT sees the original unmodified codebook rather than controlled anchors,
+the diagnostic can conflate batch effects with biology. Read it
+descriptively, not as a geometric estimate of the true batch direction.
+For an anchor-based analogue that does serve as a geometric estimate,
+see
 [`vignette("anchor-samples", package = "somalign")`](https://mdmanurung.github.io/somalign/articles/anchor-samples.md).
 
 The `variance_threshold` argument controls rank selection for this
-diagnostic:
+diagnostic only:
 
 ``` r
 
 fit2b <- somalign_fit_two_pass(query, reference, variance_threshold = 1.0)
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.53); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.15); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.61); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.16); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 cat("Rank at variance_threshold = 1.0:", fit2b$two_pass$batch_subspace$rank, "\n")
 #> Rank at variance_threshold = 1.0: 4
 
@@ -183,14 +198,14 @@ at `epsilon_local` sees the full uncorrected offset in one pass:
 ``` r
 
 fit1 <- somalign_fit(query, reference, epsilon = 0.1)
-#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.16); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
+#> somalign_fit: 6 query node(s) have match_mass_ratio > 1 (max 1.18); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.
 
-cat("Mean node shift -- two-pass: ",
+cat("Mean node shift  two-pass: ",
     round(mean(sqrt(rowSums(fit2$node_shifts^2))), 4), "\n")
-#> Mean node shift -- two-pass:  0.317
-cat("Mean node shift -- one-pass: ",
+#> Mean node shift  two-pass:  0.3087
+cat("Mean node shift  one-pass: ",
     round(mean(sqrt(rowSums(fit1$node_shifts^2))), 4), "\n")
-#> Mean node shift -- one-pass:  0.2246
+#> Mean node shift  one-pass:  0.3111
 ```
 
 Both return `somalign_fit` objects with an identical downstream
@@ -209,7 +224,7 @@ diag2 <- somalign_diagnostics(fit2)
 cat("Solver converged:", diag2$solver$converged, "\n")
 #> Solver converged: TRUE
 cat("Transport mass:  ", round(diag2$ot$transport_mass, 4), "\n")
-#> Transport mass:   1.1198
+#> Transport mass:   1.1138
 ```
 
 ## Label-guided alignment
@@ -219,17 +234,17 @@ Both
 and
 [`somalign_fit_two_pass()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_two_pass.md)
 accept `label_guided = TRUE`, which applies a large cost penalty to node
-pairs with discordant dominant labels. When reference labels are known
+pairs whose dominant labels disagree. When reference labels are known
 and the batch does not scramble population boundaries, the penalty
-concentrates OT transport onto same-label pairs and reduces spurious
+concentrates transport onto same-label pairs and reduces spurious
 cross-cluster mass.
 
 `label_guided = TRUE` requires `query$label_prob` to be non-NULL. The
 standard
 [`somalign_query()`](https://mdmanurung.github.io/somalign/reference/somalign_query.md)
-workflow using
+workflow with
 [`kohonen::som()`](https://rdrr.io/pkg/kohonen/man/supersom.html) leaves
-this field as NULL; it is populated only when a
+that field NULL; it is populated only when a
 [`kohonen::supersom()`](https://rdrr.io/pkg/kohonen/man/supersom.html)
 or [`kohonen::xyf()`](https://rdrr.io/pkg/kohonen/man/supersom.html) SOM
 with a label code layer is passed as `som_query`. Build the query SOM
@@ -263,31 +278,32 @@ fit_lg <- somalign_fit_two_pass(
 )
 ```
 
-Label-guided alignment works equally for
+Label-guided alignment works the same way for
 [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md).
-If labels are noisy or the batch shifts populations across label
-boundaries, the cost penalty can destabilise the OT plan; check
+If labels are noisy, or the batch shifts populations across label
+boundaries, the penalty can destabilise the OT plan. Check
 [`somalign_diagnostics()`](https://mdmanurung.github.io/somalign/reference/somalign_diagnostics.md)
 and compare against
 [`somalign_sensitivity_grid()`](https://mdmanurung.github.io/somalign/reference/somalign_sensitivity_grid.md)
-before using label-transferred assignments in downstream analyses.
+before using label-transferred assignments downstream.
 
-## When to use `somalign_fit_two_pass()`
+## Choosing between two-pass and the alternatives
 
-Two-pass alignment is most useful when the global batch offset is large
-relative to `epsilon_local`, large enough that a single pass at low
-epsilon struggles to route mass across the full displacement while a
-single pass at high epsilon loses population-level resolution. The
-explicit global subtraction removes that tension. When the batch shift
-is small or the OT problem is well-conditioned at a single epsilon,
+Two-pass alignment helps most when the global batch offset is large
+relative to `epsilon_local`: large enough that a single low-epsilon pass
+struggles to route mass across the full displacement, while a single
+high-epsilon pass loses population-level resolution. The explicit global
+subtraction removes that tension. When the batch shift is small or the
+OT problem is already well-conditioned at a single epsilon,
 [`somalign_fit()`](https://mdmanurung.github.io/somalign/reference/somalign_fit.md)
 is simpler and equally effective.
 
 If remeasured control samples are available,
 [`somalign_fit_anchored()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_anchored.md)
-with `correction = "subspace"` offers geometrically grounded
+with `correction = "subspace"` offers a geometrically grounded,
 signal-preserving correction as an alternative to the two-pass
-decomposition.
+decomposition. See
+[`vignette("anchor-samples", package = "somalign")`](https://mdmanurung.github.io/somalign/articles/anchor-samples.md).
 
 ## Session info
 
@@ -312,7 +328,7 @@ decomposition.
     #> [1] stats     graphics  grDevices utils     datasets  methods   base     
     #> 
     #> other attached packages:
-    #> [1] somalign_0.99.4  kohonen_3.0.13   BiocStyle_2.40.0
+    #> [1] somalign_0.99.5  kohonen_3.0.13   BiocStyle_2.40.0
     #> 
     #> loaded via a namespace (and not attached):
     #>  [1] digest_0.6.39       desc_1.4.3          R6_2.6.1           

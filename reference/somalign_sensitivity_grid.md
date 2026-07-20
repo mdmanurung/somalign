@@ -120,7 +120,6 @@ ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
                                 rlen = 5)
 qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
                       rlen = 5)
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 somalign_sensitivity_grid(qry, ref,
                           epsilon = c(0.05, 0.1),
                           rho_query = c(0.5, 1),

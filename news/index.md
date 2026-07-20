@@ -1,6 +1,45 @@
 # Changelog
 
-## somalign 0.99.4
+## somalign 0.99.5
+
+### Bug fixes
+
+- `somalign_reference_from_som(codebook_space = "raw")` now reorders the
+  SOM’s training data to the codebook feature order **before** scaling,
+  not after. The previous order applied each feature’s centre/scale
+  positionally to a matrix that had not yet been aligned, silently
+  corrupting node distances, distance quantiles, and `node_var` whenever
+  `som$data[[1]]` columns were ordered differently from the codebook.
+
+- [`somalign_fit_two_pass()`](https://mdmanurung.github.io/somalign/reference/somalign_fit_two_pass.md)
+  now zeroes the shift for `correction_allowed == FALSE` nodes, matching
+  the invariant the single-pass Laplacian smoother already enforces (and
+  [`somalign_correct_expression()`](https://mdmanurung.github.io/somalign/reference/somalign_correct_expression.md)).
+  Previously such nodes still received the global batch shift `g` in the
+  stored corrected projection despite being flagged as uncorrected.
+
+- Subspace sensitivity: `.somalign_anchor_leverage()` now zero-pads the
+  leave-one-out subspace to the full-data rank before comparing
+  principal angles, fixing wrong (or warning-triggering) leverage values
+  when leaving out an anchor changed the variance-threshold-selected
+  rank.
+
+- [`somalign_query_from_som()`](https://mdmanurung.github.io/somalign/reference/somalign_query_from_som.md)
+  now stores `label_prob`, matching
+  [`somalign_query()`](https://mdmanurung.github.io/somalign/reference/somalign_query.md)
+  and the documented identical structure.
+
+- [`somalign_calibration()`](https://mdmanurung.github.io/somalign/reference/somalign_calibration.md)
+  reports `n_total` and `coverage` alongside `n`, and its documentation
+  now states that ECE/MCE/Brier are computed over scored (non-abstained)
+  predictions only — so calibration can be compared fairly across
+  methods that abstain at different rates.
+
+- The log-domain / annealing solver’s `log_Z` now uses the symmetric
+  entropic dual objective `<a,f> + <b,g> - epsilon * sum(P)` instead of
+  a row-marginal-only quantity that omitted the column-marginal
+  contribution. Input codebooks are now validated finite, and the
+  label-guidance penalty is computed with a finite-safe base.
 
 ### New features
 

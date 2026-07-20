@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -80,38 +80,47 @@
 
     
     
-<blockquote>
-<p><strong>Scope.</strong> Anchor regularisation shapes the
-<em>correction</em> (the per-node shift), which <code>somalign</code>
-treats as a diagnostic rather than a product. The anchor machinery still
-helps label transfer indirectly, because the anchor cost bonus also
-biases the transport plan that labels are read from, but the corrected
-coordinates it produces can over-merge populations (see
+<div class="section level2">
+<h2 id="when-to-use-this">When to use this<a class="anchor" aria-label="anchor" href="#when-to-use-this"></a>
+</h2>
+<p>Reach for <code><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored()</a></code> when a set of
+quality-control samples was physically run in <strong>both</strong>
+batches: control cell lines, reference bead populations, or
+proficiency-panel specimens that appear in the old batch (which trained
+the reference SOM) and the new batch (which trained the query SOM). To
+use it you need two matched matrices with the same markers,
+<code>anchor_old</code> and <code>anchor_new</code>, holding the same QC
+material measured under each batch condition.</p>
+<p>Those paired measurements pin down the batch shift directly. Wherever
+an anchor sample lands in the reference, its query-batch measurement
+tells you how far that region moved.
+<code><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored()</a></code> folds that information into the
+optimal-transport solve, so anchor-supported node pairs are cheaper to
+route mass through. Nodes with no anchor coverage keep the standard
+<code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> cost, so anchors help where you have them
+and change nothing where you do not.</p>
+<p>Anchors shape the <em>correction</em> (the per-node shift), which
+<code>somalign</code> treats as a diagnostic rather than a product. They
+still help label transfer indirectly, because the same anchor cost bonus
+biases the transport plan that labels are read from. The corrected
+coordinates themselves can over-merge populations (see
 <code><a href="../reference/somalign_topology_audit.html">somalign_topology_audit()</a></code>) and are not a batch-corrected
 expression matrix.</p>
-</blockquote>
-<p>In many longitudinal and multi-site studies, a small set of
-quality-control samples (control cell lines, reference bead populations,
-or proficiency panel specimens) gets run alongside every batch. When
-those same samples appear in both the old batch (from which the
-reference SOM was trained) and the new batch (from which the query SOM
-was trained), they carry direct information about the per-node batch
-displacement: wherever an anchor sample lands in the reference codebook,
-the corresponding query measurement tells you how far that region has
-shifted.</p>
-<p><code><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored()</a></code> folds that information into the
-optimal transport solve. For each anchor pair, the old measurement is
-projected onto the query SOM and the new measurement onto the reference
-SOM. (The query SOM was trained on new-batch data, so projecting the
-old-batch anchor onto it identifies which query node that anchor
-occupied before the batch shift; projecting the new-batch anchor onto
-the reference SOM identifies the corresponding reference node after the
-shift.) This produces a node-pair count matrix: how many anchor pairs
-link query node <em>k</em> to reference node <em>l</em>. Pairs with
-anchor support get reduced transport cost, so the OT plan preferentially
-routes mass through those node combinations. Uncovered nodes remain
-unaffected; their cost is identical to the standard
-<code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> solve.</p>
+<div class="section level3">
+<h3 id="how-the-anchor-pairs-become-transport-costs">How the anchor pairs become transport costs<a class="anchor" aria-label="anchor" href="#how-the-anchor-pairs-become-transport-costs"></a>
+</h3>
+<p>For each anchor pair, the old-batch measurement is projected onto the
+query SOM and the new-batch measurement onto the reference SOM. The
+query SOM was trained on new-batch data, so projecting the old-batch
+anchor onto it identifies which query node that anchor occupied before
+the shift. Projecting the new-batch anchor onto the reference SOM
+identifies the matching reference node after the shift. Counting these
+pairs gives a node-pair matrix: how many anchors link query node
+<em>k</em> to reference node <em>l</em>. Pairs with anchor support get
+reduced transport cost, so the plan preferentially routes mass through
+them.</p>
+</div>
+</div>
 <div class="section level2">
 <h2 id="setup">Setup<a class="anchor" aria-label="anchor" href="#setup"></a>
 </h2>
@@ -129,7 +138,6 @@ unaffected; their cost is identical to the standard
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">old_data</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"CD"</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">p</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Train reference SOM and build reference object in one call</span></span>
 <span><span class="va">reference</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_train_reference.html">somalign_train_reference</a></span><span class="op">(</span></span>
 <span>  <span class="va">old_data</span>,</span>
 <span>  grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">4</span>, <span class="fl">4</span>, <span class="st">"hexagonal"</span><span class="op">)</span>,</span>
@@ -140,18 +148,23 @@ unaffected; their cost is identical to the standard
 <span><span class="co">#&gt;   features: 5</span></span>
 <span><span class="co">#&gt;   reference nodes: 16</span></span>
 <span><span class="co">#&gt;   labelled nodes: 0</span></span></code></pre></div>
-<p>The new batch carries a modest uniform batch offset, realistic for
-reagent lot changes or inter-instrument calibration drift.</p>
+<p>The new batch carries a batch effect that differs by marker,
+realistic for a reagent lot change or inter-instrument drift where each
+channel shifts by its own amount. A small per-cell jitter reflects
+run-to-run variation, so the anchor displacements span a low-rank
+subspace rather than one identical vector (this matters for the subspace
+correction below).</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">shift</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.2</span>, <span class="va">p</span><span class="op">)</span></span>
-<span><span class="va">new_data</span> <span class="op">&lt;-</span> <span class="va">old_data</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">shift</span>, nrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">old_data</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="va">p</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">batch_shift</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.6</span>, <span class="op">-</span><span class="fl">0.4</span>, <span class="fl">0.5</span>, <span class="fl">0.0</span>, <span class="fl">0.3</span><span class="op">)</span>          <span class="co"># per-marker technical offset</span></span>
+<span><span class="va">new_data</span> <span class="op">&lt;-</span> <span class="va">old_data</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">batch_shift</span>, nrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">old_data</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="va">p</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">old_data</span><span class="op">)</span> <span class="op">*</span> <span class="va">p</span>, sd <span class="op">=</span> <span class="fl">0.15</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="va">p</span><span class="op">)</span>   <span class="co"># per-cell jitter</span></span>
 <span></span>
 <span><span class="va">query</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_query.html">somalign_query</a></span><span class="op">(</span></span>
 <span>  <span class="va">new_data</span>, <span class="va">reference</span>,</span>
 <span>  grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">4</span>, <span class="fl">4</span>, <span class="st">"hexagonal"</span><span class="op">)</span>,</span>
 <span>  rlen <span class="op">=</span> <span class="fl">50</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span></span>
 <span><span class="va">query</span></span>
 <span><span class="co">#&gt; &lt;somalign_query&gt;</span></span>
 <span><span class="co">#&gt;   samples: 120</span></span>
@@ -161,9 +174,10 @@ reagent lot changes or inter-instrument calibration drift.</p>
 <div class="section level2">
 <h2 id="identifying-anchor-samples">Identifying anchor samples<a class="anchor" aria-label="anchor" href="#identifying-anchor-samples"></a>
 </h2>
-<p>Suppose 25 samples from a quality-control pool (the same biological
-material measured under both batch conditions) are spread across both
-phenotypic populations.</p>
+<p>Suppose 25 samples from a QC pool (the same biological material
+measured under both batch conditions) are spread across both
+populations. <code>anchor_old</code> and <code>anchor_new</code> are the
+same rows measured in each batch.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># 12 anchors from the first population, 13 from the second</span></span>
 <span><span class="va">anc_idx</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fl">12L</span><span class="op">)</span>, <span class="fl">60L</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fl">13L</span><span class="op">)</span><span class="op">)</span></span>
@@ -180,23 +194,23 @@ phenotypic populations.</p>
 </h2>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_plain</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit.html">somalign_fit</a></span><span class="op">(</span><span class="va">query</span>, <span class="va">reference</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.30); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="va">fit_anc</span>   <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored</a></span><span class="op">(</span><span class="va">query</span>, <span class="va">reference</span>,</span>
 <span>                                    anchor_old <span class="op">=</span> <span class="va">anchor_old</span>,</span>
 <span>                                    anchor_new <span class="op">=</span> <span class="va">anchor_new</span>,</span>
 <span>                                    rho_anchor <span class="op">=</span> <span class="fl">1.5</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span></code></pre></div>
+<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span></code></pre></div>
 <p>Printing either object gives a concise summary:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_plain</span></span>
 <span><span class="co">#&gt; &lt;somalign_fit&gt;</span></span>
 <span><span class="co">#&gt;   label transfer: disabled (reference has no labels)</span></span>
-<span><span class="co">#&gt;   solver: internal  |  query nodes: 16  |  reference nodes: 16  |  transport mass: 1.166</span></span>
+<span><span class="co">#&gt;   solver: internal  |  query nodes: 16  |  reference nodes: 16  |  transport mass: 1.144</span></span>
 <span><span class="va">fit_anc</span></span>
 <span><span class="co">#&gt; &lt;somalign_anchored_fit&gt;</span></span>
 <span><span class="co">#&gt;   label transfer: disabled (reference has no labels)</span></span>
-<span><span class="co">#&gt;   solver: internal  |  query nodes: 16  |  reference nodes: 16  |  transport mass: 1.175</span></span>
-<span><span class="co">#&gt;   anchors: 25 (68.8% node coverage) -- correction is a diagnostic, not a corrected-expression product</span></span></code></pre></div>
+<span><span class="co">#&gt;   solver: internal  |  query nodes: 16  |  reference nodes: 16  |  transport mass: 1.159</span></span>
+<span><span class="co">#&gt;   anchors: 25 (56.2% node coverage) -- correction is a diagnostic, not a corrected-expression product</span></span></code></pre></div>
 <p>The anchored fit reports how many query nodes had at least one anchor
 pair and the fraction of the codebook they cover:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
@@ -211,10 +225,10 @@ pair and the fraction of the codebook they cover:</p>
 <span><span class="co">#&gt; [1] "cost_bonus"</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $nodes_covered</span></span>
-<span><span class="co">#&gt; [1] 11</span></span>
+<span><span class="co">#&gt; [1] 9</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $coverage_fraction</span></span>
-<span><span class="co">#&gt; [1] 0.6875</span></span>
+<span><span class="co">#&gt; [1] 0.5625</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $batch_subspace</span></span>
 <span><span class="co">#&gt; NULL</span></span>
@@ -223,74 +237,72 @@ pair and the fraction of the codebook they cover:</p>
 <span><span class="co">#&gt; [1] 0.9</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $displacements</span></span>
-<span><span class="co">#&gt;               CD1         CD2         CD3         CD4         CD5</span></span>
-<span><span class="co">#&gt;  [1,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt;  [2,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt;  [3,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt;  [4,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt;  [5,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt;  [6,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt;  [7,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt;  [8,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt;  [9,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [10,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [11,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [12,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [13,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [14,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [15,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [16,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [17,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [18,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [19,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [20,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [21,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [22,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [23,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [24,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
-<span><span class="co">#&gt; [25,] -0.09600711 -0.09679044 -0.09384178 -0.09508467 -0.09622815</span></span>
+<span><span class="co">#&gt;               CD1        CD2         CD3           CD4           CD5</span></span>
+<span><span class="co">#&gt;  [1,] -0.32948579 0.24747754 -0.20811356 -0.0787562200 -0.0823889701</span></span>
+<span><span class="co">#&gt;  [2,] -0.29779831 0.26268504 -0.09190164  0.2140135925 -0.1661392463</span></span>
+<span><span class="co">#&gt;  [3,] -0.21514604 0.12578006 -0.26260956 -0.1464489718 -0.0749789151</span></span>
+<span><span class="co">#&gt;  [4,] -0.36031636 0.27339547 -0.13628896  0.0780024293 -0.0001725585</span></span>
+<span><span class="co">#&gt;  [5,] -0.35110492 0.09941999 -0.15139468  0.0874705423  0.0221494496</span></span>
+<span><span class="co">#&gt;  [6,] -0.23812394 0.25251676 -0.27277401  0.0244089884 -0.2069312954</span></span>
+<span><span class="co">#&gt;  [7,] -0.48112593 0.21813122 -0.28631511 -0.0469622657 -0.1498354072</span></span>
+<span><span class="co">#&gt;  [8,] -0.06199709 0.25376616 -0.20796482  0.0607195338 -0.1721443307</span></span>
+<span><span class="co">#&gt;  [9,] -0.33453366 0.11542366 -0.11898160  0.1337829235  0.0043469955</span></span>
+<span><span class="co">#&gt; [10,] -0.25341484 0.28997653 -0.06895253  0.0349333936 -0.1338518379</span></span>
+<span><span class="co">#&gt; [11,] -0.30190450 0.13986891 -0.13605760 -0.0234081872 -0.1514135114</span></span>
+<span><span class="co">#&gt; [12,] -0.21246930 0.12268142 -0.18556322 -0.0616977375 -0.2635092129</span></span>
+<span><span class="co">#&gt; [13,] -0.27337707 0.18531817 -0.25966850  0.0706363342 -0.2054948563</span></span>
+<span><span class="co">#&gt; [14,] -0.18080448 0.21788065 -0.12164558  0.0745978634 -0.0516513986</span></span>
+<span><span class="co">#&gt; [15,] -0.22999057 0.25944304 -0.21189366 -0.0969612572 -0.0756928273</span></span>
+<span><span class="co">#&gt; [16,] -0.27626718 0.14959996 -0.08247805  0.0824329907 -0.2173444277</span></span>
+<span><span class="co">#&gt; [17,] -0.32588432 0.23153357 -0.23594851 -0.0186016396 -0.1366205239</span></span>
+<span><span class="co">#&gt; [18,] -0.38900213 0.13184508 -0.16473659  0.1111233033 -0.2584214396</span></span>
+<span><span class="co">#&gt; [19,] -0.25732940 0.22320138 -0.13327184  0.0005092108 -0.3398426151</span></span>
+<span><span class="co">#&gt; [20,] -0.27271323 0.20387518 -0.24651942 -0.0404862614 -0.1586898798</span></span>
+<span><span class="co">#&gt; [21,] -0.27140128 0.25266406 -0.36303814 -0.0792324542 -0.1992333866</span></span>
+<span><span class="co">#&gt; [22,] -0.25258361 0.21721280 -0.12308932  0.0798243950 -0.1525217546</span></span>
+<span><span class="co">#&gt; [23,] -0.26588694 0.16612937 -0.17310313  0.0531524997 -0.1037191411</span></span>
+<span><span class="co">#&gt; [24,] -0.33938973 0.33836623 -0.22082513 -0.0638744551 -0.0925247562</span></span>
+<span><span class="co">#&gt; [25,] -0.41450561 0.26612702 -0.18486929 -0.0420923984 -0.2220232949</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $feature_weights</span></span>
 <span><span class="co">#&gt; NULL</span></span></code></pre></div>
 <p><code>nodes_covered</code> counts distinct query SOM nodes onto which
-at least one anchor sample’s old-batch measurement was projected.
-<code>coverage_fraction</code> is that count divided by the total number
-of query nodes. Nodes with no anchor coverage are solved with unchanged
+at least one anchor’s old-batch measurement was projected.
+<code>coverage_fraction</code> is that count over the total number of
+query nodes. Nodes with no anchor coverage are solved with unchanged
 costs, so they behave exactly as they would under
 <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>.</p>
 </div>
 <div class="section level2">
 <h2 id="effect-on-node-correction-vectors">Effect on node correction vectors<a class="anchor" aria-label="anchor" href="#effect-on-node-correction-vectors"></a>
 </h2>
-<p>Anchor regularization shifts mass toward node pairs that anchors
-confirm. A practical way to see this is to compare the per-node
-correction magnitudes between the two fits. Each correction vector
-points from a query SOM node toward its barycentric target in the
-reference, so nodes whose OT correspondence changed will show different
-norms:</p>
+<p>Each correction vector points from a query SOM node toward its
+barycentric target in the reference, so a node whose OT correspondence
+changed shows a different norm. Comparing per-node correction magnitudes
+is a quick way to see the anchor effect:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">plain_norms</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">fit_plain</span><span class="op">$</span><span class="va">node_shifts</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">anc_norms</span>   <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">fit_anc</span><span class="op">$</span><span class="va">node_shifts</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean correction norm -- plain:    "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">plain_norms</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Mean correction norm -- plain:     0.3566</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean correction norm -- anchored: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">anc_norms</span><span class="op">)</span>,   <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Mean correction norm -- anchored:  0.3477</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Max  correction norm -- plain:    "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">plain_norms</span><span class="op">)</span>,  <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Max  correction norm -- plain:     0.8014</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Max  correction norm -- anchored: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">anc_norms</span><span class="op">)</span>,    <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Max  correction norm -- anchored:  0.7984</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean correction norm  plain:    "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">plain_norms</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Mean correction norm  plain:     0.4393</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Mean correction norm  anchored: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">anc_norms</span><span class="op">)</span>,   <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Mean correction norm  anchored:  0.4303</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Max  correction norm  plain:    "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">plain_norms</span><span class="op">)</span>,  <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Max  correction norm  plain:     0.6898</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Max  correction norm  anchored: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">anc_norms</span><span class="op">)</span>,    <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Max  correction norm  anchored:  0.6906</span></span></code></pre></div>
 <p>When anchors consistently confirm the same direction of displacement,
-anchor-regularized fits produce more coherent correction vectors: the OT
-plan concentrates mass on anchor-supported routes, reducing the
+the anchored fit produces more coherent correction vectors. The plan
+concentrates mass on anchor-supported routes, which reduces the
 influence of diffuse entropic transport on uncovered node pairs.</p>
 </div>
 <div class="section level2">
 <h2 id="downstream-results">Downstream results<a class="anchor" aria-label="anchor" href="#downstream-results"></a>
 </h2>
 <p>Both fit objects expose the same downstream interface.
-<code><a href="../reference/somalign_results.html">somalign_results()</a></code> returns the standard projection data
-frame for all query samples:</p>
+<code><a href="../reference/somalign_results.html">somalign_results()</a></code> returns the standard per-sample
+projection data frame:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res_plain</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_results.html">somalign_results</a></span><span class="op">(</span><span class="va">fit_plain</span><span class="op">)</span></span>
 <span><span class="va">res_anc</span>   <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_results.html">somalign_results</a></span><span class="op">(</span><span class="va">fit_anc</span><span class="op">)</span></span>
@@ -298,10 +310,10 @@ frame for all query samples:</p>
 <span><span class="co"># Fraction of samples landing outside reference distance thresholds</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Outside fraction (plain):    "</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">res_plain</span><span class="op">$</span><span class="va">final_status</span> <span class="op">==</span> <span class="st">"outside_reference"</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Outside fraction (plain):     0.2333333</span></span>
+<span><span class="co">#&gt; Outside fraction (plain):     0.4333333</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Outside fraction (anchored): "</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">res_anc</span><span class="op">$</span><span class="va">final_status</span>   <span class="op">==</span> <span class="st">"outside_reference"</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Outside fraction (anchored):  0.2333333</span></span></code></pre></div>
+<span><span class="co">#&gt; Outside fraction (anchored):  0.4333333</span></span></code></pre></div>
 <p><code><a href="../reference/somalign_diagnostics.html">somalign_diagnostics()</a></code> works identically on anchored
 fits:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
@@ -309,26 +321,26 @@ fits:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Solver converged:"</span>, <span class="va">diag</span><span class="op">$</span><span class="va">solver</span><span class="op">$</span><span class="va">converged</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Solver converged: TRUE</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Transport mass:  "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">diag</span><span class="op">$</span><span class="va">ot</span><span class="op">$</span><span class="va">transport_mass</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Transport mass:   1.1746</span></span></code></pre></div>
+<span><span class="co">#&gt; Transport mass:   1.1589</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="tuning-rho_anchor">Tuning <code>rho_anchor</code><a class="anchor" aria-label="anchor" href="#tuning-rho_anchor"></a>
 </h2>
 <p><code>rho_anchor</code> controls how much the anchor bonus reduces
-the normalized OT cost. At <code>rho_anchor = 0</code>, the bonus
-vanishes and the result is identical to <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>. As
-<code>rho_anchor</code> grows, anchor-supported pairs become
-progressively cheaper. Once the bonus exceeds the normalized cost for a
-pair, that pair’s effective cost is clamped to zero. The plan then
-spreads mass among all zero-cost pairs according to entropic
-regularization rather than differential anchor support, so very large
-values do not continue to concentrate mass.</p>
+the normalized OT cost. At <code>rho_anchor = 0</code> the bonus
+vanishes and the result equals <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>. As
+<code>rho_anchor</code> grows, anchor-supported pairs get progressively
+cheaper. Once the bonus exceeds the normalized cost for a pair, that
+pair’s effective cost clamps to zero; the plan then spreads mass among
+all zero-cost pairs by entropic regularization rather than by
+differential anchor support, so very large values stop concentrating
+mass further.</p>
 <p>A practical upper bound is
 <code>rho_anchor * max_A / n_anchors &lt;= 1</code>, where
 <code>max_A</code> is the highest anchor count for any single node pair.
-Values in the range 0.5 to 2 are a reasonable starting point. When
-coverage is sparse (&lt; 30% of nodes) or anchor pairs are unevenly
-distributed, a smaller value avoids over-weighting a few node pairs.</p>
+Values from 0.5 to 2 are a reasonable starting range. When coverage is
+sparse (below 30% of nodes) or anchor pairs are unevenly distributed, a
+smaller value avoids over-weighting a few pairs.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">rhos</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1</span>, <span class="fl">1.5</span>, <span class="fl">2</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="va">sweep_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">rhos</span>, <span class="kw">function</span><span class="op">(</span><span class="va">rho</span><span class="op">)</span> <span class="op">{</span></span>
@@ -342,43 +354,42 @@ distributed, a smaller value avoids over-weighting a few node pairs.</p>
 <span>    mean_corr_norm <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colSums.html" class="external-link">rowSums</a></span><span class="op">(</span><span class="va">f</span><span class="op">$</span><span class="va">node_shifts</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>, <span class="fl">5</span><span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
-<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="va">sweep_results</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   rho_anchor transport_mass mean_corr_norm</span></span>
-<span><span class="co">#&gt; 1        0.5        1.17134        0.34895</span></span>
-<span><span class="co">#&gt; 2        1.0        1.17333        0.34769</span></span>
-<span><span class="co">#&gt; 3        1.5        1.17457        0.34769</span></span>
-<span><span class="co">#&gt; 4        2.0        1.17534        0.34814</span></span>
-<span><span class="co">#&gt; 5        4.0        1.17635        0.35090</span></span></code></pre></div>
+<span><span class="co">#&gt; 1        0.5        1.15210        0.43308</span></span>
+<span><span class="co">#&gt; 2        1.0        1.15589        0.43114</span></span>
+<span><span class="co">#&gt; 3        1.5        1.15894        0.43026</span></span>
+<span><span class="co">#&gt; 4        2.0        1.16115        0.43055</span></span>
+<span><span class="co">#&gt; 5        4.0        1.16820        0.43549</span></span></code></pre></div>
 <p>For a more targeted diagnostic, compare the
 <code><a href="../reference/somalign_diagnostics.html">somalign_diagnostics()</a></code> node-level
 <code>match_fraction</code> and <code>correction_norm</code> across
 values, and use <code><a href="../reference/somalign_results.html">somalign_results()</a></code> to check whether
-corrected node assignments shift in a direction consistent with your
+corrected node assignments move in a direction consistent with your
 biological expectations.</p>
 </div>
 <div class="section level2">
 <h2 id="signal-preserving-correction">Signal-preserving correction<a class="anchor" aria-label="anchor" href="#signal-preserving-correction"></a>
 </h2>
 <p>The default <code>correction = "cost_bonus"</code> applies the
-OT-derived shift across all features. For most reagent- or
+OT-derived shift across all markers. For most reagent- or
 calibration-driven batch effects this is correct: the displacement is
 genuinely technical and should be removed. The assumption breaks when
 the new batch contains populations or activation states absent from the
-reference, because a full-space shift pushes those cells toward
-reference coordinates and erases their distinguishing biology.</p>
-<p>Because each anchor pair links <em>the same biological unit</em>
-measured in both batches, the row vector
-<code>anchor_old - anchor_new</code> is a direct observation of the
-batch displacement with no biological contribution. SVD of the n_anchors
-× p displacement matrix isolates the true batch directions; call this
-<code>V_batch</code>. Restricting node shifts to <code>V_batch</code>
-corrects only the batch component; biology orthogonal to
-<code>V_batch</code> is preserved.</p>
+reference. A full-space shift then pushes those cells toward reference
+coordinates and erases their distinguishing biology.</p>
+<p>Each anchor pair links the same biological unit measured in both
+batches, so the row vector <code>anchor_old - anchor_new</code> observes
+the batch displacement with no biological contribution. An SVD of the
+<code>n_anchors</code> by <code>p</code> displacement matrix isolates
+the batch directions; call this <code>V_batch</code>. Restricting node
+shifts to <code>V_batch</code> corrects only the batch component and
+leaves biology orthogonal to it untouched.</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_sub</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored</a></span><span class="op">(</span></span>
 <span>  <span class="va">query</span>, <span class="va">reference</span>,</span>
@@ -386,24 +397,24 @@ corrects only the batch component; biology orthogonal to
 <span>  anchor_new <span class="op">=</span> <span class="va">anchor_new</span>,</span>
 <span>  correction <span class="op">=</span> <span class="st">"subspace"</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.30); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Correction mode:  "</span>, <span class="va">fit_sub</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">correction</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Correction mode:   subspace</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Batch subspace V: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">fit_sub</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">$</span><span class="va">V</span><span class="op">)</span>, <span class="st">"rows x"</span>,</span>
 <span>                          <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">fit_sub</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">$</span><span class="va">V</span><span class="op">)</span>, <span class="st">"cols\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Batch subspace V:  5 rows x 1 cols</span></span>
+<span><span class="co">#&gt; Batch subspace V:  5 rows x 2 cols</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Rank:             "</span>, <span class="va">fit_sub</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">$</span><span class="va">rank</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Rank:              1</span></span>
+<span><span class="co">#&gt; Rank:              2</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Variance explained:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit_sub</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">$</span><span class="va">variance_explained</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Variance explained: 1</span></span></code></pre></div>
-<p>The <code>batch_subspace</code> element carries <code>V</code> (p ×
+<span><span class="co">#&gt; Variance explained: 0.932</span></span></code></pre></div>
+<p>The <code>batch_subspace</code> element carries <code>V</code> (p by
 rank), <code>rank</code>, and <code>variance_explained</code>. The
 default <code>variance_threshold = 0.9</code> selects the smallest rank
-r such that the top r squared singular values account for at least 90%
-of the total. A pure uniform offset collapses to rank 1; a heterogeneous
-multi-directional batch effect occupies more dimensions. Changing
-<code>variance_threshold</code> adjusts rank without altering the anchor
-displacement data.</p>
+r whose top r squared singular values account for at least 90% of the
+total. A pure uniform offset collapses to rank 1; a heterogeneous batch
+effect, like the per-marker shift plus jitter here, occupies more
+dimensions. Raising the threshold to 1.0 keeps every direction, so the
+rank grows without changing the anchor data:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_sub_full</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored</a></span><span class="op">(</span></span>
 <span>  <span class="va">query</span>, <span class="va">reference</span>,</span>
@@ -412,12 +423,13 @@ displacement data.</p>
 <span>  correction        <span class="op">=</span> <span class="st">"subspace"</span>,</span>
 <span>  variance_threshold <span class="op">=</span> <span class="fl">1.0</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.41); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.30); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Rank at threshold = 0.9:"</span>, <span class="va">fit_sub</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">$</span><span class="va">rank</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Rank at threshold = 0.9: 2</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Rank at threshold = 1.0:"</span>, <span class="va">fit_sub_full</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">$</span><span class="va">rank</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Rank at threshold = 1.0: 1</span></span></code></pre></div>
+<span><span class="co">#&gt; Rank at threshold = 1.0: 5</span></span></code></pre></div>
 <p><code>correction = "both"</code> applies the anchor cost bonus to the
-OT solve <em>and</em> restricts the resulting shifts to
-<code>V_batch</code>:</p>
+OT solve and restricts the resulting shifts to <code>V_batch</code>:</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_both</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored</a></span><span class="op">(</span></span>
 <span>  <span class="va">query</span>, <span class="va">reference</span>,</span>
@@ -426,69 +438,69 @@ OT solve <em>and</em> restricts the resulting shifts to
 <span>  rho_anchor <span class="op">=</span> <span class="fl">1.5</span>,</span>
 <span>  correction <span class="op">=</span> <span class="st">"both"</span></span>
 <span><span class="op">)</span></span>
-<span><span class="co">#&gt; somalign_fit: 14 query node(s) have match_mass_ratio &gt; 1 (max 1.40); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
+<span><span class="co">#&gt; somalign_fit: 13 query node(s) have match_mass_ratio &gt; 1 (max 1.29); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Correction mode:"</span>, <span class="va">fit_both</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">correction</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Correction mode: both</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Coverage:       "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit_both</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">coverage_fraction</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Coverage:        0.688</span></span>
+<span><span class="co">#&gt; Coverage:        0.562</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Rank:           "</span>, <span class="va">fit_both</span><span class="op">$</span><span class="va">anchors</span><span class="op">$</span><span class="va">batch_subspace</span><span class="op">$</span><span class="va">rank</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Rank:            1</span></span></code></pre></div>
+<span><span class="co">#&gt; Rank:            2</span></span></code></pre></div>
 <p><code>rho_anchor</code> has no effect under
-<code>correction = "subspace"</code> (there is no cost bonus to apply).
-The same tuning guidelines as <code>"cost_bonus"</code> apply under
-<code>"both"</code>. For a simple, uniform batch offset all three modes
-produce similar corrected positions; the difference becomes meaningful
-when anchor coverage is uneven or when the query carries populations not
-represented in the reference.</p>
+<code>correction = "subspace"</code>, since there is no cost bonus to
+apply; under <code>"both"</code> the same tuning guidance as
+<code>"cost_bonus"</code> holds. For a simple uniform offset all three
+modes give similar corrected positions. The difference matters when
+anchor coverage is uneven or the query carries populations the reference
+does not represent.</p>
 </div>
 <div class="section level2">
 <h2 id="corrected-marker-expression-for-downstream-analysis">Corrected marker expression for downstream analysis<a class="anchor" aria-label="anchor" href="#corrected-marker-expression-for-downstream-analysis"></a>
 </h2>
-<p>Label transfer is the primary product, but some downstream steps (a
-UMAP, a differential-expression contrast) want a corrected expression
-matrix rather than a per-cell label.
+<p>Label transfer is the primary product, but some downstream steps,
+such as a UMAP or a differential-expression contrast, want a corrected
+expression matrix rather than a per-cell label.
 <code><a href="../reference/somalign_correct_expression.html">somalign_correct_expression()</a></code> returns one: a
-cells-by-markers matrix in which the correction is confined to the
-anchor-estimated batch subspace and smoothed across each cell’s nearest
-SOM nodes, so variation orthogonal to the batch direction is left
-intact. It requires a subspace-aware fit
-(<code>correction = "subspace"</code> or <code>"both"</code>, or
-<code><a href="../reference/somalign_fit_two_pass.html">somalign_fit_two_pass()</a></code>); a plain fit carries no batch
-subspace and is rejected.</p>
+cells-by-markers matrix, smoothed across each cell’s nearest SOM nodes.
+For an anchored fit with <code>correction = "subspace"</code> or
+<code>"both"</code> (like <code>fit_sub</code> here), the correction is
+confined to the anchor-estimated batch subspace, so variation orthogonal
+to the batch direction stays intact. A two-pass fit carries no anchor
+subspace; <code><a href="../reference/somalign_correct_expression.html">somalign_correct_expression()</a></code> then applies its
+full two-pass shift instead. Either kind of fit works; a plain
+<code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> carries no batch correction and is
+rejected.</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">expr_corrected</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/somalign_correct_expression.html">somalign_correct_expression</a></span><span class="op">(</span><span class="va">fit_sub</span><span class="op">)</span>   <span class="co"># raw marker units</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">expr_corrected</span><span class="op">[</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">]</span><span class="op">)</span></span></code></pre></div>
-<p>This output is an aid for visualisation and differential expression,
-not the primary product. The correction preserves orthogonal structure,
-but within the batch subspace it reduces rather than fully removes the
-distance between populations, so run
-<code>somalign_topology_audit(fit_sub)</code> first to confirm that
-correction is warranted; populations that sit close together along the
-batch direction can be drawn toward one another. For comparing cell-type
-composition or abundance across batches, prefer the direct projection
-columns from <code><a href="../reference/somalign_results.html">somalign_results()</a></code> with a compositional
-(centred log-ratio) transform rather than corrected expression.</p>
+<p>Treat this output as an aid for visualisation and differential
+expression, not the primary product. The correction preserves orthogonal
+structure, but within the batch subspace it reduces rather than fully
+removes the distance between populations. Run
+<code>somalign_topology_audit(fit_sub)</code> first to confirm the
+correction is warranted, because populations sitting close together
+along the batch direction can be drawn toward one another. To compare
+cell-type composition or abundance across batches, prefer the direct
+projection columns from <code><a href="../reference/somalign_results.html">somalign_results()</a></code> with a
+compositional (centred log-ratio) transform.</p>
 </div>
 <div class="section level2">
-<h2 id="when-to-use-somalign_fit_anchored">When to use <code>somalign_fit_anchored()</code><a class="anchor" aria-label="anchor" href="#when-to-use-somalign_fit_anchored"></a>
+<h2 id="choosing-a-mode-and-when-to-skip-anchors">Choosing a mode, and when to skip anchors<a class="anchor" aria-label="anchor" href="#choosing-a-mode-and-when-to-skip-anchors"></a>
 </h2>
-<p><code><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored()</a></code> is appropriate when a set of
-samples (QC pools, reference standards, proficiency panels) was
-physically run in both the old and new batches, providing ground-truth
-node-pair correspondences. Anchor pairs need not cover the full
-codebook; even sparse coverage meaningfully constrains the OT plan for
-the covered node pairs, while uncovered nodes fall back to the standard
+<p><code><a href="../reference/somalign_fit_anchored.html">somalign_fit_anchored()</a></code> fits when a set of samples (QC
+pools, reference standards, proficiency panels) ran in both batches,
+giving ground-truth node-pair correspondences. Anchor pairs need not
+cover the full codebook; even sparse coverage constrains the plan for
+the covered pairs, while uncovered nodes fall back to the standard
 objective.</p>
-<p>If no remeasured samples are available, use
-<code><a href="../reference/somalign_fit.html">somalign_fit()</a></code> directly. Fabricated or imputed anchor pairs
-add no information and will misguide the transport.</p>
-<p>When query-only biology must be preserved, use
-<code>correction = "subspace"</code> or <code>"both"</code>. When the
+<p>If no remeasured samples exist, use <code><a href="../reference/somalign_fit.html">somalign_fit()</a></code>
+directly. Fabricated or imputed anchor pairs add no information and will
+misguide the transport. When query-only biology must be preserved, use
+<code>correction = "subspace"</code> or <code>"both"</code>; when a
 full-space shift is appropriate (the batch dominates and no
 signal-preservation is needed), the default <code>"cost_bonus"</code> is
-sufficient. See <code><a href="../articles/two-pass.html">vignette("two-pass", package = "somalign")</a></code>
-for the two-pass decomposition approach, which handles large global
-offsets without requiring remeasured anchors.</p>
+enough. See <code><a href="../articles/two-pass.html">vignette("two-pass", package = "somalign")</a></code> for
+the two-pass decomposition, which handles large global offsets without
+remeasured anchors.</p>
 </div>
 <div class="section level2">
 <h2 id="session-info">Session info<a class="anchor" aria-label="anchor" href="#session-info"></a>
@@ -514,7 +526,7 @@ offsets without requiring remeasured anchors.</p>
 <span><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; other attached packages:</span></span>
-<span><span class="co">#&gt; [1] somalign_0.99.4  kohonen_3.0.13   BiocStyle_2.40.0</span></span>
+<span><span class="co">#&gt; [1] somalign_0.99.5  kohonen_3.0.13   BiocStyle_2.40.0</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
 <span><span class="co">#&gt;  [1] digest_0.6.39       desc_1.4.3          R6_2.6.1           </span></span>

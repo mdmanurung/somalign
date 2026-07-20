@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">somalign</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.99.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -95,7 +95,6 @@ default because it is a post-hoc diagnostic, not part of the fit itself.</p></dd
 <span class="r-in"><span>                                rlen <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">qry</span> <span class="op">&lt;-</span> <span class="fu"><a href="somalign_query.html">somalign_query</a></span><span class="op">(</span><span class="va">mat</span>, <span class="va">ref</span>, grid <span class="op">=</span> <span class="fu">kohonen</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/kohonen/man/unit.distances.html" class="external-link">somgrid</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">2</span>, <span class="st">"hexagonal"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>                      rlen <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.</span>
 <span class="r-in"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="somalign_fit.html">somalign_fit</a></span><span class="op">(</span><span class="va">qry</span>, <span class="va">ref</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> somalign_fit: 3 query node(s) have match_mass_ratio &gt; 1 (max 1.23); this is expected in unbalanced OT. See diagnostics$ot$match_mass_ratio for details.</span>
 <span class="r-in"><span><span class="fu">somalign_diagnostics</span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>

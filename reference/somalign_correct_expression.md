@@ -153,7 +153,6 @@ if (requireNamespace("kohonen", quietly = TRUE)) {
   expr <- somalign_correct_expression(fit)
   dim(expr)
 }
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 #> Warning: 98.3% of query samples project outside reference distance thresholds. This may indicate a distributional mismatch or a coordinate-space misconfiguration.
 #> [1] 60  3
 ```

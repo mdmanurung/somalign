@@ -10,13 +10,13 @@ Source:
 [`DESCRIPTION`](https://github.com/mdmanurung/somalign/blob/main/DESCRIPTION)
 
 Manurung M (2026). *somalign: Align Query SOMs to Fixed Kohonen
-Reference SOMs*. R package version 0.99.4,
+Reference SOMs*. R package version 0.99.5,
 <https://mdmanurung.github.io/somalign>.
 
     @Manual{,
       title = {somalign: Align Query SOMs to Fixed Kohonen Reference SOMs},
       author = {Mikhael Manurung},
       year = {2026},
-      note = {R package version 0.99.4},
+      note = {R package version 0.99.5},
       url = {https://mdmanurung.github.io/somalign},
     }

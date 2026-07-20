@@ -96,16 +96,15 @@ ref <- somalign_train_reference(mat, grid = kohonen::somgrid(2, 2, "hexagonal"),
                                 rlen = 5)
 qry <- somalign_query(mat, ref, grid = kohonen::somgrid(2, 2, "hexagonal"),
                       rlen = 5)
-#> somalign_reference_from_som: SOM has no second code layer; label transfer will be disabled.
 somalign_select_epsilon(qry, ref, epsilon = c(0.05, 0.1, 0.2))
 #> $selected_epsilon
 #> [1] 0.03
 #> 
 #> $curve
-#>   epsilon log_epsilon       Phi      log_Z mutual_information
-#> 1    0.05   -2.995732 0.3382930 -0.2430692           1.248706
-#> 2    0.10   -2.302585 0.3503857 -0.3507536           1.204442
-#> 3    0.20   -1.609438 0.3827881 -0.5310249           1.102695
+#>   epsilon log_epsilon       Phi        log_Z mutual_information
+#> 1    0.05   -2.995732 0.3382930 -0.003142188           1.248706
+#> 2    0.10   -2.302585 0.3503857 -0.138063739           1.204442
+#> 3    0.20   -1.609438 0.3827881 -0.410877619           1.102695
 #>   conditional_entropy_mean expected_cost transport_mass cost_scale iterations
 #> 1                0.3746289     0.1096809      0.9818533   2.762185        113
 #> 2                0.4237985     0.1147550      1.0217716   2.762185         66
