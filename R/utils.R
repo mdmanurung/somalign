@@ -2,6 +2,8 @@
   if (!inherits(reference, "somalign_reference")) {
     stop("`reference` must be a somalign_reference object.", call. = FALSE)
   }
+  if (!is.null(reference$codebook))
+    .somalign_validate_finite(reference$codebook, what = "reference$codebook")
   invisible(reference)
 }
 
@@ -9,6 +11,8 @@
   if (!inherits(query, "somalign_query")) {
     stop("`query` must be a somalign_query object.", call. = FALSE)
   }
+  if (!is.null(query$codebook))
+    .somalign_validate_finite(query$codebook, what = "query$codebook")
   invisible(query)
 }
 

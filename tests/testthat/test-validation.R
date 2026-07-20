@@ -104,3 +104,16 @@ test_that(".somalign_thresholds preserves Inf thresholds (SOMALIGN-001)", {
   # distance > Inf is always FALSE: a cell at node 2 is never flagged outside.
   expect_false(1e6 > thr[2])
 })
+
+test_that("somalign_fit rejects non-finite codebooks", {
+  skip_if_not_installed("kohonen")
+  fx <- make_anchored_fixture()
+
+  bad_ref <- fx$ref
+  bad_ref$codebook[1, 1] <- NaN
+  expect_error(somalign_fit(fx$qry, bad_ref), "finite")
+
+  bad_qry <- fx$qry
+  bad_qry$codebook[1, 1] <- Inf
+  expect_error(somalign_fit(bad_qry, fx$ref), "finite")
+})

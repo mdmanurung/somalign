@@ -256,7 +256,8 @@ somalign_query_from_som <- function(som,
       sample_unit      = as.integer(unit),
       sample_distance  = rep(NA_real_, nrow(data)),
       sample_id        = sample_id,
-      reference_features = reference$features
+      reference_features = reference$features,
+      label_prob       = .somalign_extract_label_codes(som)
     ),
     class = "somalign_query"
   )

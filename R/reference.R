@@ -424,14 +424,17 @@ somalign_reference_from_som <- function(som,
     )
   }
 
+  # Select features in the same order as the codebook FIRST (skip copy if
+  # already aligned). This must precede scaling: .somalign_scale_matrix sweeps
+  # center/scale positionally, and center/scale are aligned to `features`, so X
+  # must be in `features` order before it is scaled.
+  if (!identical(colnames(X), features)) {
+    X <- X[, features, drop = FALSE]
+  }
+
   # If raw codebook, data must also be scaled before distance computation
   if (identical(codebook_space, "raw")) {
     X <- .somalign_scale_matrix(X, center, scale)
-  }
-
-  # Select features in the same order as the codebook (skip copy if already aligned)
-  if (!identical(colnames(X), features)) {
-    X <- X[, features, drop = FALSE]
   }
 
   d <- .somalign_som_cell_distances(X, codebook, unit,
