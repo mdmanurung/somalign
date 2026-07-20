@@ -156,8 +156,10 @@ head(results[, c(
 
 The eight `mean = 4` samples are a population the reference never saw. They land
 far from every reference node, so `final_status` marks them `outside_reference`
-and any label transferred to them should be read as provisional. The real samples
-project inside and carry confident labels.
+and any label transferred to them should be read as provisional. Most real
+samples project inside with confident labels, though a few of the batch-shifted
+ones also cross the distance threshold, which is exactly what `final_status` is
+there to surface.
 
 ## Quality control and tuning
 

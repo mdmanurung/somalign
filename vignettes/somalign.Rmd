@@ -119,15 +119,16 @@ For a label-only table without the corrected-projection columns, use
 
 The table carries more columns than the four above, in three groups.
 `?somalign_results` documents every column; the map below covers the ones you
-reach for most.
+reach for most. Two identifier columns come first: `sample_id`, and
+`query_som_unit`, the query SOM node the cell was assigned to.
 
 The **direct projection** columns assign each sample to its nearest reference
-node by Euclidean distance, with no transport involved: `query_som_unit`,
-`old_som_unit`, `old_som_distance`, `old_som_distance_threshold`,
-`outside_reference_distance`, `outside_reference_surprisal`,
-`outside_reference_pvalue`, `outside_reference_top_marker`, `final_status`,
-`old_som_label`, and `old_som_label_confidence`. Use this group for
-reference-node assignment and cross-batch composition summaries.
+node by Euclidean distance, with no transport involved: `old_som_unit`,
+`old_som_distance`, `old_som_distance_threshold`, `outside_reference_distance`,
+`outside_reference_surprisal`, `outside_reference_pvalue`,
+`outside_reference_top_marker`, `final_status`, `old_som_label`, and
+`old_som_label_confidence`. Use this group for reference-node assignment and
+cross-batch composition summaries.
 
 The **label-transfer** columns come from the optimal-transport plan.
 `transferred_label` is the top label from

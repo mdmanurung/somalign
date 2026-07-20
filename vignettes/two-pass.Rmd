@@ -63,7 +63,9 @@ reference
 The new batch carries a dominant global offset shared by both populations, plus a
 smaller population-specific residual that only the second pass can capture. The
 two residuals are equal and opposite across the balanced populations, so their
-mean is zero and the estimated global shift still recovers the shared offset.
+cell mean is zero. That keeps the residual from biasing the estimated global
+shift, which stays aligned with the shared offset even though it is a
+mass-weighted mean over SOM nodes rather than a plain cell average.
 
 ```{r new-batch, eval = requireNamespace("kohonen", quietly = TRUE)}
 global_shift <- c(0.5, 0.4, 0.45, 0.35)          # shared technical offset

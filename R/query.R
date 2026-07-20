@@ -121,7 +121,7 @@ somalign_query <- function(data,
       sample_distance = sample_map$distance,
       sample_id = sample_id,
       reference_features = reference$features,
-      label_prob = .somalign_extract_label_codes(som_query)
+      label_prob = .somalign_extract_label_codes(som_query, quiet = TRUE)
     ),
     class = "somalign_query"
   )
@@ -257,7 +257,7 @@ somalign_query_from_som <- function(som,
       sample_distance  = rep(NA_real_, nrow(data)),
       sample_id        = sample_id,
       reference_features = reference$features,
-      label_prob       = .somalign_extract_label_codes(som)
+      label_prob       = .somalign_extract_label_codes(som, quiet = TRUE)
     ),
     class = "somalign_query"
   )
