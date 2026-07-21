@@ -47,10 +47,8 @@ somalign_mapping_confidence <- function(fit, k = 10L, chunk_size = 10000L) {
   cb <- fit$reference$codebook
   if (is.null(X) || is.null(cb))
     stop("`fit` must carry query$scaled_data and reference$codebook.", call. = FALSE)
-  if (any(!is.finite(cb)))
-    stop("`fit$reference$codebook` must contain only finite values.", call. = FALSE)
-  if (any(!is.finite(X)))
-    stop("`fit$query$scaled_data` must contain only finite values.", call. = FALSE)
+  .somalign_validate_finite(cb, "fit$reference$codebook")
+  .somalign_validate_finite(X, "fit$query$scaled_data")
   n_nodes <- nrow(cb)
   k <- max(1L, min(as.integer(k), n_nodes))
 

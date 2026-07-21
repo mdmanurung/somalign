@@ -121,20 +121,21 @@ somalign_conformal_labels <- function(prob_query, prob_calibration,
         paste(thin, collapse = ", "), ceiling(1 / alpha)), call. = FALSE)
     q <- vapply(classes, function(cl) conformal_q(scores[truth_calibration == cl]),
                 numeric(1))
-    # Admit class c when p(c) >= 1 - q_c.
-    keep <- sweep(prob_query, 2, 1 - q, FUN = ">=")
   } else {
     q <- conformal_q(scores)
-    keep <- prob_query >= (1 - q)
   }
+  # Admit class c when p(c) >= 1 - q_c. `q` is one shared threshold (marginal) or
+  # one per class (Mondrian); sweep over columns handles both identically.
+  keep <- sweep(prob_query, 2, 1 - q, FUN = ">=")
   storage.mode(keep) <- "logical"
   dimnames(keep) <- list(rownames(prob_query), classes)
+  set_size <- as.integer(rowSums(keep))
 
   structure(
     list(
       sets = keep,
-      set_size = as.integer(rowSums(keep)),
-      abstain = rowSums(keep) == 0L,
+      set_size = set_size,
+      abstain = set_size == 0L,
       threshold = q,
       alpha = alpha,
       classes = classes,
