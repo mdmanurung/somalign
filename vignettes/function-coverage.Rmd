@@ -321,6 +321,17 @@ diag_anc <- somalign_diagnostics(fit_anc)
 stopifnot(!is.null(diag_anc$solver$converged))
 ```
 
+## `somalign_mapping_confidence`
+
+Per-cell reference-mapping confidence in `(0, 1]` (a continuous complement to the
+boolean outside-reference flag).
+
+```{r mapping-confidence, eval = requireNamespace("kohonen", quietly = TRUE)}
+mc <- somalign_mapping_confidence(fit, k = 3)
+stopifnot(length(mc) == nrow(new_data), all(mc > 0 & mc <= 1))
+cat("Mapping confidence range:", paste(round(range(mc), 3), collapse = " - "), "\n")
+```
+
 ## `somalign_epsilon_sweep`
 
 Runs an OT-only sweep over epsilon values and reports plan-geometry diagnostics
@@ -442,6 +453,26 @@ the coverage (fraction of non-abstained predictions actually scored).
 ```{r calibration}
 calib <- somalign_calibration(runif(50), runif(50) < 0.5)
 calib
+```
+
+## `somalign_conformal_labels`
+
+Conformal prediction sets over per-cell class probabilities, with a
+distribution-free coverage guarantee.
+
+```{r conformal}
+classes <- c("pop_A", "pop_B")
+gen <- function(n) {
+  y <- sample(classes, n, replace = TRUE)
+  p <- matrix(runif(n * 2, 0, 0.4), n, 2, dimnames = list(NULL, classes))
+  i <- cbind(seq_len(n), match(y, classes))
+  p[i] <- p[i] + 0.6
+  list(p = p / rowSums(p), y = y)
+}
+cal <- gen(200); qry <- gen(50)
+cp <- somalign_conformal_labels(qry$p, cal$p, cal$y, alpha = 0.1)
+stopifnot(inherits(cp, "somalign_conformal"))
+cp
 ```
 
 ## `somalign_cross_validate`

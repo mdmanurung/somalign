@@ -72,12 +72,14 @@ reference:
   contents:
   - somalign_label_metrics
   - somalign_calibration
+  - somalign_conformal_labels
   - somalign_cross_validate
   - somalign_tune
   - somalign_anchor_benefit
 - title: Diagnostics and sensitivity
   contents:
   - somalign_diagnostics
+  - somalign_mapping_confidence
   - somalign_epsilon_sweep
   - somalign_select_epsilon
   - somalign_sensitivity_grid

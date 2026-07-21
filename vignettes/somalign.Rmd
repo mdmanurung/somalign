@@ -128,7 +128,9 @@ node by Euclidean distance, with no transport involved: `old_som_unit`,
 `outside_reference_surprisal`, `outside_reference_pvalue`,
 `outside_reference_top_marker`, `final_status`, `old_som_label`, and
 `old_som_label_confidence`. Use this group for reference-node assignment and
-cross-batch composition summaries.
+cross-batch composition summaries. For a continuous per-cell complement to the
+boolean `outside_reference_distance` flag, `somalign_mapping_confidence(fit)`
+scores how well each cell maps into the reference's covered region, in `(0, 1]`.
 
 The **label-transfer** columns come from the optimal-transport plan.
 `transferred_label` is the top label from
