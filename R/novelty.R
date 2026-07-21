@@ -26,6 +26,31 @@
 #'   cross-batch reproducible clusters are minted as candidates.  This rejects
 #'   single-batch artifacts and technical outliers.
 #'
+#' @section Prototype deduplication:
+#'   A spread-out novel population (e.g., NKG2C+ NK cells spanning a loose
+#'   manifold) can yield multiple near-duplicate minted prototypes — separate
+#'   cross-group connected components that happen to sit close together in
+#'   reference-scaled space.  The post-mint dedup step agglomeratively merges
+#'   such near-duplicates using single-linkage hierarchical clustering at
+#'   height \code{merge_tol_factor * node_spacing}, where \code{node_spacing}
+#'   is the median nearest-neighbour distance among codebook nodes.
+#'
+#'   \code{merge_tol_factor} (default 3.0) should be larger than
+#'   \code{tol_factor} (default 1.5): \code{tol_factor} controls tight
+#'   cross-batch matching ("same population across batches"), while
+#'   \code{merge_tol_factor} controls the looser dedup criterion ("these
+#'   minted candidates represent the same population").  A warning is emitted
+#'   if \code{merge_tol_factor <= tol_factor}.
+#'
+#'   For each merged group of prototypes: the new prototype coordinate is the
+#'   size-weighted mean of member coordinates; \code{size} is the sum of member
+#'   sizes; and \code{n_groups_support} counts the number of DISTINCT groups in
+#'   the UNION of member group sets (not the sum of individual counts — a group
+#'   that supports two merged members is counted once).
+#'
+#'   Set \code{merge_tol_factor = NULL} or \code{0} to disable deduplication
+#'   and reproduce the pre-dedup behaviour.
+#'
 #' @param fit A \code{somalign_fit} object.  Uses
 #'   \code{fit$query$scaled_data} (cells x features, reference-scaled space)
 #'   and \code{fit$reference$codebook}.
@@ -60,6 +85,12 @@
 #'   reference-scaled space) is \code{<= tol_factor * reference_node_spacing},
 #'   where \code{reference_node_spacing} is the median nearest-neighbour
 #'   distance among codebook nodes.  Default \code{1.5}.
+#' @param merge_tol_factor Positive numeric or \code{NULL}/\code{0} to disable.
+#'   After cross-batch minting, minted prototypes closer than
+#'   \code{merge_tol_factor * reference_node_spacing} (Euclidean) are
+#'   agglomeratively merged (single-linkage) into a single deduplicated
+#'   candidate.  Should be larger than \code{tol_factor} (a warning is emitted
+#'   if not).  Default \code{3.0}.
 #' @param chunk_size Integer.  Number of cells processed per chunk when
 #'   computing the novelty score.  Increase for speed; decrease if memory is
 #'   constrained.  Default \code{100000L}.
@@ -70,7 +101,8 @@
 #'       minted candidate centroids in reference-scaled space (colnames =
 #'       feature names).  Has zero rows when no candidates are minted.}
 #'     \item{\code{n_groups_support}}{Integer vector (length n_candidates):
-#'       the number of distinct groups each candidate was observed in.}
+#'       the number of distinct groups each candidate was observed in (after
+#'       dedup, this is the union of the group sets of merged prototypes).}
 #'     \item{\code{size}}{Integer vector (length n_candidates): total number
 #'       of tail cells contributing to each candidate across all groups.}
 #'     \item{\code{score}}{Numeric vector (length n_cells): the per-cell
@@ -78,7 +110,8 @@
 #'     \item{\code{tail}}{Logical vector (length n_cells): \code{TRUE} for
 #'       cells in the high-novelty tail.}
 #'     \item{\code{n_groups}}{Integer: number of distinct groups.}
-#'     \item{\code{params}}{Named list of the parameters used.}
+#'     \item{\code{params}}{Named list of the parameters used, including
+#'       \code{merge_tol_factor}.}
 #'   }
 #'
 #' @section Composing with somalign_extend_reference:
@@ -100,14 +133,15 @@
 somalign_novelty_candidates <- function(
     fit,
     group,
-    score       = NULL,
-    k           = 8L,
-    tail_quantile = 0.90,
-    n_clusters  = 12L,
-    min_cluster = 50L,
-    min_batches = 2L,
-    tol_factor  = 1.5,
-    chunk_size  = 100000L
+    score            = NULL,
+    k                = 8L,
+    tail_quantile    = 0.90,
+    n_clusters       = 12L,
+    min_cluster      = 50L,
+    min_batches      = 2L,
+    tol_factor       = 1.5,
+    merge_tol_factor = 3.0,
+    chunk_size       = 100000L
 ) {
   # ---- Input validation -------------------------------------------------------
   if (!inherits(fit, "somalign_fit")) {
@@ -154,6 +188,30 @@ somalign_novelty_candidates <- function(
   .somalign_check_pos_scalar(tol_factor, "tol_factor")
   .somalign_check_pos_int(chunk_size,  "chunk_size")
 
+  # Validate merge_tol_factor: NULL or 0 = disabled; otherwise positive numeric.
+  dedup_enabled <- TRUE
+  if (is.null(merge_tol_factor) ||
+      (is.numeric(merge_tol_factor) && length(merge_tol_factor) == 1L &&
+       is.finite(merge_tol_factor) && merge_tol_factor == 0)) {
+    dedup_enabled <- FALSE
+    merge_tol_factor <- NULL
+  } else {
+    .somalign_check_pos_scalar(merge_tol_factor, "merge_tol_factor")
+    if (merge_tol_factor <= tol_factor) {
+      warning(
+        sprintf(
+          paste0(
+            "`merge_tol_factor` (%.3g) <= `tol_factor` (%.3g): ",
+            "dedup window is tighter than the cross-batch matching window. ",
+            "Consider merge_tol_factor > tol_factor (e.g., %.3g)."
+          ),
+          merge_tol_factor, tol_factor, tol_factor * 2
+        ),
+        call. = FALSE
+      )
+    }
+  }
+
   # ---- 1. Compute novelty score -----------------------------------------------
   if (is.null(score)) {
     k_eff <- min(k, nrow(codebook))
@@ -164,10 +222,23 @@ somalign_novelty_candidates <- function(
   score_threshold <- stats::quantile(score, tail_quantile)
   tail_flag       <- score >= score_threshold   # per-cell logical
 
+  # Helper to build the params list (avoids repetition across return paths)
+  .make_params <- function() {
+    list(
+      k                = k,
+      tail_quantile    = tail_quantile,
+      n_clusters       = n_clusters,
+      min_cluster      = min_cluster,
+      min_batches      = min_batches,
+      tol_factor       = tol_factor,
+      merge_tol_factor = merge_tol_factor
+    )
+  }
+
   # ---- 3. Per-group k-means on tail cells ------------------------------------
   groups       <- unique(group)
   n_groups     <- length(groups)
-  all_centroids <- list()   # will hold data.frames: centroid coords + group + size
+  all_centroids <- list()   # will hold: centroid coords + group + size
 
   for (g in groups) {
     in_group  <- which(group == g)
@@ -223,20 +294,13 @@ somalign_novelty_candidates <- function(
   if (n_cent == 0L) {
     result <- structure(
       list(
-        prototypes      = empty_prototypes,
+        prototypes       = empty_prototypes,
         n_groups_support = integer(0L),
         size             = integer(0L),
         score            = score,
         tail             = tail_flag,
         n_groups         = n_groups,
-        params           = list(
-          k             = k,
-          tail_quantile = tail_quantile,
-          n_clusters    = n_clusters,
-          min_cluster   = min_cluster,
-          min_batches   = min_batches,
-          tol_factor    = tol_factor
-        )
+        params           = .make_params()
       ),
       class = "somalign_novelty_candidates"
     )
@@ -247,7 +311,7 @@ somalign_novelty_candidates <- function(
   cent_mat <- do.call(rbind, lapply(all_centroids, function(x) x$coords))
   rownames(cent_mat) <- NULL
 
-  # Pairwise Euclidean distances between centroids
+  # Pairwise Euclidean SQUARED distances between centroids
   d2_cent <- .somalign_pairwise_distance(cent_mat, cent_mat)
   diag(d2_cent) <- Inf   # exclude self-links
 
@@ -277,13 +341,14 @@ somalign_novelty_candidates <- function(
     }
   }
 
-  # Collect components
+  # Collect components — track group SETS (not just counts) for dedup union logic
   comp_ids <- vapply(seq_len(n_cent), find, integer(1L))
   unique_comps <- unique(comp_ids)
 
   prototypes_list      <- list()
   n_groups_support_vec <- integer(0L)
   size_vec             <- integer(0L)
+  groups_sets_list     <- list()   # character vectors: the groups each candidate covers
 
   for (cid in unique_comps) {
     members <- which(comp_ids == cid)
@@ -291,7 +356,7 @@ somalign_novelty_candidates <- function(
     if (length(member_groups) < min_batches) next
 
     # Mass-weighted mean centroid
-    sizes_m <- vapply(members, function(idx) all_centroids[[idx]]$size, integer(1L))
+    sizes_m  <- vapply(members, function(idx) all_centroids[[idx]]$size, integer(1L))
     coords_m <- do.call(rbind, lapply(members, function(idx) all_centroids[[idx]]$coords))
     rownames(coords_m) <- NULL
 
@@ -301,6 +366,7 @@ somalign_novelty_candidates <- function(
     prototypes_list      <- c(prototypes_list, list(prototype))
     n_groups_support_vec <- c(n_groups_support_vec, length(member_groups))
     size_vec             <- c(size_vec, sum(sizes_m))
+    groups_sets_list     <- c(groups_sets_list, list(member_groups))
   }
 
   n_candidates <- length(prototypes_list)
@@ -314,14 +380,7 @@ somalign_novelty_candidates <- function(
         score            = score,
         tail             = tail_flag,
         n_groups         = n_groups,
-        params           = list(
-          k             = k,
-          tail_quantile = tail_quantile,
-          n_clusters    = n_clusters,
-          min_cluster   = min_cluster,
-          min_batches   = min_batches,
-          tol_factor    = tol_factor
-        )
+        params           = .make_params()
       ),
       class = "somalign_novelty_candidates"
     )
@@ -332,6 +391,54 @@ somalign_novelty_candidates <- function(
   colnames(prototypes_mat) <- features
   rownames(prototypes_mat) <- NULL
 
+  # ---- 5. Post-mint prototype deduplication -----------------------------------
+  # Agglomeratively merge minted prototypes that are near-duplicates (i.e., the
+  # same biological population fragmented into several components by k-means or
+  # cross-batch matching).  Uses single-linkage at merge_tol_factor*node_spacing.
+  # n_groups_support for a merged candidate is |UNION of member group sets|, NOT
+  # the sum of individual counts (a group supporting two merged members counts once).
+  if (dedup_enabled && n_candidates >= 2L) {
+    merge_tol <- merge_tol_factor * node_spacing
+
+    # stats::dist() computes TRUE Euclidean distances (not squared), so the
+    # threshold is merge_tol directly.
+    proto_dist <- stats::dist(prototypes_mat, method = "euclidean")
+    hc         <- stats::hclust(proto_dist, method = "single")
+    merge_ids  <- stats::cutree(hc, h = merge_tol)
+
+    if (length(unique(merge_ids)) < n_candidates) {
+      # At least one merge happened — rebuild outputs
+      merged_protos    <- list()
+      merged_n_support <- integer(0L)
+      merged_size      <- integer(0L)
+
+      for (mid in unique(merge_ids)) {
+        mem <- which(merge_ids == mid)
+
+        # Size-weighted mean of member prototypes
+        sizes_m    <- size_vec[mem]
+        weights_m  <- sizes_m / sum(sizes_m)
+        coord_m    <- prototypes_mat[mem, , drop = FALSE]
+        new_proto  <- colSums(coord_m * weights_m)
+
+        # Union of group sets across merged members
+        union_groups <- unique(unlist(groups_sets_list[mem]))
+        new_n_support <- length(union_groups)
+
+        merged_protos    <- c(merged_protos, list(new_proto))
+        merged_n_support <- c(merged_n_support, new_n_support)
+        merged_size      <- c(merged_size, sum(sizes_m))
+      }
+
+      # Rebuild outputs from merged results
+      prototypes_mat       <- do.call(rbind, merged_protos)
+      colnames(prototypes_mat) <- features
+      rownames(prototypes_mat) <- NULL
+      n_groups_support_vec  <- merged_n_support
+      size_vec              <- merged_size
+    }
+  }
+
   structure(
     list(
       prototypes       = prototypes_mat,
@@ -340,14 +447,7 @@ somalign_novelty_candidates <- function(
       score            = score,
       tail             = tail_flag,
       n_groups         = n_groups,
-      params           = list(
-        k             = k,
-        tail_quantile = tail_quantile,
-        n_clusters    = n_clusters,
-        min_cluster   = min_cluster,
-        min_batches   = min_batches,
-        tol_factor    = tol_factor
-      )
+      params           = .make_params()
     ),
     class = "somalign_novelty_candidates"
   )

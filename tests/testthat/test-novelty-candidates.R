@@ -475,3 +475,239 @@ test_that("print method works for non-empty somalign_novelty_candidates", {
   expect_output(print(cand), "somalign_novelty_candidates")
   expect_output(print(cand), "candidates minted")
 })
+
+
+# ---------------------------------------------------------------------------
+# Deduplication tests
+# ---------------------------------------------------------------------------
+#
+# Design:
+# - node_spacing ≈ 1.0 for the 2x2 grid (median NN distance among the 4 nodes
+#   at corners of a 1x1 square near origin; see existing tests).
+# - tol_factor = 1.5  -> cross-batch matching window: 1.5 * 1 = 1.5
+# - merge_tol_factor = 3.0 -> dedup window:            3.0 * 1 = 3.0
+# - Two populations at (8,0) and (8,2.5): distance = 2.5,
+#     WITHIN merge window (2.5 <= 3.0) but OUTSIDE matching window (2.5 > 1.5).
+#   They produce two separate cross-group components post-matching, but should
+#   merge into ONE prototype during dedup.
+# - Both pops in all 3 groups -> union of group sets = {batch1,batch2,batch3}.
+#   n_groups_support of merged candidate = 3 (union), not 6 (sum).
+# - DISABLE test with same fixture (merge_tol_factor=NULL) must yield 2 candidates.
+# - KEEP-FAR: two pops at (8,0) and (8,5): distance = 5.0 > 3.0 -> stay as TWO.
+
+# Helper: make a fixture with TWO novel populations
+make_two_novel_fixture <- function(
+    seed    = 42L,
+    center1 = c(8, 0),
+    center2 = c(8, 2.5),
+    n_groups          = 3L,
+    n_ref_per_group   = 200L,
+    n_novel_per_group = 100L
+) {
+  withr::local_seed(seed)
+
+  ref_codebook <- matrix(
+    c(-0.5, -0.5,
+       0.5, -0.5,
+      -0.5,  0.5,
+       0.5,  0.5),
+    nrow = 4, byrow = TRUE
+  )
+  colnames(ref_codebook) <- c("x", "y")
+
+  ref <- somalign_reference_from_nodes(
+    codebook    = ref_codebook,
+    features    = c("x", "y"),
+    center      = c(x = 0, y = 0),
+    scale       = c(x = 1, y = 1),
+    node_masses = rep(0.25, 4),
+    label_prob  = matrix(
+      c(1, 0,
+        1, 0,
+        0, 1,
+        0, 1),
+      nrow = 4, byrow = TRUE,
+      dimnames = list(NULL, c("A", "B"))
+    ),
+    distance_quantiles = matrix(
+      rep(c(0.5, 1.0, 1.5, 2.0), 4),
+      nrow = 4, byrow = TRUE,
+      dimnames = list(NULL, c("50%", "90%", "95%", "99%"))
+    )
+  )
+
+  groups_vec <- character(0)
+  query_rows <- matrix(numeric(0), ncol = 2)
+  colnames(query_rows) <- c("x", "y")
+
+  for (g in seq_len(n_groups)) {
+    grp_name <- paste0("batch", g)
+
+    # In-distribution cells near origin
+    in_dist <- matrix(
+      c(rnorm(n_ref_per_group, 0, 0.3),
+        rnorm(n_ref_per_group, 0, 0.3)),
+      ncol = 2
+    )
+    colnames(in_dist) <- c("x", "y")
+    query_rows <- rbind(query_rows, in_dist)
+    groups_vec <- c(groups_vec, rep(grp_name, n_ref_per_group))
+
+    # Novel population 1
+    nov1 <- matrix(
+      c(rnorm(n_novel_per_group, center1[1], 0.1),
+        rnorm(n_novel_per_group, center1[2], 0.1)),
+      ncol = 2
+    )
+    colnames(nov1) <- c("x", "y")
+    query_rows <- rbind(query_rows, nov1)
+    groups_vec <- c(groups_vec, rep(grp_name, n_novel_per_group))
+
+    # Novel population 2
+    nov2 <- matrix(
+      c(rnorm(n_novel_per_group, center2[1], 0.1),
+        rnorm(n_novel_per_group, center2[2], 0.1)),
+      ncol = 2
+    )
+    colnames(nov2) <- c("x", "y")
+    query_rows <- rbind(query_rows, nov2)
+    groups_vec <- c(groups_vec, rep(grp_name, n_novel_per_group))
+  }
+
+  # SOM: reference nodes + the two novel nodes
+  query_codebook <- rbind(
+    ref_codebook,
+    matrix(c(center1[1], center1[2]), nrow = 1,
+           dimnames = list(NULL, c("x", "y"))),
+    matrix(c(center2[1], center2[2]), nrow = 1,
+           dimnames = list(NULL, c("x", "y")))
+  )
+  query_som <- make_som(query_codebook)
+
+  qry <- somalign_query(query_rows, ref, som_query = query_som)
+  fit <- somalign_fit(qry, ref, solver = "internal")
+
+  list(fit = fit, groups = groups_vec,
+       center1 = center1, center2 = center2,
+       n_groups = n_groups, query_rows = query_rows)
+}
+
+
+# ---------------------------------------------------------------------------
+# Test MERGE-CLOSE: near-duplicate prototypes merge into one
+# ---------------------------------------------------------------------------
+test_that("MERGE-CLOSE: two near-duplicate novel pops merge into one candidate", {
+  # Two pops at (8,0) and (8,2.5): Euclidean distance = 2.5
+  # node_spacing ≈ 1.0 -> merge_tol_factor=3.0 -> threshold = 3.0
+  # 2.5 <= 3.0 -> should merge.
+  # tol_factor=1.5 -> matching window = 1.5 < 2.5 -> they form two separate
+  # cross-group components before dedup (verified by DISABLE test below).
+  # Both pops in {batch1, batch2, batch3} -> union n_groups_support = 3 (not 6).
+
+  fix <- make_two_novel_fixture(
+    seed    = 801L,
+    center1 = c(8, 0),
+    center2 = c(8, 2.5)
+  )
+
+  cand <- somalign_novelty_candidates(
+    fix$fit,
+    fix$groups,
+    tail_quantile    = 0.50,   # top 50% = all novel cells; 600 / 1200 total
+    min_cluster      = 70L,    # 200 novel tail cells/group / 70 -> k_g=2
+    min_batches      = 2L,
+    tol_factor       = 1.5,
+    merge_tol_factor = 3.0
+  )
+
+  expect_s3_class(cand, "somalign_novelty_candidates")
+
+  # Exactly ONE prototype after dedup
+  expect_equal(nrow(cand$prototypes), 1L)
+
+  # n_groups_support = UNION = 3 (not 6 = sum of two 3-group components)
+  expect_equal(cand$n_groups_support[1L], 3L)
+
+  # Merged size = sum of both populations' cells
+  expect_gt(cand$size[1L], 0L)
+
+  # Merged prototype coordinates should be near the midpoint (~(8, 1.25))
+  proto <- cand$prototypes[1, ]
+  expect_lt(abs(proto["x"] - 8),   1.5)
+  expect_lt(abs(proto["y"] - 1.25), 1.5)
+
+  # merge_tol_factor recorded in params
+  expect_equal(cand$params$merge_tol_factor, 3.0)
+})
+
+
+# ---------------------------------------------------------------------------
+# Test DISABLE: merge_tol_factor=NULL reproduces pre-dedup two-prototype result
+# ---------------------------------------------------------------------------
+test_that("DISABLE: merge_tol_factor=NULL gives pre-dedup two separate candidates", {
+  # Same fixture as MERGE-CLOSE but dedup disabled.
+  # The two components at (8,0) and (8,2.5) (distance 2.5 > tol_factor*1=1.5)
+  # should remain as TWO separate minted candidates.
+
+  fix <- make_two_novel_fixture(
+    seed    = 801L,   # same seed -> identical data
+    center1 = c(8, 0),
+    center2 = c(8, 2.5)
+  )
+
+  cand_no_dedup <- somalign_novelty_candidates(
+    fix$fit,
+    fix$groups,
+    tail_quantile    = 0.50,
+    min_cluster      = 70L,
+    min_batches      = 2L,
+    tol_factor       = 1.5,
+    merge_tol_factor = NULL   # DISABLE
+  )
+
+  expect_s3_class(cand_no_dedup, "somalign_novelty_candidates")
+
+  # TWO prototypes without dedup
+  expect_equal(nrow(cand_no_dedup$prototypes), 2L)
+
+  # merge_tol_factor recorded as NULL in params
+  expect_null(cand_no_dedup$params$merge_tol_factor)
+})
+
+
+# ---------------------------------------------------------------------------
+# Test KEEP-FAR: well-separated prototypes are not merged
+# ---------------------------------------------------------------------------
+test_that("KEEP-FAR: two distant novel pops stay as two separate candidates", {
+  # Pops at (8,0) and (8,5): distance = 5.0
+  # merge window = 3.0 * 1.0 = 3.0; 5.0 > 3.0 -> no merge.
+
+  fix_far <- make_two_novel_fixture(
+    seed    = 802L,
+    center1 = c(8, 0),
+    center2 = c(8, 5)
+  )
+
+  cand_far <- somalign_novelty_candidates(
+    fix_far$fit,
+    fix_far$groups,
+    tail_quantile    = 0.50,
+    min_cluster      = 70L,
+    min_batches      = 2L,
+    tol_factor       = 1.5,
+    merge_tol_factor = 3.0
+  )
+
+  expect_s3_class(cand_far, "somalign_novelty_candidates")
+
+  # TWO prototypes must remain
+  expect_equal(nrow(cand_far$prototypes), 2L)
+
+  # Each prototype should be near one of the two true novel centers
+  dists_to_c1 <- apply(cand_far$prototypes, 1,
+                        function(p) sqrt(sum((p - c(8, 0))^2)))
+  dists_to_c2 <- apply(cand_far$prototypes, 1,
+                        function(p) sqrt(sum((p - c(8, 5))^2)))
+  expect_lt(min(dists_to_c1), 1.5)
+  expect_lt(min(dists_to_c2), 1.5)
+})

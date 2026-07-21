@@ -14,6 +14,7 @@ somalign_novelty_candidates(
   min_cluster = 50L,
   min_batches = 2L,
   tol_factor = 1.5,
+  merge_tol_factor = 3,
   chunk_size = 100000L
 )
 }
@@ -61,6 +62,13 @@ reference-scaled space) is \code{<= tol_factor * reference_node_spacing},
 where \code{reference_node_spacing} is the median nearest-neighbour
 distance among codebook nodes.  Default \code{1.5}.}
 
+\item{merge_tol_factor}{Positive numeric or \code{NULL}/\code{0} to disable.
+After cross-batch minting, minted prototypes closer than
+\code{merge_tol_factor * reference_node_spacing} (Euclidean) are
+agglomeratively merged (single-linkage) into a single deduplicated
+candidate.  Should be larger than \code{tol_factor} (a warning is emitted
+if not).  Default \code{3.0}.}
+
 \item{chunk_size}{Integer.  Number of cells processed per chunk when
 computing the novelty score.  Increase for speed; decrease if memory is
 constrained.  Default \code{100000L}.}
@@ -72,7 +80,8 @@ An object of class \code{somalign_novelty_candidates}, a list with:
 minted candidate centroids in reference-scaled space (colnames =
 feature names).  Has zero rows when no candidates are minted.}
 \item{\code{n_groups_support}}{Integer vector (length n_candidates):
-the number of distinct groups each candidate was observed in.}
+the number of distinct groups each candidate was observed in (after
+dedup, this is the union of the group sets of merged prototypes).}
 \item{\code{size}}{Integer vector (length n_candidates): total number
 of tail cells contributing to each candidate across all groups.}
 \item{\code{score}}{Numeric vector (length n_cells): the per-cell
@@ -80,7 +89,8 @@ novelty score.}
 \item{\code{tail}}{Logical vector (length n_cells): \code{TRUE} for
 cells in the high-novelty tail.}
 \item{\code{n_groups}}{Integer: number of distinct groups.}
-\item{\code{params}}{Named list of the parameters used.}
+\item{\code{params}}{Named list of the parameters used, including
+\code{merge_tol_factor}.}
 }
 }
 \description{
@@ -112,6 +122,33 @@ within each batch and then looks for clusters that appear at consistent
 reference-scaled coordinates across \code{>= min_batches} batches.  Only
 cross-batch reproducible clusters are minted as candidates.  This rejects
 single-batch artifacts and technical outliers.
+}
+
+\section{Prototype deduplication}{
+
+A spread-out novel population (e.g., NKG2C+ NK cells spanning a loose
+manifold) can yield multiple near-duplicate minted prototypes — separate
+cross-group connected components that happen to sit close together in
+reference-scaled space.  The post-mint dedup step agglomeratively merges
+such near-duplicates using single-linkage hierarchical clustering at
+height \code{merge_tol_factor * node_spacing}, where \code{node_spacing}
+is the median nearest-neighbour distance among codebook nodes.
+
+\code{merge_tol_factor} (default 3.0) should be larger than
+\code{tol_factor} (default 1.5): \code{tol_factor} controls tight
+cross-batch matching ("same population across batches"), while
+\code{merge_tol_factor} controls the looser dedup criterion ("these
+minted candidates represent the same population").  A warning is emitted
+if \code{merge_tol_factor <= tol_factor}.
+
+For each merged group of prototypes: the new prototype coordinate is the
+size-weighted mean of member coordinates; \code{size} is the sum of member
+sizes; and \code{n_groups_support} counts the number of DISTINCT groups in
+the UNION of member group sets (not the sum of individual counts — a group
+that supports two merged members is counted once).
+
+Set \code{merge_tol_factor = NULL} or \code{0} to disable deduplication
+and reproduce the pre-dedup behaviour.
 }
 
 \section{Composing with somalign_extend_reference}{
