@@ -20,11 +20,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Mikhael Manurung \email{mikhael.manurung@gmail.com}
+\strong{Maintainer}: Mikhael Manurung \email{mikhael.manurung@gmail.com} (\href{https://orcid.org/0000-0000-0000-0000}{ORCID})
 
 Authors:
 \itemize{
-  \item Mikhael Manurung \email{mikhael.manurung@gmail.com}
+  \item Mikhael Manurung \email{mikhael.manurung@gmail.com} (\href{https://orcid.org/0000-0000-0000-0000}{ORCID})
 }
 
 }

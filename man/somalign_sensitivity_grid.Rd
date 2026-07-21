@@ -54,8 +54,8 @@ Default \code{1e-8}.}
 \item{chunk_size}{Integer. Number of samples per projection chunk.
 \code{NULL} processes all samples at once. Default \code{10000L}.}
 
-\item{diagonal_boost}{Non-negative scalar subtracted from each query node's
-nearest-reference OT cost to encourage identity-like routing. Default \code{0}.}
+\item{diagonal_boost}{Non-negative scalar added to same-node OT costs to
+discourage self-transport. Default \code{0}.}
 
 \item{parallel}{Logical. When \code{TRUE}, grid rows are evaluated in parallel
 using \code{\link[BiocParallel:bplapply]{BiocParallel::bplapply()}} with the registered
