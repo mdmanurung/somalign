@@ -1,16 +1,36 @@
 #' Subset a reference to a shared marker panel
 #'
 #' Returns a new \code{somalign_reference} whose codebook, scaling vectors, and
-#' feature list are restricted to the markers named in \code{markers}.  All
-#' per-node arrays (\code{node_masses}, \code{label_prob},
-#' \code{distance_quantiles}, \code{global_distance_quantiles}) are carried
-#' through unchanged.
+#' feature list are restricted to the markers named in \code{markers}.  When
+#' \code{reference_data} is supplied, the outside-reference detection statistics
+#' (\code{distance_quantiles}, \code{global_distance_quantiles}, and
+#' \code{node_var}) are \strong{recomputed} in the shared-marker subspace so
+#' that distance thresholds remain calibrated after dimensionality reduction.
+#' When \code{reference_data} is \code{NULL} (the default), those statistics
+#' are set to safe sentinel values that disable outside-reference flagging, and
+#' a warning is emitted.
 #'
 #' Use this helper when a query dataset was measured on a \emph{subset} of the
 #' markers that the reference SOM was trained on.  Pass the returned reference
 #' to \code{\link{somalign_query}()} together with query data that only contains
 #' \code{markers}; the OT cost matrix and node-shift correction will then be
 #' computed on the shared marker subspace.
+#'
+#' @section Outside-reference calibration:
+#' \strong{Silent-failure warning.}  The full-\emph{p} \code{distance_quantiles}
+#' stored in the original reference are computed in a higher-dimensional space.
+#' Euclidean distances in the \emph{k}-marker subspace (\eqn{k < p}) are
+#' uniformly smaller than in the full \emph{p}-marker space, so carrying those
+#' thresholds forward uncorrected would mean that the outside-reference distance
+#' flag and surprisal score are silently never triggered.  This function resolves
+#' the ambiguity by either recomputing the statistics (when \code{reference_data}
+#' is supplied) or disabling detection with an explicit warning (when it is not).
+#'
+#' Supplying \code{reference_data} enables calibrated outside-reference detection
+#' in the subspace.  The raw reference cells in \code{reference_data} are scaled
+#' with the \emph{subset} center and scale, projected to the subset codebook via
+#' nearest-code assignment, and per-node distance quantiles and variances are
+#' recomputed exactly as in the original reference constructor.
 #'
 #' @section Correctness caveat:
 #' Removing markers from the reference codebook changes the geometry of the OT
@@ -36,11 +56,23 @@
 #' @param markers A non-empty character vector of marker names.  Must be a
 #'   subset of \code{reference$features}; an error is raised if any name is
 #'   absent from the reference or if the vectors are disjoint.
+#' @param reference_data Optional numeric matrix (or data frame) of the raw
+#'   reference cells used to build \code{reference}.  Must contain at least the
+#'   columns named in \code{markers}.  When supplied, \code{distance_quantiles},
+#'   \code{global_distance_quantiles}, and \code{node_var} are recomputed in the
+#'   \code{markers} subspace so that outside-reference detection remains
+#'   calibrated.  When \code{NULL} (the default), those fields are set to
+#'   \code{Inf} sentinels that disable distance-based outside-reference flagging,
+#'   and \code{node_var} is set to \code{NULL} to disable surprisal scoring; a
+#'   \code{warning()} is emitted in that case.
 #'
 #' @return A \code{somalign_reference} object with \code{$features} equal to
 #'   \code{markers} (in the order given), and \code{$codebook},
-#'   \code{$center}, \code{$scale}, and (if present) \code{$node_var} all
-#'   restricted to those columns.
+#'   \code{$center}, \code{$scale}, and (if present and \code{reference_data}
+#'   supplied) \code{$node_var} all restricted or recomputed for those columns.
+#'   \code{$distance_quantiles} and \code{$global_distance_quantiles} are either
+#'   recomputed from \code{reference_data} (calibrated) or set to \code{Inf}
+#'   (detection disabled).
 #'
 #' @seealso [somalign_reference()], [somalign_reference_from_nodes()],
 #'   [somalign_query()], [somalign_fit()]
@@ -55,10 +87,16 @@
 #'   grid   = kohonen::somgrid(2, 2, "hexagonal"),
 #'   rlen   = 5
 #' )
-#' # subset to the two T-cell markers; CD19 dropped
-#' ref_sub <- somalign_reference_subset_markers(ref_full, c("CD3", "CD4", "CD8"))
+#' # subset with recomputed distance quantiles
+#' ref_sub <- somalign_reference_subset_markers(ref_full, c("CD3", "CD4", "CD8"),
+#'                                              reference_data = mat)
+#' # subset with detection disabled (no reference_data supplied)
+#' ref_sub_nodet <- suppressWarnings(
+#'   somalign_reference_subset_markers(ref_full, c("CD3", "CD4", "CD8"))
+#' )
 #' @export
-somalign_reference_subset_markers <- function(reference, markers) {
+somalign_reference_subset_markers <- function(reference, markers,
+                                              reference_data = NULL) {
   # --- input validation ------------------------------------------------------
   if (!inherits(reference, "somalign_reference")) {
     stop(
@@ -99,10 +137,78 @@ somalign_reference_subset_markers <- function(reference, markers) {
   codebook_sub <- reference$codebook[, markers, drop = FALSE]
   center_sub   <- reference$center[markers]
   scale_sub    <- reference$scale[markers]
-  node_var_sub <- if (!is.null(reference$node_var))
-    reference$node_var[, markers, drop = FALSE]
-  else
-    NULL
+
+  # --- recompute or disable distance quantiles / node_var -------------------
+  n_nodes <- nrow(codebook_sub)
+
+  if (!is.null(reference_data)) {
+    # Validate that reference_data is a matrix/data.frame with the right columns
+    if (!is.matrix(reference_data) && !is.data.frame(reference_data)) {
+      stop("`reference_data` must be a numeric matrix or data frame.", call. = FALSE)
+    }
+    missing_ref_cols <- setdiff(markers, colnames(reference_data))
+    if (length(missing_ref_cols) > 0L) {
+      stop(
+        "`reference_data` is missing columns required by `markers`: ",
+        paste(missing_ref_cols, collapse = ", "), ".",
+        call. = FALSE
+      )
+    }
+
+    # Select and order columns to match markers
+    ref_mat <- as.matrix(reference_data[, markers, drop = FALSE])
+    storage.mode(ref_mat) <- "double"
+
+    # Scale in the subset subspace
+    scaled_ref <- .somalign_scale_matrix(ref_mat, center_sub, scale_sub)
+
+    # Project to subset codebook via nearest-code assignment
+    projected <- .somalign_nearest_code_chunked(scaled_ref, codebook_sub)
+
+    # Derive quantile_probs from existing colnames (e.g. "50%", "90%", ...)
+    # This guarantees the recomputed matrix has the same shape as the original.
+    existing_colnames <- colnames(reference$distance_quantiles)
+    if (!is.null(existing_colnames) && length(existing_colnames) > 0L) {
+      quantile_probs <- as.numeric(sub("%", "", existing_colnames, fixed = TRUE)) / 100
+      quantile_probs <- quantile_probs[is.finite(quantile_probs)]
+      if (length(quantile_probs) == 0L) {
+        quantile_probs <- c(0.5, 0.9, 0.95, 0.99)
+      }
+    } else {
+      quantile_probs <- c(0.5, 0.9, 0.95, 0.99)
+    }
+
+    # Recompute distance quantiles and node_var in the subspace
+    quantiles <- .somalign_distance_quantiles(
+      projected$distance, projected$unit, n_nodes, quantile_probs
+    )
+    node_var_sub <- .somalign_node_var(scaled_ref, projected$unit, n_nodes)
+
+    dq_sub     <- quantiles$node
+    global_dq  <- quantiles$global
+
+  } else {
+    # No reference_data supplied: disable detection with Inf sentinels
+    warning(
+      "Outside-reference distance detection and surprisal scoring are DISABLED ",
+      "for this subset reference because `reference_data` was not supplied. ",
+      "Full-p distance_quantiles are NOT valid in the ", length(markers),
+      "-marker subspace. Supply `reference_data` (the original reference cells) ",
+      "to recompute calibrated thresholds in the shared-marker subspace.",
+      call. = FALSE
+    )
+
+    # Preserve shape/colnames of original matrix, set all values to Inf
+    dq_sub <- reference$distance_quantiles
+    dq_sub[] <- Inf
+
+    # global_distance_quantiles: also set to Inf
+    global_dq <- reference$global_distance_quantiles
+    global_dq[] <- Inf
+
+    # node_var: NULL to disable surprisal scoring
+    node_var_sub <- NULL
+  }
 
   # --- rebuild via the canonical constructor ---------------------------------
   somalign_reference_from_nodes(
@@ -112,8 +218,8 @@ somalign_reference_subset_markers <- function(reference, markers) {
     scale                     = scale_sub,
     node_masses               = reference$node_masses,
     label_prob                = reference$label_prob,
-    distance_quantiles        = reference$distance_quantiles,
-    global_distance_quantiles = reference$global_distance_quantiles,
+    distance_quantiles        = dq_sub,
+    global_distance_quantiles = global_dq,
     node_var                  = node_var_sub
   )
 }

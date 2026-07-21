@@ -4,7 +4,7 @@
 \alias{somalign_reference_subset_markers}
 \title{Subset a reference to a shared marker panel}
 \usage{
-somalign_reference_subset_markers(reference, markers)
+somalign_reference_subset_markers(reference, markers, reference_data = NULL)
 }
 \arguments{
 \item{reference}{A \code{somalign_reference} object, as returned by
@@ -15,19 +15,36 @@ somalign_reference_subset_markers(reference, markers)
 \item{markers}{A non-empty character vector of marker names.  Must be a
 subset of \code{reference$features}; an error is raised if any name is
 absent from the reference or if the vectors are disjoint.}
+
+\item{reference_data}{Optional numeric matrix (or data frame) of the raw
+reference cells used to build \code{reference}.  Must contain at least the
+columns named in \code{markers}.  When supplied, \code{distance_quantiles},
+\code{global_distance_quantiles}, and \code{node_var} are recomputed in the
+\code{markers} subspace so that outside-reference detection remains
+calibrated.  When \code{NULL} (the default), those fields are set to
+\code{Inf} sentinels that disable distance-based outside-reference flagging,
+and \code{node_var} is set to \code{NULL} to disable surprisal scoring; a
+\code{warning()} is emitted in that case.}
 }
 \value{
 A \code{somalign_reference} object with \code{$features} equal to
 \code{markers} (in the order given), and \code{$codebook},
-\code{$center}, \code{$scale}, and (if present) \code{$node_var} all
-restricted to those columns.
+\code{$center}, \code{$scale}, and (if present and \code{reference_data}
+supplied) \code{$node_var} all restricted or recomputed for those columns.
+\code{$distance_quantiles} and \code{$global_distance_quantiles} are either
+recomputed from \code{reference_data} (calibrated) or set to \code{Inf}
+(detection disabled).
 }
 \description{
 Returns a new \code{somalign_reference} whose codebook, scaling vectors, and
-feature list are restricted to the markers named in \code{markers}.  All
-per-node arrays (\code{node_masses}, \code{label_prob},
-\code{distance_quantiles}, \code{global_distance_quantiles}) are carried
-through unchanged.
+feature list are restricted to the markers named in \code{markers}.  When
+\code{reference_data} is supplied, the outside-reference detection statistics
+(\code{distance_quantiles}, \code{global_distance_quantiles}, and
+\code{node_var}) are \strong{recomputed} in the shared-marker subspace so
+that distance thresholds remain calibrated after dimensionality reduction.
+When \code{reference_data} is \code{NULL} (the default), those statistics
+are set to safe sentinel values that disable outside-reference flagging, and
+a warning is emitted.
 }
 \details{
 Use this helper when a query dataset was measured on a \emph{subset} of the
@@ -36,6 +53,24 @@ to \code{\link{somalign_query}()} together with query data that only contains
 \code{markers}; the OT cost matrix and node-shift correction will then be
 computed on the shared marker subspace.
 }
+\section{Outside-reference calibration}{
+
+\strong{Silent-failure warning.}  The full-\emph{p} \code{distance_quantiles}
+stored in the original reference are computed in a higher-dimensional space.
+Euclidean distances in the \emph{k}-marker subspace (\eqn{k < p}) are
+uniformly smaller than in the full \emph{p}-marker space, so carrying those
+thresholds forward uncorrected would mean that the outside-reference distance
+flag and surprisal score are silently never triggered.  This function resolves
+the ambiguity by either recomputing the statistics (when \code{reference_data}
+is supplied) or disabling detection with an explicit warning (when it is not).
+
+Supplying \code{reference_data} enables calibrated outside-reference detection
+in the subspace.  The raw reference cells in \code{reference_data} are scaled
+with the \emph{subset} center and scale, projected to the subset codebook via
+nearest-code assignment, and per-node distance quantiles and variances are
+recomputed exactly as in the original reference constructor.
+}
+
 \section{Correctness caveat}{
 
 Removing markers from the reference codebook changes the geometry of the OT
@@ -65,8 +100,13 @@ ref_full <- somalign_train_reference(
   grid   = kohonen::somgrid(2, 2, "hexagonal"),
   rlen   = 5
 )
-# subset to the two T-cell markers; CD19 dropped
-ref_sub <- somalign_reference_subset_markers(ref_full, c("CD3", "CD4", "CD8"))
+# subset with recomputed distance quantiles
+ref_sub <- somalign_reference_subset_markers(ref_full, c("CD3", "CD4", "CD8"),
+                                             reference_data = mat)
+# subset with detection disabled (no reference_data supplied)
+ref_sub_nodet <- suppressWarnings(
+  somalign_reference_subset_markers(ref_full, c("CD3", "CD4", "CD8"))
+)
 }
 \seealso{
 \code{\link[=somalign_reference]{somalign_reference()}}, \code{\link[=somalign_reference_from_nodes]{somalign_reference_from_nodes()}},
