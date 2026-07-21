@@ -56,6 +56,7 @@ reference:
   - somalign_fit
   - somalign_fit_anchored
   - somalign_fit_two_pass
+  - somalign_fit_gw
 - title: Correcting expression
   desc: Dedicated auxiliary expression correction paths for anchored or two-pass fits.
   contents:

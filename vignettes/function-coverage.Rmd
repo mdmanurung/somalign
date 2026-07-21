@@ -262,6 +262,20 @@ stopifnot(all(c("solver", "ot", "nodes", "projection") %in% names(diag2)))
 cat("Converged:", diag2$solver$converged, "\n")
 ```
 
+## `somalign_fit_gw`
+
+Cross-panel alignment by Gromov-Wasserstein OT: matches intra-codebook distance
+structures, so query and reference need not share markers (experimental; balanced
+GW). Returns a query-node-by-reference-node coupling (with exact marginals).
+
+```{r fit-gw, eval = requireNamespace("kohonen", quietly = TRUE)}
+gw <- somalign_fit_gw(qry, ref, epsilon = 0.05)
+stopifnot(inherits(gw, "somalign_gw_fit"))
+stopifnot(all.equal(rowSums(gw$correspondence),
+                    rep(1, nrow(gw$correspondence)), tolerance = 1e-6))
+gw
+```
+
 ## `somalign_results`
 
 Extracts the per-sample projection data frame from a fit. Works on both
