@@ -1,3 +1,14 @@
+# somalign 0.99.6
+
+## New features
+
+* `somalign_fit_gw()` (experimental): cross-panel SOM alignment by entropic
+  Gromov-Wasserstein optimal transport, matching intra-codebook distance
+  structures so the query and reference need not share a marker space. Returns a
+  query-node-by-reference-node coupling (with exact marginals) that can drive
+  label transfer. Balanced GW only for now; unbalanced/partial variants for
+  add/drop populations are the intended next step.
+
 # somalign 0.99.5
 
 ## Bug fixes

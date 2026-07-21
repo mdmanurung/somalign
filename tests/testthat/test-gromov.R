@@ -27,7 +27,9 @@ test_that("entropic GW recovers a known node correspondence (distance-preserving
                                                 max_iter = 100L)
   recovered <- max.col(gw$coupling, ties.method = "first")
   expect_equal(recovered, cs$perm)                 # query node i -> ref node perm[i]
-  expect_true(all(rowSums(gw$coupling) > 0))
+  # coupling is a valid balanced transport plan (exact marginals after rounding)
+  expect_equal(rowSums(gw$coupling), rep(1 / cs$m, cs$m), tolerance = 1e-8)
+  expect_equal(colSums(gw$coupling), rep(1 / cs$m, cs$m), tolerance = 1e-8)
 })
 
 test_that("somalign_fit_gw returns a coupling and transfers labels through it", {

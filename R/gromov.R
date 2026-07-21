@@ -38,6 +38,22 @@
   plan
 }
 
+# Project a near-feasible plan onto the exact transport polytope {P1 = p,
+# P^T1 = q} (Altschuler, Weed & Rigollet, 2017). Alternating Sinkhorn leaves one
+# marginal with a small residual at finite iterations / small epsilon; this
+# rounding restores both marginals exactly at O(nm) cost, so the returned
+# coupling is a valid balanced transport plan regardless of solver tolerance.
+.somalign_round_transport <- function(P, p, q) {
+  tiny <- .Machine$double.xmin
+  P <- P * pmin(1, p / pmax(rowSums(P), tiny))        # scale each row down to <= p
+  P <- sweep(P, 2, pmin(1, q / pmax(colSums(P), tiny)), "*")  # then columns to <= q
+  err_r <- p - rowSums(P)
+  err_c <- q - colSums(P)
+  s <- sum(abs(err_r))
+  if (s > 0) P <- P + outer(err_r, err_c) / s
+  P
+}
+
 # Core entropic Gromov-Wasserstein. C1 (n x n) and C2 (m x m) are intra-set
 # distance matrices; p, q are marginals. The GW coupling iteration (Peyre et al.
 # 2016) reduces -- for the coupling -- to a Sinkhorn step on the pseudo-cost
@@ -46,8 +62,9 @@
 .somalign_gromov_wasserstein <- function(C1, C2, p, q, epsilon = 0.05,
                                          max_iter = 50L, tol = 1e-6,
                                          sinkhorn_max_iter = 200L) {
-  C1 <- C1 / max(C1)                    # scale-normalise (does not change coupling structure)
-  C2 <- C2 / max(C2)
+  mx1 <- max(C1); mx2 <- max(C2)        # scale-normalise (does not change coupling structure)
+  if (mx1 > 0) C1 <- C1 / mx1
+  if (mx2 > 0) C2 <- C2 / mx2
   Tplan <- outer(p, q)                  # independent coupling as the starting point
   converged <- FALSE
   iter <- max_iter
@@ -61,6 +78,8 @@
       converged <- TRUE; iter <- it; break
     }
   }
+  # Restore exact marginals on the returned coupling.
+  Tplan <- .somalign_round_transport(Tplan, p, q)
   list(coupling = Tplan, iterations = iter, converged = converged)
 }
 
@@ -139,6 +158,11 @@ somalign_fit_gw <- function(query, reference, epsilon = 0.05,
   structure(out, class = "somalign_gw_fit")
 }
 
+#' Print a somalign_gw_fit object
+#'
+#' @param x A `somalign_gw_fit` object.
+#' @param ... Ignored.
+#' @return `x`, invisibly.
 #' @method print somalign_gw_fit
 #' @export
 print.somalign_gw_fit <- function(x, ...) {
