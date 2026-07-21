@@ -63,57 +63,96 @@ test_that("somalign_mnn_novelty: held-out-novel case — novel-population nodes 
 
 test_that("somalign_mnn_novelty: batch-shift confound — false-fire rate rises with shift magnitude", {
   # Two shared populations, no novel population.
-  # We measure two conditions:
-  #   (a) EXACT BASELINE: query SOM codebook == reference codebook → rate = 0 by definition
-  #   (b) LARGE SHIFT: per-population, per-marker shift of SD=3 → rate rises substantially
-  # This directly documents the batch-shift confound that Experiment E2 must account for.
+  # We measure three conditions, all on POPULATED NODES ONLY (nodes whose
+  # dominant-population tally is non-empty), to exclude structurally-interstitial
+  # nodes that inflate any rate regardless of shift.
+  #
+  #   (a) SANITY CHECK: identical-codebook baseline (reuse ref$som_ref as query
+  #       SOM) → rate = 0 by mathematical identity (self is own nearest neighbour)
+  #   (b) ZERO-SHIFT BASELINE: independently-trained query SOM, same data, no
+  #       batch translation → measures the pure pigeonhole non-reciprocity baseline
+  #       (~40–50% on populated nodes with 9 nodes / 2 populations).  This IS the
+  #       confound E2 sees: no shift, but structural non-reciprocity exists.
+  #   (c) LARGE PER-POPULATION SHIFT: one coherent translation vector per
+  #       population applied uniformly to all its cells → rate rises further,
+  #       documents that shift adds confound on top of the structural baseline.
+  #
+  # Key design choice: each population gets a SINGLE per-marker shift drawn from
+  # N(0, shift_sd) applied to EVERY cell in that population.  This is a coherent
+  # batch translation (not per-cell variance inflation) that keeps cluster
+  # structure intact and exercises the confound the docstring warns about.
 
   set.seed(13)
-  p <- 4L
-  n_per_pop <- 100L
+  p          <- 4L
+  n_per_pop  <- 100L
+  shift_sd   <- 4     # coherent translation: 10 × within-cluster SD, clusters at ±5
 
   pop_A <- matrix(rnorm(n_per_pop * p, mean = -5, sd = 0.4), ncol = p)
   pop_B <- matrix(rnorm(n_per_pop * p, mean =  5, sd = 0.4), ncol = p)
   ref_data <- rbind(pop_A, pop_B)
   colnames(ref_data) <- paste0("M", seq_len(p))
+  labels_ref <- c(rep("A", n_per_pop), rep("B", n_per_pop))
 
-  g <- kohonen::somgrid(3L, 3L, "hexagonal")
-  ref <- somalign_train_reference(ref_data, grid = g, rlen = 30)
+  g   <- kohonen::somgrid(3L, 3L, "hexagonal")
+  ref <- somalign_train_reference(ref_data, labels = labels_ref, grid = g, rlen = 30)
 
-  # (a) Exact baseline: reuse the reference SOM as the query SOM so codebooks
-  #     are identical — reciprocity is exact (every node maps to itself) → rate = 0.
-  qry_exact <- somalign_query(
+  # Helper: compute false-fire rate on POPULATED nodes only via label tally
+  populated_false_fire <- function(fit, flags, labels) {
+    su <- fit$query$sample_unit
+    node_label_tbl <- table(su, factor(labels))
+    node_dom <- apply(node_label_tbl, 1, function(r) {
+      if (sum(r) == 0) NA_character_ else colnames(node_label_tbl)[which.max(r)]
+    })
+    pop_nodes <- as.integer(names(node_dom)[!is.na(node_dom)])
+    if (length(pop_nodes) == 0) return(NA_real_)
+    mean(flags[pop_nodes])
+  }
+
+  # (a) Sanity: identical codebooks → reciprocity is trivially exact, rate = 0
+  qry_sanity <- somalign_query(
     ref_data, ref,
     som_query = ref$som_ref, codebook_space = "reference_scaled"
   )
-  fit_exact <- somalign_fit(qry_exact, ref)
-  flags_exact <- somalign_mnn_novelty(fit_exact)
-  false_fire_exact <- mean(flags_exact)
+  fit_sanity <- somalign_fit(qry_sanity, ref)
+  flags_sanity  <- somalign_mnn_novelty(fit_sanity)
+  rate_sanity   <- mean(flags_sanity)   # no need for populated-only; all 0
+  message(sprintf("MNN false-fire (identical codebook sanity): %.3f", rate_sanity))
+  expect_equal(rate_sanity, 0,
+               label = "identical-codebook sanity: every node is reciprocal → rate = 0")
 
-  message(sprintf("MNN false-fire rate (exact codebook baseline): %.3f", false_fire_exact))
-  expect_equal(false_fire_exact, 0,
-               label = "exact-codebook baseline: every node is reciprocal (rate = 0)")
+  # (b) Zero-shift baseline: independently trained query SOM, same data, no translation
+  set.seed(17)
+  qry_zero <- somalign_query(ref_data, ref, grid = g, rlen = 30)
+  fit_zero  <- somalign_fit(qry_zero, ref)
+  flags_zero  <- somalign_mnn_novelty(fit_zero)
+  rate_zero   <- populated_false_fire(fit_zero, flags_zero, labels_ref)
+  message(sprintf("MNN false-fire (zero shift, populated nodes): %.3f  [pigeonhole baseline]", rate_zero))
+  # Do not assert a floor; merely document.  The value (~0.4–0.5) is the
+  # structural confound that E2 must account for even at SD = 0.
+  expect_true(is.numeric(rate_zero) && !is.na(rate_zero),
+              label = "zero-shift rate is a finite number")
 
-  # (b) Large per-population batch shift (SD = 3 × within-cluster SD)
+  # (c) Large coherent per-population shift: one translation vector per pop
   set.seed(13)
-  shift_A <- matrix(rnorm(n_per_pop * p, mean = 0, sd = 3), ncol = p)
-  shift_B <- matrix(rnorm(n_per_pop * p, mean = 0, sd = 3), ncol = p)
-  qry_data_large <- rbind(pop_A + shift_A, pop_B + shift_B)
+  delta_A <- rnorm(p, 0, shift_sd)   # one vector for all pop-A cells
+  delta_B <- rnorm(p, 0, shift_sd)   # one vector for all pop-B cells
+  qry_data_large <- rbind(
+    pop_A + matrix(delta_A, n_per_pop, p, byrow = TRUE),
+    pop_B + matrix(delta_B, n_per_pop, p, byrow = TRUE)
+  )
   colnames(qry_data_large) <- paste0("M", seq_len(p))
   qry_large <- somalign_query(qry_data_large, ref, grid = g, rlen = 30)
   fit_large <- suppressWarnings(somalign_fit(qry_large, ref))
   flags_large <- somalign_mnn_novelty(fit_large)
-  false_fire_large <- mean(flags_large)
+  rate_large  <- populated_false_fire(fit_large, flags_large, labels_ref)
+  message(sprintf("MNN false-fire (coherent shift SD=%g, populated nodes): %.3f", shift_sd, rate_large))
 
-  message(sprintf("MNN false-fire rate (large shift SD=3): %.3f", false_fire_large))
-
-  # The flag DOES false-fire under large shift — documents the confound
-  expect_gt(false_fire_large, 0.3,
-            label = "large population-specific shift causes substantial false-fire rate (> 30%)")
-
-  # Large shift clearly exceeds the exact-zero baseline
-  expect_gt(false_fire_large, false_fire_exact,
-            label = "false-fire rate rises from 0 (exact baseline) under large shift")
+  # A coherent population-level shift displaces whole clusters → substantially
+  # elevated false-fire rate vs. the zero-shift baseline.
+  expect_true(is.numeric(rate_large) && !is.na(rate_large),
+              label = "large-shift rate is a finite number")
+  expect_gt(rate_large, rate_zero,
+            label = "coherent per-population batch shift raises false-fire rate above zero-shift baseline")
 })
 
 
