@@ -40,8 +40,7 @@ distance of the SOM codebook, which adapts to the lattice spacing.}
 weight is multiplied by its transported match fraction, down-weighting nodes
 the transport plan could not align. Nodes whose correction is disallowed
 contribute zero weight in either case. Has no effect when \code{smooth = FALSE},
-where each cell simply takes its nearest node's shift with no kernel
-weighting.}
+where each cell simply takes its nearest node's shift with no kernel weighting.}
 
 \item{chunk_size}{Positive integer. Cells are processed in blocks of this size
 to bound peak memory. Default \code{10000L}.}
@@ -84,15 +83,15 @@ correction is warranted for your data.
 
 \section{Subspace restriction}{
 
-For an anchored \code{correction = "subspace"}/\code{"both"} fit the node shifts are
-projected onto the span of the batch subspace \eqn{V} at fit time. Each cell
+For an anchored \code{correction = "subspace"}/\code{"both"} fit the node shifts
+are projected onto the span of the batch subspace \eqn{V} at fit time. Each cell
 shift is a weighted average of those node shifts, so it lies in span(\eqn{V})
 too (no post-smoothing re-projection is applied), and variation orthogonal to
 \eqn{V} is untouched. A two-pass fit does \strong{not} carry an anchor-estimated
 subspace: its stored shifts are the full documented two-pass correction
 (population-specific residual plus global shift), and
 \code{somalign_correct_expression()} applies them in full without subspace
-confinement. The \verb{$two_pass$batch_subspace} diagnostic is not used here.
+confinement. The \code{$two_pass$batch_subspace} diagnostic is not used here.
 }
 
 \section{Future extension}{
