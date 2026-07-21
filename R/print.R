@@ -176,3 +176,28 @@ print.somalign_corrected_expression <- function(x, ...) {
     if (is.na(attr(x, "bandwidth"))) "NA" else sprintf("%.4g", attr(x, "bandwidth"))))
   invisible(x)
 }
+
+#' Print a somalign_novelty_candidates object
+#'
+#' @param x A \code{somalign_novelty_candidates} object.
+#' @param ... Ignored.
+#'
+#' @return \code{x}, invisibly.
+#' @export
+print.somalign_novelty_candidates <- function(x, ...) {
+  n_cand      <- nrow(x$prototypes)
+  tail_frac   <- mean(x$tail)
+  cat(sprintf(
+    "<somalign_novelty_candidates>\n  candidates minted: %d  |  groups: %d  |  tail fraction: %.1f%%\n",
+    n_cand, x$n_groups, 100 * tail_frac
+  ))
+  if (n_cand > 0L) {
+    for (i in seq_len(n_cand)) {
+      cat(sprintf(
+        "  [%d] groups_support = %d  |  tail_cells = %d\n",
+        i, x$n_groups_support[i], x$size[i]
+      ))
+    }
+  }
+  invisible(x)
+}
