@@ -140,8 +140,11 @@ somalign_fit_gw <- function(query, reference, epsilon = 0.05,
   if (is.null(q)) q <- rep(1 / nrow(rcb), nrow(rcb))
   if (sum(p) <= 0 || sum(q) <= 0)
     stop("`node_masses` must sum to a positive value.", call. = FALSE)
-  p <- p / sum(p)
-  q <- q / sum(q)
+  # Floor zero masses (empty SOM nodes) before normalising so the log-domain
+  # Sinkhorn marginals stay finite; log(0) = -Inf otherwise poisons the scaling
+  # vectors with NaN. Empty nodes then carry negligible (~1e-12) mass.
+  p <- pmax(p / sum(p), 1e-12); p <- p / sum(p)
+  q <- pmax(q / sum(q), 1e-12); q <- q / sum(q)
 
   # Intra-codebook Euclidean distance matrices (marker spaces may differ).
   C1 <- sqrt(.somalign_pairwise_distance(qcb, qcb))

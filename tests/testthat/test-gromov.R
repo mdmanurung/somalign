@@ -81,3 +81,19 @@ test_that("GW warns and returns the independent coupling on a structureless code
   expect_false(fit$converged)
   expect_equal(fit$coupling, outer(rep(1 / m, m), rep(1 / m, m)), tolerance = 1e-8)
 })
+
+test_that("somalign_fit_gw tolerates empty SOM nodes (zero node_masses)", {
+  # Real SOM references leave some nodes empty (mass 0); the log-domain Sinkhorn
+  # must not produce NaN from log(0). Regression for the empty-node crash.
+  set.seed(1)
+  x <- rbind(matrix(rnorm(300 * 6, -2), ncol = 6), matrix(rnorm(300 * 6, 2), ncol = 6))
+  colnames(x) <- paste0("m", 1:6)
+  ref <- somalign_train_reference(x, labels = rep(c("a", "b"), each = 300),
+                                  grid = kohonen::somgrid(6, 6, "hexagonal"), rlen = 10)
+  expect_true(any(ref$node_masses == 0))
+  qry <- structure(list(codebook = ref$codebook, node_masses = ref$node_masses),
+                   class = "somalign_query")
+  fit <- somalign_fit_gw(qry, ref, epsilon = 0.05)
+  expect_true(all(is.finite(fit$coupling)))
+  expect_equal(sum(rowSums(fit$coupling)), 1, tolerance = 1e-6)
+})
