@@ -1,20 +1,8 @@
-# Cross-panel SOM alignment via entropic Gromov-Wasserstein optimal transport.
-#
-# Gromov-Wasserstein (GW) aligns two point sets by matching their *intra-set*
-# distance structures, so it needs no shared feature (marker) space -- unlike
-# somalign_fit(), which requires the query and reference codebooks to live in the
-# same reference-scaled coordinates. This makes GW a route to aligning a query
-# SOM measured on a different panel/instrument to a fixed reference SOM.
-#
-# PROTOTYPE / SCOPE: this implements *balanced* entropic GW (all query mass is
-# transported). That assumes the query and reference share roughly the same
-# populations. Panels that add or drop populations need the *unbalanced* or
-# *partial* GW relaxations used by Pamona (Cao et al. 2021) and SCOTv2 (Demetci
-# et al. 2022); those are noted as the next step, not implemented here.
+# Entropic Gromov-Wasserstein cross-panel SOM alignment. Internals for
+# somalign_fit_gw(); see its roxygen for scope and caveats.
 
 # Balanced entropic OT (log-domain Sinkhorn) for a fixed cost and marginals.
-# Returns the transport plan. `cost` is shifted by its minimum for numerical
-# stability; that is an additive constant and does not change the plan.
+# `cost` is shifted by its minimum (an additive constant) for stability.
 .somalign_gw_sinkhorn <- function(cost, p, q, epsilon, max_iter = 200L, tol = 1e-9) {
   cost <- cost - min(cost)
   logp <- log(p)
@@ -27,10 +15,9 @@
                                      .somalign_logsumexp))
     g_new <- epsilon * (logq - apply(sweep(Ke, 1, f_new / epsilon, "+"), 2,
                                      .somalign_logsumexp))
-    if (max(abs(f_new - f), abs(g_new - g)) < tol) {
-      f <- f_new; g <- g_new; break
-    }
+    done <- max(abs(f_new - f), abs(g_new - g)) < tol
     f <- f_new; g <- g_new
+    if (done) break
   }
   log_plan <- sweep(sweep(Ke, 1, f / epsilon, "+"), 2, g / epsilon, "+")
   plan <- exp(log_plan)
@@ -69,9 +56,7 @@
   # the entropic plan differs from what the nominal `epsilon` alone would give.
   mx1 <- max(C1); mx2 <- max(C2)
   if (mx1 <= 0 || mx2 <= 0) {
-    # A codebook with no distance structure (all nodes identical) carries no
-    # geometry for GW to match: the pseudo-cost is identically zero and the plan
-    # stays at the independent coupling. Return it, but do not claim convergence.
+    # No intra-node geometry: pseudo-cost is 0, so the plan cannot leave outer(p,q).
     warning("Gromov-Wasserstein: a codebook has no intra-node distance structure; ",
             "returning the independent coupling (no alignment).", call. = FALSE)
     return(list(coupling = .somalign_round_transport(outer(p, q), p, q),
@@ -148,9 +133,7 @@ somalign_fit_gw <- function(query, reference, epsilon = 0.05,
   rcb <- reference$codebook
   if (is.null(qcb) || is.null(rcb))
     stop("`query` and `reference` must carry a `$codebook`.", call. = FALSE)
-  if (!is.numeric(epsilon) || length(epsilon) != 1L || !is.finite(epsilon) ||
-      epsilon <= 0)
-    stop("`epsilon` must be a single positive finite number.", call. = FALSE)
+  .somalign_check_pos_scalar(epsilon, "epsilon")
   p <- query$node_masses
   q <- reference$node_masses
   if (is.null(p)) p <- rep(1 / nrow(qcb), nrow(qcb))
