@@ -63,6 +63,8 @@ test_that("input validation rejects malformed arguments", {
   u <- matrix(0.5, 4, 2)  # no colnames
   expect_error(somalign_conformal_labels(u, u, c("A", "B", "A", "B")),
                "class names")
+  na <- matrix(c(0.5, NA, 0.5, 0.5), 2, 2, dimnames = list(NULL, c("A", "B")))
+  expect_error(somalign_conformal_labels(na, na, c("A", "B")), "finite")
 })
 
 test_that("print.somalign_conformal is invisible and reports the breakdown", {

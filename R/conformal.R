@@ -67,6 +67,9 @@ somalign_conformal_labels <- function(prob_query, prob_calibration,
          call. = FALSE)
   if (!is.numeric(alpha) || length(alpha) != 1L || alpha <= 0 || alpha >= 1)
     stop("`alpha` must be a single number in (0, 1).", call. = FALSE)
+  if (any(!is.finite(prob_query)) || any(!is.finite(prob_calibration)))
+    stop("`prob_query` and `prob_calibration` must contain only finite values.",
+         call. = FALSE)
   classes <- colnames(prob_calibration)
   truth_calibration <- as.character(truth_calibration)
   if (length(truth_calibration) != nrow(prob_calibration))
@@ -118,6 +121,11 @@ somalign_conformal_labels <- function(prob_query, prob_calibration,
   )
 }
 
+#' Print a somalign_conformal object
+#'
+#' @param x A `somalign_conformal` object.
+#' @param ... Ignored.
+#' @return `x`, invisibly.
 #' @method print somalign_conformal
 #' @export
 print.somalign_conformal <- function(x, ...) {

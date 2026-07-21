@@ -1,3 +1,21 @@
+# somalign 0.99.6
+
+## New features
+
+* `somalign_conformal_labels()`: distribution-free conformal prediction sets for
+  label transfer. Given per-cell class probabilities (e.g. from
+  `somalign_soft_labels()`) and a labelled calibration set, it returns per-cell
+  label *sets* with a finite-sample coverage guarantee (the true label is in the
+  set with probability at least `1 - alpha`). An empty set is an abstention, a
+  singleton is a confident call, a larger set flags ambiguity; `class_conditional`
+  gives Mondrian per-class coverage. Complements the heuristic acceptance gate of
+  `somalign_results()` with an explicit, guaranteed coverage level.
+
+* `somalign_mapping_confidence()`: a continuous per-cell reference-mapping
+  confidence in `(0, 1]`, based on kNN local density in reference-scaled space
+  relative to the reference map's intrinsic node spacing. Complements the boolean
+  outside-reference flag with a smooth mapping-quality signal.
+
 # somalign 0.99.5
 
 ## Bug fixes
