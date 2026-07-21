@@ -62,7 +62,12 @@
 .somalign_gromov_wasserstein <- function(C1, C2, p, q, epsilon = 0.05,
                                          max_iter = 50L, tol = 1e-6,
                                          sinkhorn_max_iter = 200L) {
-  mx1 <- max(C1); mx2 <- max(C2)        # scale-normalise (does not change coupling structure)
+  # Scale-normalise so the pseudo-cost is O(1) and the Sinkhorn solve stays
+  # well-conditioned for a fixed epsilon. This is NOT coupling-invariant in the
+  # entropic problem: dividing C1, C2 by their maxima rescales the pseudo-cost by
+  # 1 / (max(C1) max(C2)), equivalent to scaling the effective regularisation, so
+  # the entropic plan differs from what the nominal `epsilon` alone would give.
+  mx1 <- max(C1); mx2 <- max(C2)
   if (mx1 > 0) C1 <- C1 / mx1
   if (mx2 > 0) C2 <- C2 / mx2
   Tplan <- outer(p, q)                  # independent coupling as the starting point
@@ -97,6 +102,15 @@
 #' add or drop populations require the unbalanced/partial GW relaxations of Pamona
 #' (\doi{10.1093/bioinformatics/btab594}) and SCOTv2 (\doi{10.1089/cmb.2022.0270});
 #' those are the intended next step. Treat the correspondence as experimental.
+#'
+#' Entropic GW is **non-convex**: the alternating-Sinkhorn iteration converges to a
+#' local optimum that depends on the initialisation (here the independent coupling
+#' `outer(p, q)`) and on `epsilon`. `converged = TRUE` reports only that the outer
+#' loop reached a fixed point, not that the alignment is globally optimal or
+#' correct. Before trusting a single run on real cross-panel data, compare several
+#' `epsilon` values (or add epsilon-annealing / restarts). `transferred_label_confidence`
+#' is the top entry of the transport-weighted label posterior, not a calibrated
+#' probability, and is inflated toward uniform as `epsilon` grows.
 #'
 #' @param query,reference `somalign_query` / `somalign_reference` objects (only
 #'   their `$codebook` and `$node_masses` are used; the codebooks need not share

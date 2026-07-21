@@ -35,6 +35,15 @@ assumes the query and reference share roughly the same populations. Panels that
 add or drop populations require the unbalanced/partial GW relaxations of Pamona
 (\doi{10.1093/bioinformatics/btab594}) and SCOTv2 (\doi{10.1089/cmb.2022.0270});
 those are the intended next step. Treat the correspondence as experimental.
+
+Entropic GW is \strong{non-convex}: the alternating-Sinkhorn iteration converges to a
+local optimum that depends on the initialisation (here the independent coupling
+\code{outer(p, q)}) and on \code{epsilon}. \code{converged = TRUE} reports only that the outer
+loop reached a fixed point, not that the alignment is globally optimal or
+correct. Before trusting a single run on real cross-panel data, compare several
+\code{epsilon} values (or add epsilon-annealing / restarts). \code{transferred_label_confidence}
+is the top entry of the transport-weighted label posterior, not a calibrated
+probability, and is inflated toward uniform as \code{epsilon} grows.
 }
 
 \examples{
