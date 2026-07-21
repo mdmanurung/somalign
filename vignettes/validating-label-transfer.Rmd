@@ -67,6 +67,29 @@ the time has an ECE near 0.49.
 that abstains on its hard cells can look better calibrated only because it scored
 an easier subset.
 
+## Prediction sets with a coverage guarantee
+
+Calibration tells you whether a confidence is honest on average.
+`somalign_conformal_labels()` goes further: it returns per-cell label *sets* with
+a distribution-free, finite-sample coverage guarantee. Given per-cell class
+probabilities (for example the soft labels from `somalign_soft_labels()`) and a
+labelled calibration set, it calibrates one threshold so that a query cell's true
+label lies in its set with probability at least `1 - alpha`. An empty set is an
+abstention, a singleton is a confident call, and a set of two or more labels
+flags genuine ambiguity.
+
+```{r conformal, eval = FALSE}
+# prob_cal, truth_cal: soft labels and known labels of a held-out calibration set
+# prob_qry: soft labels of the query, with the same class columns
+cp <- somalign_conformal_labels(prob_qry, prob_cal, truth_cal, alpha = 0.1)
+cp                 # abstention / singleton / ambiguous breakdown at 90% coverage
+head(cp$sets)      # per-cell logical matrix: which labels are in each cell's set
+```
+
+Unlike a single confidence cutoff, the coverage level here is a guarantee rather
+than a heuristic. Pass `class_conditional = TRUE` for per-class (Mondrian)
+coverage, which is preferable under class imbalance.
+
 ## Held-out cross-validation
 
 The functions above need ground-truth labels, which a real query batch does not
