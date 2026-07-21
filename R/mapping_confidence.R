@@ -52,11 +52,11 @@ somalign_mapping_confidence <- function(fit, k = 10L, chunk_size = 10000L) {
   dnn <- sqrt(.somalign_pairwise_distance(cb, cb))
   diag(dnn) <- Inf
   k_ref <- min(k, n_nodes - 1L)
-  ref_scale <- if (k_ref < 1L) {
-    1
+  if (k_ref < 1L) {
+    ref_scale <- 1
   } else {
     per_node <- apply(dnn, 1, function(d) mean(sort(d)[seq_len(k_ref)]))
-    stats::median(per_node)
+    ref_scale <- stats::median(per_node)
   }
   if (!is.finite(ref_scale) || ref_scale <= 0) ref_scale <- 1
 
@@ -65,7 +65,7 @@ somalign_mapping_confidence <- function(fit, k = 10L, chunk_size = 10000L) {
   dk <- numeric(n)
   starts <- seq(1L, n, by = chunk_size)
   for (st in starts) {
-    idx <- st:min(st + chunk_size - 1L, n)
+    idx <- seq.int(st, min(st + chunk_size - 1L, n))
     d <- sqrt(.somalign_pairwise_distance(X[idx, , drop = FALSE], cb))  # |idx| x nodes
     dk[idx] <- apply(d, 1, function(row) mean(sort(row)[seq_len(k)]))
   }
