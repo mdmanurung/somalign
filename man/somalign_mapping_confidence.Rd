@@ -22,10 +22,13 @@ A numeric vector in \verb{(0, 1]}, one per query cell, named by
 }
 \description{
 Scores how well each query cell sits inside the reference's covered region, as
-a continuous value in \verb{(0, 1]}. It is a Symphony-style mapping-quality signal
-(Kang et al., 2021, \doi{10.1038/s41467-021-25957-x}): a query cell surrounded
-by reference structure at the reference's own scale maps confidently (score
-near 1), whereas a cell far from any reference node maps poorly (score near 0).
+a \strong{relative proximity score} in \verb{(0, 1]}. It is a Symphony-style
+mapping-quality signal (Kang et al., 2021, \doi{10.1038/s41467-021-25957-x}): a
+query cell well inside the reference structure scores near 1, a cell far from
+any reference node scores near 0. It is a heuristic kernel weight, \strong{not} a
+calibrated probability, a coverage level, or a probability of correct
+assignment; scores are relative within one reference and are not comparable
+across references of different node density.
 }
 \details{
 This is distinct from, and complementary to, the boolean outside-reference flag
@@ -39,8 +42,10 @@ Concretely, let \eqn{d_k} be a query cell's mean Euclidean distance (in
 reference-scaled coordinates) to its \code{k} nearest reference codebook nodes, and
 \eqn{s} the reference's intrinsic scale (the median over reference nodes of the
 mean distance to their \code{k} nearest neighbouring nodes). The score is
-\eqn{\exp(-(d_k / s)^2)}: about 1 when a cell is as close to the reference as
-reference nodes are to each other, decaying toward 0 as it moves away.
+\eqn{\exp(-(d_k / s)^2)}: it approaches 1 as a cell moves well inside the
+reference (\eqn{d_k \ll s}), equals \eqn{e^{-1} \approx 0.37} at the reference's
+typical node spacing (\eqn{d_k = s}), and decays toward 0 as the cell moves
+further away.
 }
 \examples{
 set.seed(1)

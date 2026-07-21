@@ -41,6 +41,22 @@ test_that("class-conditional (Mondrian) conformal also covers marginally", {
   expect_gte(.coverage(cp, test$y), 1 - 0.1 - 0.03)
 })
 
+test_that("class-conditional conformal warns when a calibration class is too thin", {
+  classes <- c("A", "B", "C")
+  y <- c(rep("A", 100L), rep("B", 100L), rep("C", 3L))     # class C < ceiling(1/0.1)
+  withr::with_seed(9L, {
+    p <- matrix(stats::runif(length(y) * 3, 0, 0.4), length(y), 3,
+                dimnames = list(NULL, classes))
+    i <- cbind(seq_along(y), match(y, classes))
+    p[i] <- p[i] + 0.6
+    p <- p / rowSums(p)
+  })
+  expect_warning(
+    somalign_conformal_labels(p[1:10, , drop = FALSE], p, y, alpha = 0.1,
+                              class_conditional = TRUE),
+    "fewer than")
+})
+
 test_that("smaller alpha yields larger sets (fewer abstentions, more coverage)", {
   classes <- c("A", "B", "C")
   cal  <- .make_conformal_data(1200L, classes, seed = 5L)

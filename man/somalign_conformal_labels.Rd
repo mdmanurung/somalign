@@ -59,6 +59,20 @@ every class whose probability is at least \code{1 - q}, where \code{q} is the
 (Mondrian conformal), giving class-conditional rather than only marginal
 coverage, which is preferable under class imbalance.
 }
+\section{Warning -- exchangeability and batch effects}{
+
+The coverage guarantee holds only when the calibration cells and the query
+cells are \strong{exchangeable} (drawn from the same distribution). This is exactly
+what a batch effect breaks: if you calibrate on a labelled reference and apply
+the threshold to a new batch, the guarantee is no longer exact, and the true
+miscoverage can exceed \code{alpha} in a way the procedure cannot detect. Calibrate
+on data as close as possible to the query distribution (for example a held-out,
+same-batch labelled split, or reference cells after the query has been aligned
+into reference-scaled space), and treat the coverage level as approximate under
+residual shift. When a labelled same-distribution calibration set is
+unavailable, \code{somalign_cross_validate()} provides one by construction.
+}
+
 \examples{
 set.seed(1)
 classes <- c("A", "B", "C")

@@ -22,6 +22,18 @@
 #' (Mondrian conformal), giving class-conditional rather than only marginal
 #' coverage, which is preferable under class imbalance.
 #'
+#' @section Warning -- exchangeability and batch effects:
+#' The coverage guarantee holds only when the calibration cells and the query
+#' cells are **exchangeable** (drawn from the same distribution). This is exactly
+#' what a batch effect breaks: if you calibrate on a labelled reference and apply
+#' the threshold to a new batch, the guarantee is no longer exact, and the true
+#' miscoverage can exceed `alpha` in a way the procedure cannot detect. Calibrate
+#' on data as close as possible to the query distribution (for example a held-out,
+#' same-batch labelled split, or reference cells after the query has been aligned
+#' into reference-scaled space), and treat the coverage level as approximate under
+#' residual shift. When a labelled same-distribution calibration set is
+#' unavailable, `somalign_cross_validate()` provides one by construction.
+#'
 #' @param prob_query Numeric matrix, query cells by classes, of per-cell class
 #'   probabilities (columns named by class). Rows need not sum to one.
 #' @param prob_calibration Numeric matrix, calibration cells by classes, with the
@@ -96,6 +108,17 @@ somalign_conformal_labels <- function(prob_query, prob_calibration,
   }
 
   if (isTRUE(class_conditional)) {
+    # A class with fewer than ceiling(1/alpha) calibration cells cannot attain the
+    # level, so its threshold is unconstrained (Inf) and it is admitted to *every*
+    # cell's set, inflating set sizes. Warn so this is not silent.
+    class_n <- tabulate(match(truth_calibration, classes), nbins = length(classes))
+    thin <- classes[class_n < ceiling(1 / alpha)]
+    if (length(thin))
+      warning(sprintf(
+        paste0("class-conditional conformal: class(es) %s have fewer than ",
+               "ceiling(1/alpha) = %d calibration cells; their threshold is ",
+               "unconstrained and admits every cell."),
+        paste(thin, collapse = ", "), ceiling(1 / alpha)), call. = FALSE)
     q <- vapply(classes, function(cl) conformal_q(scores[truth_calibration == cl]),
                 numeric(1))
     # Admit class c when p(c) >= 1 - q_c.
