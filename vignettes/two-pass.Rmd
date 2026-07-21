@@ -241,6 +241,13 @@ If remeasured control samples are available, `somalign_fit_anchored()` with
 correction as an alternative to the two-pass decomposition. See
 `vignette("anchor-samples", package = "somalign")`.
 
+All of these alignment paths assume the query and reference share the same
+markers in a common coordinate space. When the query was measured on a *different
+panel*, `somalign_fit_gw()` aligns the two SOMs by matching their intra-codebook
+distance structures with Gromov-Wasserstein OT, which needs no shared marker
+space. It is experimental (balanced GW only, so it assumes shared populations),
+but it is the route to reusing a reference across panels or instruments.
+
 ## Session info
 
 ```{r sessionInfo, echo = FALSE}

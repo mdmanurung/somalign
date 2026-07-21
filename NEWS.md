@@ -1,6 +1,22 @@
-# somalign 0.99.6
+# somalign 0.99.9
 
 ## New features
+
+* `somalign_extend_reference()` and `somalign_novelty_candidates()`: detect
+  reproducible novel cell populations absent from the reference and append them
+  as new nodes without retraining. `somalign_novelty_candidates()` scores cells
+  by a continuous kNN novelty distance, clusters the high-novelty tail per batch,
+  and mints only candidates that recur across `>= min_batches` batches (rejecting
+  per-batch artifacts), with prototype dedup; its output feeds
+  `somalign_extend_reference()`, which grafts the new nodes (extending
+  `codebook`, `label_prob`, `node_masses`, `distance_quantiles`). `label_guided`
+  fits now intersect label taxonomies, so they work on grafted references.
+
+* `somalign_reference_subset_markers()`: align a query measured on a subset of
+  the reference's markers by projecting a full-panel reference onto the shared
+  markers. `distance_quantiles`/`node_var` are recomputed in the shared subspace
+  when reference cells are supplied, or safely disabled (with a warning)
+  otherwise — avoiding a silent outside-reference no-op.
 
 * `somalign_conformal_labels()`: distribution-free conformal prediction sets for
   label transfer. Given per-cell class probabilities (e.g. from
@@ -15,6 +31,13 @@
   confidence in `(0, 1]`, based on kNN local density in reference-scaled space
   relative to the reference map's intrinsic node spacing. Complements the boolean
   outside-reference flag with a smooth mapping-quality signal.
+
+* `somalign_fit_gw()` (experimental): cross-panel SOM alignment by entropic
+  Gromov-Wasserstein optimal transport, matching intra-codebook distance
+  structures so the query and reference need not share a marker space. Returns a
+  query-node-by-reference-node coupling (with exact marginals) that can drive
+  label transfer. Balanced GW only for now; unbalanced/partial variants for
+  add/drop populations are the intended next step.
 
 # somalign 0.99.5
 

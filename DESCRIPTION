@@ -1,6 +1,6 @@
 Package: somalign
 Title: Align Query SOMs to Fixed Kohonen Reference SOMs
-Version: 0.99.6
+Version: 0.99.9
 Authors@R: person("Mikhael", "Manurung", role = c("aut", "cre"),
     email = "mikhael.manurung@gmail.com")
 Description: Aligns query self-organising maps to fixed 'kohonen' reference maps
