@@ -225,15 +225,23 @@ somalign_fit <- function(query,
 }
 
 .somalign_build_label_mask <- function(query_label_prob, ref_label_prob) {
-  if (!identical(colnames(query_label_prob), colnames(ref_label_prob))) {
+  shared <- intersect(colnames(query_label_prob), colnames(ref_label_prob))
+  if (length(shared) == 0L) {
     stop(
-      "label_guided = TRUE requires query$label_prob and reference$label_prob ",
-      "to have identical column names (same cell-type taxonomy). ",
+      "label_guided = TRUE requires at least one shared label column between ",
+      "query$label_prob and reference$label_prob (no shared labels found). ",
       "query has: ", paste(colnames(query_label_prob), collapse = ", "), ". ",
       "reference has: ", paste(colnames(ref_label_prob), collapse = ", "), ".",
       call. = FALSE
     )
   }
+  # Subset both matrices to the shared label columns (in query column order).
+  # When the columns are already identical this is a no-op, preserving existing
+  # behaviour exactly.  For grafted references the extra "novel_*" columns in
+  # ref_label_prob are dropped; those novel nodes become all-zero rows after
+  # subsetting, are treated as unlabeled (max < 0.5), and are never penalized.
+  query_label_prob <- query_label_prob[, shared, drop = FALSE]
+  ref_label_prob   <- ref_label_prob[,   shared, drop = FALSE]
   row_sum_q <- rowSums(query_label_prob)
   row_sum_r <- rowSums(ref_label_prob)
   q_norm <- query_label_prob / ifelse(row_sum_q > 0, row_sum_q, 1)
