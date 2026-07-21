@@ -191,16 +191,30 @@ test_that("reproducible novel population is minted and graftable", {
   expect_s3_class(extended, "somalign_reference")
   expect_gte(nrow(extended$codebook), nrow(fix$ref$codebook) + 1L)
 
-  # Refit and check novel label assignment
+  # Refit and check novel label assignment.
+  # Row order: somalign_results() returns one row per query cell in the same
+  # order as fix$query_rows (query$sample_id is a sequential index).
   new_query <- somalign_query(
     fix$query_rows, extended,
     som_query = make_som(rbind(fix$ref$codebook, cand$prototypes))
   )
   new_fit <- somalign_fit(new_query, extended, solver = "internal")
   results  <- somalign_results(new_fit)
-  has_novel_label <- any(grepl("^novel_", results$transferred_label)) ||
-                     any(grepl("^novel_", results$old_som_label))
-  expect_true(has_novel_label)
+
+  # Verify row alignment: one result row per query cell.
+  expect_equal(nrow(results), nrow(fix$query_rows))
+
+  # Identify the known novel cells by their coordinate (|x - 8| < 1).
+  novel_idx <- which(abs(fix$query_rows[, "x"] - 8) < 1.0)
+  expect_gt(length(novel_idx), 0L)
+
+  # The direct projection label (old_som_label) is independent of the
+  # acceptance gate: it is simply the label of the nearest extended reference
+  # node.  After grafting, the novel prototype sits at ~(8,0), so novel cells
+  # must project to it.  A majority (>= 80%) must carry a "novel_" label.
+  novel_direct_labels <- results$old_som_label[novel_idx]
+  frac_novel_labelled <- mean(grepl("^novel_", novel_direct_labels))
+  expect_gte(frac_novel_labelled, 0.8)
 })
 
 
