@@ -71,7 +71,7 @@ test_that("label_guided=TRUE with NULL query$label_prob raises an error", {
   )
 })
 
-test_that("mismatched column names raise a descriptive error", {
+test_that("fully-disjoint label columns raise a descriptive error", {
   ref <- tiny_reference()
   query_obj <- somalign_query(
     matrix(c(-1, 0, 1, 0), ncol = 2, byrow = TRUE,
@@ -79,7 +79,7 @@ test_that("mismatched column names raise a descriptive error", {
     ref,
     som_query = make_som(rbind(c(-1, 0), c(1, 0)))
   )
-  # Set label_prob with wrong column names
+  # Set label_prob with column names disjoint from reference (A, B)
   query_obj$label_prob <- rbind(
     node1 = c(X = 0.9, Y = 0.1),
     node2 = c(X = 0.1, Y = 0.9)
@@ -87,7 +87,7 @@ test_that("mismatched column names raise a descriptive error", {
 
   expect_error(
     somalign_fit(query_obj, ref, label_guided = TRUE),
-    "identical column names"
+    "no shared labels found"
   )
 })
 
