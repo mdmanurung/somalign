@@ -68,8 +68,17 @@
   # 1 / (max(C1) max(C2)), equivalent to scaling the effective regularisation, so
   # the entropic plan differs from what the nominal `epsilon` alone would give.
   mx1 <- max(C1); mx2 <- max(C2)
-  if (mx1 > 0) C1 <- C1 / mx1
-  if (mx2 > 0) C2 <- C2 / mx2
+  if (mx1 <= 0 || mx2 <= 0) {
+    # A codebook with no distance structure (all nodes identical) carries no
+    # geometry for GW to match: the pseudo-cost is identically zero and the plan
+    # stays at the independent coupling. Return it, but do not claim convergence.
+    warning("Gromov-Wasserstein: a codebook has no intra-node distance structure; ",
+            "returning the independent coupling (no alignment).", call. = FALSE)
+    return(list(coupling = .somalign_round_transport(outer(p, q), p, q),
+                iterations = 0L, converged = FALSE))
+  }
+  C1 <- C1 / mx1
+  C2 <- C2 / mx2
   Tplan <- outer(p, q)                  # independent coupling as the starting point
   converged <- FALSE
   iter <- max_iter
@@ -139,10 +148,15 @@ somalign_fit_gw <- function(query, reference, epsilon = 0.05,
   rcb <- reference$codebook
   if (is.null(qcb) || is.null(rcb))
     stop("`query` and `reference` must carry a `$codebook`.", call. = FALSE)
+  if (!is.numeric(epsilon) || length(epsilon) != 1L || !is.finite(epsilon) ||
+      epsilon <= 0)
+    stop("`epsilon` must be a single positive finite number.", call. = FALSE)
   p <- query$node_masses
   q <- reference$node_masses
   if (is.null(p)) p <- rep(1 / nrow(qcb), nrow(qcb))
   if (is.null(q)) q <- rep(1 / nrow(rcb), nrow(rcb))
+  if (sum(p) <= 0 || sum(q) <= 0)
+    stop("`node_masses` must sum to a positive value.", call. = FALSE)
   p <- p / sum(p)
   q <- q / sum(q)
 
@@ -165,6 +179,9 @@ somalign_fit_gw <- function(query, reference, epsilon = 0.05,
   )
   lp <- reference$label_prob
   if (!is.null(lp) && ncol(lp) > 0L) {
+    if (nrow(lp) != nrow(rcb))
+      stop("`reference$label_prob` must have one row per reference node.",
+           call. = FALSE)
     post <- correspondence %*% lp
     out$transferred_label <- colnames(lp)[max.col(post, ties.method = "first")]
     out$transferred_label_confidence <- apply(post, 1, max)

@@ -53,3 +53,31 @@ test_that("somalign_fit_gw returns a coupling and transfers labels through it", 
   out <- withVisible(print(fit))
   expect_false(out$visible)
 })
+
+test_that("somalign_fit_gw validates epsilon, node masses, and label_prob shape", {
+  cs <- .gw_case(seed = 11L)
+  ref <- structure(list(codebook = cs$ref_cb, node_masses = rep(1 / cs$m, cs$m)),
+                   class = "somalign_reference")
+  qry <- structure(list(codebook = cs$qry_cb, node_masses = rep(1 / cs$m, cs$m)),
+                   class = "somalign_query")
+  expect_error(somalign_fit_gw(qry, ref, epsilon = 0), "positive")
+  expect_error(somalign_fit_gw(qry, ref, epsilon = -1), "positive")
+  bad_mass <- ref; bad_mass$node_masses <- rep(0, cs$m)
+  expect_error(somalign_fit_gw(qry, bad_mass), "positive value")
+  bad_lp <- ref
+  bad_lp$label_prob <- matrix(0.5, cs$m + 1L, 2,
+                              dimnames = list(NULL, c("A", "B")))
+  expect_error(somalign_fit_gw(qry, bad_lp), "one row per reference node")
+})
+
+test_that("GW warns and returns the independent coupling on a structureless codebook", {
+  m <- 4L
+  qry <- structure(list(codebook = matrix(1, m, 3), node_masses = rep(1 / m, m)),
+                   class = "somalign_query")
+  ref <- structure(list(codebook = matrix(withr::with_seed(2, rnorm(m * 3)), m, 3),
+                        node_masses = rep(1 / m, m)),
+                   class = "somalign_reference")
+  expect_warning(fit <- somalign_fit_gw(qry, ref), "no intra-node distance structure")
+  expect_false(fit$converged)
+  expect_equal(fit$coupling, outer(rep(1 / m, m), rep(1 / m, m)), tolerance = 1e-8)
+})
